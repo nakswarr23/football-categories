@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Football Categories</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --pitch-dark: #0a1810;
+  --pitch: #0f2818;
+  --pitch-mid: #143420;
+  --pitch-line: rgba(255,255,255,0.07);
+  --gold: #f0b429;
+  --gold-dim: #b88a1f;
+  --sage: #8aab97;
+  --sage-dim: #5a7568;
+  --red: #e0594a;
+  --bg: #f3f3ee;
+  --card: #ffffff;
+  --border: #e5e3da;
+  --text: #14201a;
+  --muted: #6b7268;
+  --punishment: #d98a2b;
+  --punishment-bg: #fdf3e3;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+#loadingScreen {
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at 50% 30%, var(--pitch-mid) 0%, var(--pitch-dark) 70%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px; z-index: 100;
+}
+#loadingScreen h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 52px; color: white; letter-spacing: 4px;
+}
+.loading-bar-wrap { width: 220px; height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; overflow: hidden; }
+.loading-bar { height: 100%; background: var(--gold); border-radius: 2px; width: 0%; transition: width 0.3s ease; }
+#loadingText { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 0.04em; }
+
+#gameScreen { display: none; max-width: 1040px; margin: 0 auto; padding: 24px 20px 60px; }
+
+.header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  margin-bottom: 18px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.header-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 30px; letter-spacing: 1.5px; color: var(--text); line-height: 1;
+}
+.header-sub { font-size: 12px; color: var(--muted); margin-top: 5px; }
+.header-badge {
+  background: var(--pitch-dark); color: var(--gold);
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1px;
+  padding: 6px 16px; border-radius: 6px;
+}
+
+/* ── HERO PITCH ── */
+.pitch-hero {
+  background: linear-gradient(180deg, var(--pitch) 0%, var(--pitch-dark) 100%);
+  border-radius: 20px;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.pitch-stripes {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    90deg, transparent 0px, transparent 64px,
+    rgba(255,255,255,0.018) 64px, rgba(255,255,255,0.018) 128px
+  );
+}
+.pitch-arc {
+  position: absolute; top: -110px; left: 50%; transform: translateX(-50%);
+  width: 280px; height: 280px; border: 1px solid var(--pitch-line); border-radius: 50%;
+}
+.pitch-topbar {
+  position: relative; display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px 0;
+}
+.pitch-formation-label {
+  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.35);
+  text-transform: uppercase; letter-spacing: 0.12em;
+}
+.pitch-progress { display: flex; gap: 4px; }
+.pitch-progress-dot { width: 16px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.12); }
+.pitch-progress-dot.filled { background: var(--gold); }
+.pitch-progress-dot.current { background: rgba(255,255,255,0.5); }
+
+.formation-rows {
+  position: relative;
+  display: flex; flex-direction: column;
+  gap: 6px; padding: 28px 24px 32px;
+}
+.formation-row { display: flex; justify-content: center; gap: 14px; }
+.pos-slot { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 84px; }
+.pos-avatar {
+  width: 54px; height: 54px; border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.04);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; color: rgba(255,255,255,0.3);
+  transition: all 0.25s;
+  position: relative;
+}
+.pos-slot.active .pos-avatar {
+  border-color: var(--gold);
+  background: rgba(240,180,41,0.12);
+  box-shadow: 0 0 0 5px rgba(240,180,41,0.1);
+  color: var(--gold);
+}
+.pos-slot.filled .pos-avatar { border-color: #3fae7a; background: rgba(63,174,122,0.15); color: #5fd99a; }
+.pos-slot.punishment .pos-avatar { border-color: var(--punishment); background: rgba(217,138,43,0.15); color: var(--punishment); }
+.pos-label {
+  font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.3);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.pos-label .rating-tag { color: var(--gold); font-weight: 700; margin-left: 3px; }
+.pos-name {
+  font-size: 10.5px; font-weight: 500; color: rgba(255,255,255,0.85);
+  text-align: center; max-width: 84px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.pos-cat {
+  font-size: 8.5px; color: rgba(255,255,255,0.3);
+  text-align: center; max-width: 84px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── BROADCAST CATEGORY REVEAL ── */
+.broadcast-bar {
+  position: relative;
+  background: var(--pitch-dark);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 16px 24px;
+  display: flex; align-items: center; gap: 16px;
+}
+.broadcast-icon {
+  width: 38px; height: 38px; border-radius: 8px;
+  background: rgba(240,180,41,0.12); color: var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.broadcast-icon.spinning { animation: spin 0.6s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.broadcast-content { flex: 1; min-width: 0; }
+.broadcast-label {
+  font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.35);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;
+}
+.broadcast-cat {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 19px; color: white; letter-spacing: 0.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.spin-btn {
+  padding: 11px 26px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 17px; letter-spacing: 1px;
+  background: var(--gold); color: var(--pitch-dark);
+  border: none; border-radius: 8px;
+  cursor: pointer; transition: transform 0.1s, background 0.15s;
+  flex-shrink: 0;
+}
+.spin-btn:hover { background: #ffc94d; }
+.spin-btn:active { transform: scale(0.97); }
+.spin-btn:disabled { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.25); cursor: not-allowed; }
+
+/* ── BELOW PITCH GRID ── */
+.below-grid { display: grid; grid-template-columns: 1fr 300px; gap: 16px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px 18px;
+}
+.card-label {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;
+}
+
+/* ── ANSWER AREA ── */
+#answerCard { display: none; }
+.answer-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+.answer-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.answer-row input {
+  flex: 1; padding: 11px 14px;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  font-size: 14px; outline: none; background: var(--bg);
+  transition: border-color 0.15s;
+}
+.answer-row input:focus { border-color: var(--pitch); background: white; }
+.answer-row input.error { border-color: var(--red); background: #fdf0ee; }
+.answer-row input.success { border-color: #3fae7a; background: #eefbf3; }
+.submit-btn {
+  padding: 11px 18px; background: var(--pitch-dark); color: white;
+  border: none; border-radius: 10px; cursor: pointer;
+  font-size: 13px; font-weight: 600; transition: background 0.15s;
+}
+.submit-btn:hover { background: var(--pitch); }
+.validation-msg { font-size: 12.5px; min-height: 18px; margin-bottom: 8px; color: var(--muted); line-height: 1.4; }
+.validation-msg.error { color: var(--red); }
+.validation-msg.success { color: #2a8f5e; }
+.validation-msg.warn { color: var(--punishment); }
+.punishment-btn {
+  width: 100%; padding: 10px;
+  font-size: 12.5px; font-weight: 600; color: var(--punishment);
+  background: var(--punishment-bg);
+  border: 1px solid #f5dcb0;
+  border-radius: 10px; cursor: pointer;
+  transition: background 0.15s;
+}
+.punishment-btn:hover { background: #fae9cb; }
+
+/* ── QUOTAS ── */
+.quota-list { display: flex; flex-direction: column; gap: 8px; }
+.quota-row { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; }
+.quota-row-label { color: var(--muted); }
+.quota-val { font-weight: 700; }
+.quota-val.ok { color: #2a8f5e; }
+.quota-val.warn { color: var(--punishment); }
+.quota-val.bad { color: var(--red); }
+
+/* ── SUGGESTIONS ── */
+.suggestions {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: white; border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(10,24,16,0.12);
+  z-index: 50; max-height: 200px; overflow-y: auto; margin-top: 6px;
+}
+.suggestion-item {
+  padding: 10px 14px; font-size: 13px; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid #f5f4ee;
+}
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover { background: #f6f8f6; }
+.suggestion-meta { font-size: 11px; color: var(--muted); }
+.answer-wrap { position: relative; flex: 1; }
+
+/* ── COMPLETE / SEASON SCREENS share these tokens ── */
+#completeScreen { display: none; }
+.play-again-btn {
+  padding: 12px 28px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px; letter-spacing: 1px;
+  background: var(--gold); color: var(--pitch-dark);
+  border: none; border-radius: 10px; cursor: pointer;
+}
+.play-again-btn:hover { background: #ffc94d; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loadingScreen">
+  <h1>Football Categories</h1>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
+  <p id="loadingText">Loading player database...</p>
+</div>
+
+<!-- GAME -->
+<div id="gameScreen">
+  <div class="header">
+    <div>
+      <div class="header-title">Football Categories</div>
+      <div class="header-sub">Build your starting XI</div>
+    </div>
+    <div class="header-badge" id="positionBadge">GK</div>
+  </div>
+
+  <div id="mainGrid">
+    <!-- HERO PITCH -->
+    <div class="pitch-hero">
+      <div class="pitch-stripes"></div>
+      <div class="pitch-arc"></div>
+      <div class="pitch-topbar">
+        <span class="pitch-formation-label">4-3-3 Formation</span>
+        <div class="pitch-progress" id="pitchProgress"></div>
+      </div>
+      <div class="formation-rows" id="formationRows"></div>
+
+      <!-- BROADCAST CATEGORY BAR -->
+      <div class="broadcast-bar">
+        <div class="broadcast-icon" id="broadcastIcon"><i class="ti ti-target-arrow" aria-hidden="true"></i></div>
+        <div class="broadcast-content">
+          <div class="broadcast-label">Category</div>
+          <div class="broadcast-cat" id="catText">Spin for your first category</div>
+        </div>
+        <button class="spin-btn" id="spinBtn" onclick="spinWheel()">Spin</button>
+      </div>
+    </div>
+
+    <canvas id="wheelCanvas" width="1" height="1" style="display:none;"></canvas>
+
+    <!-- BELOW GRID -->
+    <div class="below-grid">
+      <div class="card" id="answerCard">
+        <div class="answer-label" id="answerLabel">Pick a player</div>
+        <div class="answer-row">
+          <div class="answer-wrap">
+            <input type="text" id="playerInput" placeholder="Type player name..."
+              oninput="onInput()" onkeydown="onKeyDown(event)" autocomplete="off" />
+            <div class="suggestions" id="suggestions" style="display:none;"></div>
+          </div>
+          <button class="submit-btn" onclick="submitPlayer()">Add</button>
+        </div>
+        <div class="validation-msg" id="validationMsg"></div>
+        <button class="punishment-btn" onclick="takePunishment()"><i class="ti ti-alert-triangle" aria-hidden="true" style="font-size:13px;vertical-align:-2px;margin-right:4px;"></i>Don't know one? Take punishment player</button>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Squad rules</div>
+        <div class="quota-list" id="quotaList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPLETE -->
+  <div id="completeScreen"></div>
+</div>
+
+<script>
+const DB_URL = 'https://raw.githubusercontent.com/nakswarr23/football-categories/refs/heads/main/football_categories_db_v5_final%20(1).json';
+
+const FORMATION = [
+  { row: 0, slots: [{ pos: 'GK', label: 'Goalkeeper' }] },
+  { row: 1, slots: [{ pos: 'RB', label: 'Right Back' }, { pos: 'CB', label: 'Centre Back' }, { pos: 'CB', label: 'Centre Back' }, { pos: 'LB', label: 'Left Back' }] },
+  { row: 2, slots: [{ pos: 'CM', label: 'Centre Mid' }, { pos: 'CM', label: 'Centre Mid' }, { pos: 'CM', label: 'Centre Mid' }] },
+  { row: 3, slots: [{ pos: 'RW', label: 'Right Wing' }, { pos: 'ST', label: 'Striker' }, { pos: 'LW', label: 'Left Wing' }] },
+];
+
+const ALL_POSITIONS = FORMATION.flatMap(r => r.slots);
+
+const AFRICAN_NATIONS = ['Algeria','Angola','Burkina Faso','Cameroon','Cape Verde','Central African Republic','Côte d\'Ivoire','Congo DR','Egypt','Gabon','Gambia','Ghana','Guinea','Guinea-Bissau','Kenya','Mali','Morocco','Mozambique','Nigeria','Senegal','Togo','Tunisia','Zambia'];
+const ASIAN_NATIONS = ['Indonesia','Iraq','Japan','Korea Republic','Saudi Arabia','Thailand','Uzbekistan'];
+const NORTH_AMERICAN_NATIONS = ['Canada','Honduras','Jamaica','Mexico','USA'];
+const WC2026_NATIONS = ['Czechia','Czech Republic','Mexico','South Africa','South Korea','Korea Republic','Bosnia and Herzegovina','Bosnia','Canada','Qatar','Switzerland','Brazil','Haiti','Morocco','Scotland','Australia','Paraguay','Turkey','Türkiye','USA','United States','Curaçao','Curacao','Ecuador','Germany','Côte d\'Ivoire','Ivory Coast','Japan','Netherlands','Sweden','Tunisia','Belgium','Egypt','Iran','New Zealand','Cape Verde','Cabo Verde','Saudi Arabia','Spain','Uruguay','France','Iraq','Norway','Senegal','Algeria','Argentina','Austria','Jordan','Colombia','DR Congo','Congo DR','Portugal','Uzbekistan','Croatia','England','Ghana','Panama'];
+
+const TOP5_LEAGUES = ['Premier League','La Liga','Serie A','Bundesliga','Ligue 1'];
+const BIG6_CLUBS = ['Arsenal','Chelsea','Liverpool','Manchester City','Manchester United','Tottenham'];
+const BLUE_CLUBS = ['Chelsea','Manchester City','Everton','Leicester','Ipswich','Inter','Napoli','Lazio','Marseille','Porto','Galatasaray','Al Hilal'];
+const RED_CLUBS = ['Liverpool','Manchester United','Arsenal','AC Milan','Bayern Munich','Benfica','AS Roma','Atletico Madrid','Southampton'];
+const YELLOW_GREEN_CLUBS = ['Borussia Dortmund','Norwich','Villarreal','Watford','Al Nassr','Sporting CP'];
+const ANIMAL_LOGO_CLUBS = ['Wolverhampton','Wolves','Newcastle','Leicester','Crystal Palace','Brentford','Brighton','Atalanta','Fiorentina','Borussia Dortmund','SC Freiburg'];
+const CAPITAL_CITY_CLUBS = ['Arsenal','Chelsea','Tottenham','Crystal Palace','West Ham','Brentford','Fulham','Atletico Madrid','Real Madrid','Getafe','Rayo Vallecano','AS Roma','Lazio','Paris Saint-Germain','Lyon','Benfica','Sporting CP','Galatasaray','Fenerbahçe','Inter Miami'];
+
+// Category pools — only fully verifiable categories
+const UNIVERSAL_CATS = [
+  'Still active at 35+',
+  'Played for yellow or green club',
+  'Current Bundesliga player',
+  'Current blue club player',
+  'Playing in a capital city club',
+  'Played for team with animal logo',
+  'Current Portuguese league player',
+  'Current U21 player',
+  'Current Liverpool player',
+  'Current Barcelona player',
+  'Current Chelsea player',
+  'Playing in Saudi League',
+  'Current Brazilian player',
+  'Current African player',
+  'Played in MLS',
+  'Current Non-Big 6 PL player',
+  'Asian or North American player',
+  'Current Netherlands player',
+  'Outside top 5 leagues',
+  'Played for red club',
+  'Missed 2026 World Cup',
+  'UCL winner',
+  'No UCL winner',
+  'World Cup winner',
+  'No World Cup winner',
+  'Europa League winner',
+  'Premier League title winner',
+  'La Liga title winner',
+  'Serie A title winner',
+  'Bundesliga title winner',
+  'Ligue 1 title winner',
+  'No domestic league title',
+  'Copa America winner',
+  'European Championship winner',
+  'UCL + World Cup winner',
+  'FIFA Club World Cup winner',
+];
+
+const OUTFIELD_CATS = [];
+
+const GK_CATS = [
+  'Current U21 player',
+  'Still active at 35+',
+  'Current Brazilian player',
+  'Current African player',
+  'Asian or North American player',
+  'Current Netherlands player',
+  'Playing in Saudi League',
+  'Current blue club player',
+  'Played for red club',
+  'Played for yellow or green club',
+  'Played for team with animal logo',
+  'Playing in a capital city club',
+  'Outside top 5 leagues',
+  'Missed 2026 World Cup',
+  'Current Portuguese league player',
+  'UCL winner',
+  'No UCL winner',
+  'World Cup winner',
+  'No World Cup winner',
+  'Premier League title winner',
+  'No domestic league title',
+];
+
+const PUNISHMENT_PLAYERS = {
+  GK:  [{name:'André Onana', rating:76}, {name:'Robert Sánchez', rating:75}, {name:'Kepa Arrizabalaga', rating:77}, {name:'Aaron Ramsdale', rating:75}],
+  DEF: [{name:'Benoît Badiashile', rating:74}, {name:'Axel Disasi', rating:75}, {name:'Tyrell Malacia', rating:72}, {name:'Aymeric Laporte', rating:78}],
+  MID: [{name:'Mason Mount', rating:76}, {name:'Donny van de Beek', rating:72}, {name:'Conor Gallagher', rating:77}, {name:'Joelinton', rating:76}],
+  FWD: [{name:'Mykhailo Mudryk', rating:75}, {name:'Nicolas Jackson', rating:78}, {name:'Antony', rating:76}, {name:'Wilfried Zaha', rating:75}],
+};
+
+const WHEEL_COLORS = [
+  '#1a9e6e','#2563eb','#dc2626','#d97706','#7c3aed',
+  '#0891b2','#65a30d','#db2777','#0f766e','#b45309',
+  '#4f46e5','#be185d','#15803d','#b91c1c','#1d4ed8',
+];
+
+let DB = [];
+let state = {
+  currentIdx: 0,
+  team: Array(11).fill(null),
+  categories: Array(11).fill(null),
+  spinning: false,
+  currentCategory: null,
+  lastPlayer: null,
+  punishmentCount: 0,
+};
+let spinAngle = 0;
+
+// ── LOAD DATABASE ──
+async function loadDB() {
+  const bar = document.getElementById('loadingBar');
+  const txt = document.getElementById('loadingText');
+  try {
+    bar.style.width = '30%';
+    const resp = await fetch(DB_URL);
+    bar.style.width = '70%';
+    txt.textContent = 'Building player index...';
+    const data = await resp.json();
+    DB = data.players.filter(p => p.fullName || p.name);
+    bar.style.width = '100%';
+    txt.textContent = `${DB.length} players loaded!`;
+    await new Promise(r => setTimeout(r, 600));
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('gameScreen').style.display = 'block';
+    initGame();
+  } catch(e) {
+    txt.textContent = 'Failed to load database. Please refresh.';
+    txt.style.color = '#e53e3e';
+  }
+}
+
+// ── INIT ──
+function initGame() {
+  renderFormation();
+  drawWheel(spinAngle);
+  renderQuotas();
+  updateBadge();
+}
+
+// ── FORMATION ──
+function renderFormation() {
+  const container = document.getElementById('formationRows');
+  container.innerHTML = '';
+  let idx = 0;
+  FORMATION.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'formation-row';
+    row.slots.forEach(() => {
+      const slotIdx = idx;
+      const player = state.team[slotIdx];
+      const isActive = slotIdx === state.currentIdx;
+      const isFilled = !!player;
+      const isPunishment = player?.punishment;
+      const posInfo = ALL_POSITIONS[slotIdx];
+      const slot = document.createElement('div');
+      slot.className = 'pos-slot' + (isActive ? ' active' : '') + (isFilled ? (isPunishment ? ' punishment' : ' filled') : '');
+      const icon = isFilled ? (isPunishment ? '<i class="ti ti-alert-triangle"></i>' : '<i class="ti ti-check"></i>') : (isActive ? '<i class="ti ti-target-arrow"></i>' : posInfo.pos[0]);
+      slot.innerHTML = `
+        <div class="pos-avatar">${icon}</div>
+        <div class="pos-label">${posInfo.pos}${isFilled && !isPunishment && player.rating ? `<span class="rating-tag">${player.rating}</span>` : ''}</div>
+        <div class="pos-name">${player ? (player.fullName || player.name) : (isActive ? 'Selecting...' : '—')}</div>
+        ${state.categories[slotIdx] ? `<div class="pos-cat">${state.categories[slotIdx].slice(0,18)}${state.categories[slotIdx].length>18?'…':''}</div>` : ''}
+      `;
+      rowEl.appendChild(slot);
+      idx++;
+    });
+    container.appendChild(rowEl);
+  });
+  renderPitchProgress();
+}
+
+function renderPitchProgress() {
+  const el = document.getElementById('pitchProgress');
+  if (!el) return;
+  el.innerHTML = '';
+  for (let i = 0; i < 11; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'pitch-progress-dot' + (i < state.currentIdx ? ' filled' : i === state.currentIdx ? ' current' : '');
+    el.appendChild(dot);
+  }
+}
+
+// ── WHEEL ──
+// Maps each league-dependent category to the league it requires.
+// If that league is locked (quota full), the category becomes impossible and must be removed from the wheel.
+const CATEGORY_LEAGUE_MAP = {
+  'Current Bundesliga player': 'Bundesliga',
+  'Playing in Saudi League': 'Saudi Pro League',
+  'Current Portuguese league player': 'Primeira Liga',
+  'Played in MLS': 'MLS',
+  'Current Non-Big 6 PL player': 'Premier League',
+  'Current Liverpool player': 'Premier League',
+  'Current Chelsea player': 'Premier League',
+  'Current Barcelona player': 'La Liga',
+};
+
+function getCategoryPool(posIdx) {
+  const pos = ALL_POSITIONS[posIdx].pos;
+  const prevPlayer = state.team[posIdx - 1];
+  const hasPrevReal = posIdx > 0 && prevPlayer && !prevPlayer.punishment;
+  let pool = pos === 'GK' ? [...GK_CATS] : [...UNIVERSAL_CATS, ...OUTFIELD_CATS];
+  if (hasPrevReal) {
+    pool.push('Same nationality as last pick');
+    if (pos !== 'GK') pool.push('Same club as last pick');
+  }
+
+  // Remove categories tied to a league that's already hit its quota — impossible to fulfill
+  const lockedLeagues = getLockedLeagues();
+  if (lockedLeagues.length > 0) {
+    pool = pool.filter(cat => {
+      const requiredLeague = CATEGORY_LEAGUE_MAP[cat];
+      return !requiredLeague || !lockedLeagues.includes(requiredLeague);
+    });
+  }
+
+  return pool;
+}
+
+function drawWheel(angle) { /* no-op — legacy canvas removed in broadcast redesign */ }
+
+function spinWheel() {
+  if (state.spinning) return;
+  state.spinning = true;
+  document.getElementById('spinBtn').disabled = true;
+  document.getElementById('answerCard').style.display = 'none';
+  document.getElementById('broadcastIcon').classList.add('spinning');
+  setValidation('', '');
+
+  const pool = getCategoryPool(state.currentIdx);
+  const catEl = document.getElementById('catText');
+  const cycles = 16;
+  let i = 0;
+  const interval = setInterval(() => {
+    catEl.textContent = pool[Math.floor(Math.random() * pool.length)];
+    i++;
+    if (i >= cycles) {
+      clearInterval(interval);
+      state.spinning = false;
+      document.getElementById('broadcastIcon').classList.remove('spinning');
+      landCategory();
+    }
+  }, 90);
+}
+
+function landCategory() {
+  const pool = getCategoryPool(state.currentIdx);
+  state.currentCategory = pool[Math.floor(Math.random() * pool.length)];
+  state.categories[state.currentIdx] = state.currentCategory;
+  document.getElementById('catText').textContent = state.currentCategory;
+  const posInfo = ALL_POSITIONS[state.currentIdx];
+  document.getElementById('answerLabel').textContent = `${posInfo.pos} — ${state.currentCategory}`;
+  document.getElementById('playerInput').value = '';
+  document.getElementById('suggestions').style.display = 'none';
+  document.getElementById('answerCard').style.display = 'block';
+  document.getElementById('playerInput').focus();
+  renderFormation();
+}
+
+// ── PLAYER SEARCH ──
+function normalizeStr(s) {
+  return (s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]/g, '').trim();
+}
+
+function searchPlayers(query) {
+  if (!query || query.length < 2) return [];
+  const q = normalizeStr(query);
+  const lockedLeagues = getLockedLeagues();
+  return DB.filter(p => {
+    const full = normalizeStr(p.fullName || p.name);
+    const last = normalizeStr((p.fullName || p.name).split(' ').slice(-1)[0]);
+    const matchesQuery = full.includes(q) || last.startsWith(q);
+    const leagueOk = !p.league || !lockedLeagues.includes(p.league);
+    return matchesQuery && leagueOk;
+  }).slice(0, 8);
+}
+
+function onInput() {
+  const val = document.getElementById('playerInput').value;
+  const results = searchPlayers(val);
+  const sug = document.getElementById('suggestions');
+  if (results.length === 0 || val.length < 2) { sug.style.display = 'none'; return; }
+  sug.innerHTML = '';
+  results.forEach(p => {
+    const item = document.createElement('div');
+    item.className = 'suggestion-item';
+    item.innerHTML = `<span>${p.fullName || p.name}</span><span class="suggestion-meta">${p.team} · ${p.position}${p.rating ? ` · <strong style="color:#1a9e6e">${p.rating}</strong>` : ''}</span>`;
+    item.onclick = () => {
+      document.getElementById('playerInput').value = p.fullName || p.name;
+      sug.style.display = 'none';
+      validateAndSubmit(p);
+    };
+    sug.appendChild(item);
+  });
+  sug.style.display = 'block';
+}
+
+function onKeyDown(e) {
+  if (e.key === 'Enter') submitPlayer();
+  if (e.key === 'Escape') document.getElementById('suggestions').style.display = 'none';
+}
+
+// ── VALIDATION ──
+function getPositionType(posIdx) {
+  const pos = ALL_POSITIONS[posIdx].pos;
+  if (pos === 'GK') return 'GK';
+  if (['RB','CB','LB'].includes(pos)) return 'DEF';
+  if (['CM','CAM'].includes(pos)) return 'MID';
+  return 'FWD';
+}
+
+function validatePosition(player) {
+  const posType = getPositionType(state.currentIdx);
+  const apiPos = (player.position || '').toLowerCase();
+  if (posType === 'GK') return apiPos === 'goalkeeper';
+  if (posType === 'DEF') return apiPos === 'defender';
+  if (posType === 'MID') return apiPos === 'midfielder';
+  if (posType === 'FWD') return apiPos === 'attacker';
+  return false;
+}
+
+function hasTrophy(player, leagueName, place) {
+  return (player.trophies || []).some(t => t.league === leagueName && t.place === place);
+}
+
+function hasAnyDomesticTitle(player) {
+  const domesticLeagues = ['Premier League','La Liga','Serie A','Bundesliga','Ligue 1','Primeira Liga','Saudi League','Eredivisie','Süper Lig'];
+  return (player.trophies || []).some(t => domesticLeagues.includes(t.league) && t.place === 'Winner');
+}
+
+function validateCategory(player, category) {
+  const league = player.league || '';
+  const team = player.team || '';
+  const nat = player.nationality || '';
+  const age = player.age || 0;
+  const pos = (player.position || '').toLowerCase();
+
+  switch(category) {
+    case 'Current Bundesliga player': return league === 'Bundesliga';
+    case 'Current blue club player': return BLUE_CLUBS.some(c => team.includes(c) || c.includes(team));
+    case 'Played for red club': return RED_CLUBS.some(c => team.includes(c) || c.includes(team));
+    case 'Played for yellow or green club': return YELLOW_GREEN_CLUBS.some(c => team.includes(c) || c.includes(team));
+    case 'Playing in a capital city club': return CAPITAL_CITY_CLUBS.some(c => team.includes(c) || c.includes(team));
+    case 'Played for team with animal logo': return ANIMAL_LOGO_CLUBS.some(c => team.toLowerCase().includes(c.toLowerCase()));
+    case 'Current U21 player': return age <= 21;
+    case 'Still active at 35+': return age >= 35;
+    case 'Current Liverpool player': return team === 'Liverpool';
+    case 'Current Barcelona player': return team === 'Barcelona';
+    case 'Current Chelsea player': return team === 'Chelsea';
+    case 'Current Brazilian player': return nat === 'Brazil';
+    case 'Current African player': return AFRICAN_NATIONS.includes(nat);
+    case 'Asian or North American player': return ASIAN_NATIONS.includes(nat) || NORTH_AMERICAN_NATIONS.includes(nat);
+    case 'Current Netherlands player': return nat === 'Netherlands';
+    case 'Playing in Saudi League': return league === 'Saudi Pro League';
+    case 'Current Portuguese league player': return league === 'Primeira Liga';
+    case 'Played in MLS': return league === 'MLS';
+    case 'Outside top 5 leagues': return !TOP5_LEAGUES.includes(league);
+    case 'Missed 2026 World Cup': return !WC2026_NATIONS.includes(nat);
+    case 'UCL winner': return hasTrophy(player, 'UEFA Champions League', 'Winner');
+    case 'No UCL winner': return !hasTrophy(player, 'UEFA Champions League', 'Winner');
+    case 'World Cup winner': return hasTrophy(player, 'FIFA World Cup', 'Winner');
+    case 'No World Cup winner': return !hasTrophy(player, 'FIFA World Cup', 'Winner');
+    case 'Europa League winner': return hasTrophy(player, 'UEFA Europa League', 'Winner');
+    case 'Premier League title winner': return hasTrophy(player, 'Premier League', 'Winner');
+    case 'La Liga title winner': return hasTrophy(player, 'La Liga', 'Winner');
+    case 'Serie A title winner': return hasTrophy(player, 'Serie A', 'Winner');
+    case 'Bundesliga title winner': return hasTrophy(player, 'Bundesliga', 'Winner');
+    case 'Ligue 1 title winner': return hasTrophy(player, 'Ligue 1', 'Winner');
+    case 'No domestic league title': return !hasAnyDomesticTitle(player);
+    case 'Copa America winner': return hasTrophy(player, 'CONMEBOL Copa America', 'Winner');
+    case 'European Championship winner': return hasTrophy(player, 'UEFA European Championship', 'Winner');
+    case 'UCL + World Cup winner': return hasTrophy(player, 'UEFA Champions League', 'Winner') && hasTrophy(player, 'FIFA World Cup', 'Winner');
+    case 'FIFA Club World Cup winner': return hasTrophy(player, 'FIFA Club World Cup', 'Winner') || hasTrophy(player, 'FIFA Intercontinental Cup', 'Winner');
+    case 'Current Non-Big 6 PL player': return league === 'Premier League' && !BIG6_CLUBS.includes(team);
+    case 'Played in 2+ PL Big 6 clubs': return false; // honor system
+    case '100+ clean sheets career': return pos === 'goalkeeper';
+    case 'Same nationality as last pick':
+      return state.lastPlayer && nat === (state.lastPlayer.nationality || '');
+    case 'Same club as last pick':
+      return state.lastPlayer && team === (state.lastPlayer.team || '');
+    default: return false;
+  }
+}
+
+function setValidation(msg, type) {
+  const el = document.getElementById('validationMsg');
+  el.textContent = msg;
+  el.className = 'validation-msg' + (type ? ` ${type}` : '');
+}
+
+function submitPlayer() {
+  if (isSubmitting) return;
+  const val = document.getElementById('playerInput').value.trim();
+  if (!val) return;
+  document.getElementById('suggestions').style.display = 'none';
+  const matches = searchPlayers(val);
+  if (matches.length === 0) {
+    setValidation('Player not found in database. Check spelling or try full name.', 'error');
+    document.getElementById('playerInput').classList.add('error');
+    setTimeout(() => document.getElementById('playerInput').classList.remove('error'), 1500);
+    return;
+  }
+  // Exact or best match
+  const exact = matches.find(p => normalizeStr(p.fullName || p.name) === normalizeStr(val)) || matches[0];
+  validateAndSubmit(exact);
+}
+
+let isSubmitting = false;
+
+function validateAndSubmit(player) {
+  if (isSubmitting) return;
+  isSubmitting = true;
+
+  // Check position — WRONG POSITION = retry, no punishment
+  if (!validatePosition(player)) {
+    setValidation(`${player.fullName || player.name} plays ${player.position} — wrong position for this slot. Try again.`, 'warn');
+    document.getElementById('playerInput').value = '';
+    document.getElementById('playerInput').classList.add('error');
+    setTimeout(() => document.getElementById('playerInput').classList.remove('error'), 1500);
+    isSubmitting = false;
+    return;
+  }
+
+  // Check not already used anywhere in the squad
+  const alreadyUsed = state.team.some(t => t && t.id === player.id);
+  if (alreadyUsed) {
+    setValidation(`${player.fullName || player.name} is already in your squad! Pick someone else.`, 'error');
+    document.getElementById('playerInput').value = '';
+    isSubmitting = false;
+    return;
+  }
+
+  // Check league quota lockout
+  const lockedLeagues = getLockedLeagues();
+  if (player.league && lockedLeagues.includes(player.league)) {
+    setValidation(`${player.league} is locked — you've already hit the max of ${MAX_PER_LEAGUE} players from that league.`, 'error');
+    document.getElementById('playerInput').value = '';
+    isSubmitting = false;
+    return;
+  }
+
+  // Check category — WRONG CATEGORY = automatic punishment, no retry
+  const catResult = validateCategory(player, state.currentCategory);
+  if (catResult === false) {
+    setValidation(`✗ ${player.fullName || player.name} doesn't fit "${state.currentCategory}". Punishment player assigned.`, 'error');
+    document.getElementById('playerInput').value = '';
+    setTimeout(() => {
+      takePunishment();
+      isSubmitting = false;
+    }, 1100);
+    return;
+  }
+
+  // Valid!
+  setValidation(`✓ ${player.fullName || player.name} accepted`, 'success');
+  document.getElementById('playerInput').classList.add('success');
+
+  setTimeout(() => {
+    acceptPlayer(player, false);
+    isSubmitting = false;
+  }, 600);
+}
+
+function acceptPlayer(player, isPunishment) {
+  state.team[state.currentIdx] = { ...player, punishment: isPunishment };
+  state.lastPlayer = isPunishment ? null : player;
+  if (isPunishment) state.punishmentCount++;
+  advance();
+}
+
+function takePunishment() {
+  const type = getPositionType(state.currentIdx);
+  const list = PUNISHMENT_PLAYERS[type];
+  const picked = list[Math.floor(Math.random() * list.length)];
+  const fake = { fullName: picked.name, name: picked.name, rating: picked.rating, potential: picked.rating, punishment: true, position: ALL_POSITIONS[state.currentIdx].pos, team: '—', nationality: '—' };
+  state.team[state.currentIdx] = fake;
+  state.lastPlayer = null;
+  state.punishmentCount++;
+  advance();
+}
+
+function advance() {
+  renderFormation();
+  renderQuotas();
+  state.currentIdx++;
+  if (state.currentIdx >= 11) { showComplete(); return; }
+  document.getElementById('answerCard').style.display = 'none';
+  document.getElementById('catText').textContent = 'Spin for next category';
+  document.getElementById('spinBtn').disabled = false;
+  document.getElementById('playerInput').value = '';
+  document.getElementById('playerInput').className = '';
+  setValidation('', '');
+  updateBadge();
+  drawWheel(spinAngle);
+}
+
+function updateBadge() {
+  const pos = ALL_POSITIONS[Math.min(state.currentIdx, 10)];
+  document.getElementById('positionBadge').textContent = `${state.currentIdx + 1}/11 — ${pos.pos}`;
+}
+
+const MAX_PER_LEAGUE = 3;
+
+function getLeagueCounts() {
+  const leagues = {};
+  state.team.filter(p => p && !p.punishment).forEach(p => {
+    if (p.league) leagues[p.league] = (leagues[p.league] || 0) + 1;
+  });
+  return leagues;
+}
+
+function getLockedLeagues() {
+  const counts = getLeagueCounts();
+  return Object.keys(counts).filter(l => counts[l] >= MAX_PER_LEAGUE);
+}
+
+function renderQuotas() {
+  const filled = state.team.filter(Boolean);
+  const punishments = filled.filter(p => p.punishment).length;
+  const u21 = filled.filter(p => !p.punishment && p.age <= 21).length;
+  const leagues = getLeagueCounts();
+  const maxLeague = Math.max(0, ...Object.values(leagues));
+  const lockedLeagues = getLockedLeagues();
+
+  const el = document.getElementById('quotaList');
+  el.innerHTML = `
+    <div class="quota-row">
+      <span class="quota-row-label">Positions filled</span>
+      <span class="quota-val ok">${state.currentIdx} / 11</span>
+    </div>
+    <div class="quota-row">
+      <span class="quota-row-label">Min 1 U21 player</span>
+      <span class="quota-val ${u21 >= 1 ? 'ok' : 'warn'}">${u21} ✓</span>
+    </div>
+    <div class="quota-row">
+      <span class="quota-row-label">Max ${MAX_PER_LEAGUE} per league</span>
+      <span class="quota-val ${maxLeague >= MAX_PER_LEAGUE ? 'bad' : maxLeague === MAX_PER_LEAGUE - 1 ? 'warn' : 'ok'}">${maxLeague} / ${MAX_PER_LEAGUE}</span>
+    </div>
+    <div class="quota-row">
+      <span class="quota-row-label">Punishment players</span>
+      <span class="quota-val ${punishments > 0 ? 'warn' : 'ok'}">${punishments}</span>
+    </div>
+    ${lockedLeagues.length > 0 ? `
+    <div class="quota-row" style="margin-top:6px; padding-top:8px; border-top:1px solid var(--border); flex-direction:column; align-items:flex-start; gap:4px;">
+      <span class="quota-row-label" style="font-weight:600;">🔒 Leagues locked (quota full)</span>
+      <span style="font-size:11px; color:var(--red); line-height:1.4;">${lockedLeagues.join(', ')}</span>
+    </div>` : ''}
+  `;
+}
+
+function showComplete() {
+  document.getElementById('mainGrid').style.display = 'none';
+  const screen = document.getElementById('completeScreen');
+  screen.style.display = 'block';
+  const punishments = state.team.filter(p => p?.punishment).length;
+  const valid = 11 - punishments;
+
+  const validPlayers = state.team.filter(p => p && !p.punishment && p.rating);
+  const avgRating = validPlayers.length ? Math.round(validPlayers.reduce((s,p) => s + p.rating, 0) / validPlayers.length) : 0;
+  const avgPotential = validPlayers.length ? Math.round(validPlayers.reduce((s,p) => s + (p.potential || p.rating), 0) / validPlayers.length) : 0;
+
+  let rows = '';
+  state.team.forEach((p, i) => {
+    if (!p) return;
+    const posInfo = ALL_POSITIONS[i];
+    const ratingBadge = (!p.punishment && p.rating) ? `<span style="color:#f0b429;font-weight:700;font-size:11px;">${p.rating}${p.potential && p.potential > p.rating ? ` → ${p.potential}` : ''}</span>` : '';
+    rows += `
+      <div class="complete-row">
+        <span class="complete-pos">${posInfo.pos}</span>
+        <span class="complete-name ${p.punishment ? 'punishment' : ''}">${p.fullName || p.name} ${ratingBadge}</span>
+        <span class="complete-cat">${state.categories[i] ? state.categories[i].slice(0,24) : ''}</span>
+      </div>`;
+  });
+
+  screen.innerHTML = `
+    <div class="complete-card">
+      <div class="complete-title">Squad Complete!</div>
+      <div class="complete-sub">Your Football Categories starting XI</div>
+      <div class="complete-stats">
+        <div class="complete-stat"><div class="complete-stat-val">${valid}</div><div class="complete-stat-label">Valid picks</div></div>
+        <div class="complete-stat"><div class="complete-stat-val">${punishments}</div><div class="complete-stat-label">Punishments</div></div>
+        <div class="complete-stat"><div class="complete-stat-val" style="color:#f0b429;">${avgRating}</div><div class="complete-stat-label">Avg Rating</div></div>
+        <div class="complete-stat"><div class="complete-stat-val" style="color:#1a9e6e;">${avgPotential}</div><div class="complete-stat-label">Avg Potential</div></div>
+      </div>
+      <div class="complete-grid">${rows}</div>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:16px;">
+        <button class="play-again-btn" onclick="restartGame()">Play Again</button>
+        <button class="play-again-btn" style="background:#f0b429;" onclick="simulateSeason(${avgRating}, ${avgPotential})">Simulate Season</button>
+      </div>
+    </div>`;
+}
+
+// ── SEASON SIMULATION ──
+function simulateSeason(avgRating, avgPotential) {
+  // Win probability scales with rating — calibrated so an 89-92 rated squad
+  // performs like a genuine title contender, 75-80 mid-table, below 70 relegation form.
+  const strength = Math.max(0, Math.min(1, (avgRating - 60) / 35)); // 0 to 1 scale
+
+  let wins = 0, draws = 0, losses = 0, points = 0;
+  const GAMES = 38;
+  for (let i = 0; i < GAMES; i++) {
+    const roll = Math.random();
+    const winChance = 0.25 + strength * 0.55;
+    const drawChance = 0.22;
+    if (roll < winChance) { wins++; points += 3; }
+    else if (roll < winChance + drawChance) { draws++; points += 1; }
+    else { losses++; }
+  }
+
+  // League finish position derived from points (rough top-flight points bands)
+  let position;
+  if (points >= 86) position = 1;
+  else if (points >= 75) position = Math.ceil(Math.random() * 3) + 1;
+  else if (points >= 60) position = Math.ceil(Math.random() * 6) + 4;
+  else if (points >= 45) position = Math.ceil(Math.random() * 7) + 10;
+  else position = Math.ceil(Math.random() * 3) + 17;
+  position = Math.min(20, Math.max(1, position));
+
+  // Domestic cup outcome — independent roll weighted by strength
+  const cupRoll = Math.random() * (0.5 + strength * 0.5);
+  let cupResult;
+  if (cupRoll > 0.85) cupResult = { place: 'Champions', detail: 'Won the final' };
+  else if (cupRoll > 0.7) cupResult = { place: 'Runner-up', detail: 'Lost the final' };
+  else if (cupRoll > 0.5) cupResult = { place: 'Semi-final', detail: 'Lost in the semis' };
+  else if (cupRoll > 0.3) cupResult = { place: 'Quarter-final', detail: 'Lost in the quarters' };
+  else cupResult = { place: 'Early exit', detail: 'Lost in an early round' };
+
+  // UCL outcome — only realistic if squad strength is high enough, weighted harder
+  const uclEligible = strength > 0.35;
+  let uclResult;
+  if (!uclEligible) {
+    uclResult = { place: 'Did not qualify', detail: 'Squad not strong enough for Europe' };
+  } else {
+    const uclRoll = Math.random() * (0.3 + strength * 0.7);
+    if (uclRoll > 0.88) uclResult = { place: 'Champions', detail: 'Won the final 2-1' };
+    else if (uclRoll > 0.75) uclResult = { place: 'Runner-up', detail: 'Lost the final' };
+    else if (uclRoll > 0.6) uclResult = { place: 'Semi-final', detail: 'Lost in the semis' };
+    else if (uclRoll > 0.4) uclResult = { place: 'Quarter-final', detail: 'Lost in the quarters' };
+    else uclResult = { place: 'Round of 16', detail: 'Eliminated in the knockouts' };
+  }
+
+  const trophyCount = [position === 1, cupResult.place === 'Champions', uclResult.place === 'Champions'].filter(Boolean).length;
+
+  // Player of the Season — pick the highest rated non-punishment player
+  const validPlayers = state.team.filter(p => p && !p.punishment && p.rating);
+  const pots = validPlayers.length ? validPlayers.reduce((a,b) => (b.rating > a.rating ? b : a)) : null;
+  const potsPos = pots ? ALL_POSITIONS[state.team.indexOf(pots)] : null;
+
+  renderSeasonResults({ wins, draws, losses, points, position, cupResult, uclResult, trophyCount, avgRating, avgPotential, pots, potsPos });
+}
+
+function ordinal(n) {
+  const s = ['th','st','nd','rd'];
+  const v = n % 100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
+
+function renderSeasonResults(r) {
+  document.getElementById('completeScreen').innerHTML = `
+    <div style="background:#0d1f17; border-radius:20px; padding:28px 24px; color:white;">
+      <div style="text-align:center; margin-bottom:20px;">
+        <div style="font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:2px;">Season Complete</div>
+        <div style="font-size:12px; color:rgba(255,255,255,0.45); margin-top:2px;">Your Football Categories squad's campaign</div>
+      </div>
+
+      <div style="background:linear-gradient(135deg,#1a9e6e,#0f6e4a); border-radius:16px; padding:22px 26px; margin-bottom:16px;">
+        <div style="font-size:11px; font-weight:600; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:0.1em;">Final league position</div>
+        <div style="font-family:'Bebas Neue',sans-serif; font-size:30px; margin:4px 0 14px;">${ordinal(r.position)} place</div>
+        <div style="display:flex; gap:22px;">
+          <div><div style="font-size:22px;font-weight:700;">${r.avgRating}</div><div style="font-size:10px;color:rgba(255,255,255,0.65);">Squad rating</div></div>
+          <div><div style="font-size:22px;font-weight:700;">${r.avgPotential}</div><div style="font-size:10px;color:rgba(255,255,255,0.65);">Potential</div></div>
+          <div><div style="font-size:22px;font-weight:700;">${r.trophyCount}</div><div style="font-size:10px;color:rgba(255,255,255,0.65);">Trophies won</div></div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px;">
+        <div style="background:#163528; border-radius:14px; padding:16px 12px; text-align:center; border:1px solid ${r.position===1 ? 'rgba(240,180,41,0.4)' : 'rgba(255,255,255,0.06)'};">
+          <div style="font-size:10px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.05em;">League</div>
+          <div style="font-family:'Bebas Neue',sans-serif; font-size:18px; margin:5px 0 2px;">${r.position === 1 ? 'Champions' : ordinal(r.position) + ' place'}</div>
+        </div>
+        <div style="background:#163528; border-radius:14px; padding:16px 12px; text-align:center; border:1px solid ${r.cupResult.place==='Champions' ? 'rgba(240,180,41,0.4)' : 'rgba(255,255,255,0.06)'};">
+          <div style="font-size:10px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.05em;">Domestic Cup</div>
+          <div style="font-family:'Bebas Neue',sans-serif; font-size:18px; margin:5px 0 2px;">${r.cupResult.place}</div>
+        </div>
+        <div style="background:#163528; border-radius:14px; padding:16px 12px; text-align:center; border:1px solid ${r.uclResult.place==='Champions' ? 'rgba(240,180,41,0.4)' : 'rgba(255,255,255,0.06)'};">
+          <div style="font-size:10px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.05em;">UCL</div>
+          <div style="font-family:'Bebas Neue',sans-serif; font-size:18px; margin:5px 0 2px;">${r.uclResult.place}</div>
+        </div>
+      </div>
+
+      <div style="background:#163528; border-radius:16px; padding:18px 20px; margin-bottom:16px;">
+        <div style="font-size:11px; font-weight:600; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:12px;">Your league campaign</div>
+        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:14px;">
+          <div style="text-align:center;"><div style="font-size:20px;font-weight:700;">${ordinal(r.position)}</div><div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Position</div></div>
+          <div style="text-align:center;"><div style="font-size:20px;font-weight:700;">38</div><div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Played</div></div>
+          <div style="text-align:center;"><div style="font-size:20px;font-weight:700;color:#4ade80;">${r.wins}</div><div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Won</div></div>
+          <div style="text-align:center;"><div style="font-size:20px;font-weight:700;color:rgba(255,255,255,0.6);">${r.draws}</div><div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Drawn</div></div>
+          <div style="text-align:center;"><div style="font-size:20px;font-weight:700;color:#e0814f;">${r.losses}</div><div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Lost</div></div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:12px; display:flex; justify-content:space-between;">
+          <span style="font-size:12px; color:rgba(255,255,255,0.45);">Points earned</span>
+          <span style="font-size:18px; font-weight:700;">${r.points} <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.35);">pts</span></span>
+        </div>
+      </div>
+
+      ${r.pots ? `
+      <div style="display:flex; align-items:center; gap:14px; background:#163528; border-radius:16px; padding:14px 18px; margin-bottom:18px;">
+        <div style="width:42px;height:42px;border-radius:10px;background:rgba(240,180,41,0.15);color:#f0b429;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">★</div>
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.05em;">Player of the Season</div>
+          <div style="font-size:14px;font-weight:600;">${r.pots.fullName || r.pots.name} <span style="color:#f0b429;font-weight:700;">${r.pots.rating}</span></div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);">${r.potsPos ? r.potsPos.pos : ''} · Top performer across the campaign</div>
+        </div>
+      </div>` : ''}
+
+      <div style="text-align:center;">
+        <button class="play-again-btn" onclick="restartGame()">Build a New Squad</button>
+      </div>
+    </div>`;
+}
+
+
+function restartGame() {
+  state = { currentIdx:0, team:Array(11).fill(null), categories:Array(11).fill(null), spinning:false, currentCategory:null, lastPlayer:null, punishmentCount:0 };
+  spinAngle = 0;
+  document.getElementById('mainGrid').style.display = 'block';
+  document.getElementById('completeScreen').style.display = 'none';
+  document.getElementById('completeScreen').innerHTML = '';
+  document.getElementById('answerCard').style.display = 'none';
+  document.getElementById('catText').textContent = 'Spin for your first category';
+  document.getElementById('spinBtn').disabled = false;
+  document.getElementById('playerInput').value = '';
+  setValidation('', '');
+  updateBadge();
+  renderFormation();
+  renderQuotas();
+  drawWheel(0);
+}
+
+loadDB();
+</script>
+</body>
+</html>
