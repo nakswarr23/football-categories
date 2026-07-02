@@ -115,7 +115,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .gt-pos-sub{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:1.5px;}
 .gt-cat{flex:1;min-width:0;}
 .gt-cat-lbl{font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:1.5px;}
-.gt-cat-txt{font-family:var(--fd);font-size:20px;color:var(--am);letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gt-cat-txt{font-family:var(--fd);font-size:clamp(14px,2.4vw,20px);color:var(--am);letter-spacing:.5px;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .gt-pick{font-size:12px;color:var(--tx2);white-space:nowrap;}
 .gt-pick b{color:var(--tx);}
 .gt-timer{font-family:var(--fd);font-size:26px;color:var(--am);}
@@ -336,6 +336,74 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .toast.show{opacity:1;}
 .toast.ok{border-color:var(--gr);color:var(--gr);}
 .toast.err{border-color:var(--re);color:var(--re);}
+
+/* ══ MOBILE (390px min target) ══ */
+@media (max-width:600px){
+  /* Topbar: wrap into two rows instead of overlapping/truncating */
+  .game-topbar{flex-wrap:wrap;height:auto;min-height:50px;padding:8px 12px;row-gap:6px;column-gap:10px;}
+  .gt-logo,.gt-div{display:none;}
+  .gt-pos{font-size:16px;}
+  .gt-cat{flex-basis:100%;order:5;min-width:0;}
+  .gt-pick{font-size:11px;}
+  .gt-timer{font-size:20px;}
+  .gt-spin{padding:7px 14px;font-size:12px;margin-left:auto;}
+
+  .search-row{flex-wrap:wrap;padding:8px 12px;row-gap:6px;}
+  .srule{order:3;flex-basis:100%;}
+
+  /* Draft body: stack pitch above the panel, allow the page to scroll to reach it */
+  .draft-body{flex-direction:column;overflow-y:auto;}
+  .pitch-area{flex:none;min-height:460px;}
+  .game-panel{width:100%;border-left:none;border-top:1px solid var(--bd);}
+
+  /* Shrink formation cards so all 11 slots fit without horizontal scrolling */
+  .formation-grid{padding:10px 4px;gap:5px;}
+  .formation-row{gap:4px;}
+  .pslot{width:58px;}
+  .pcard{width:58px;border-radius:7px;}
+  .pc-img{height:38px;padding-top:3px;}
+  .pc-img img{width:32px;height:32px;border-width:1px;}
+  .pc-ph{font-size:12px;}
+  .pc-rb{font-size:9px;padding:1px 3px;top:2px;right:2px;}
+  .pc-info{padding:3px 4px 4px;}
+  .pc-pos{font-size:6.5px;}
+  .pc-name{font-size:8px;}
+  .pc-cat{display:none;}
+
+  /* Squad review: single column, tighter roster grid */
+  .rev-header{flex-direction:column;align-items:flex-start;gap:14px;padding:18px 16px;}
+  .rev-actions{width:100%;}
+  .rev-btn{flex:1;}
+  .rev-h1{font-size:28px;}
+  .rev-body{grid-template-columns:1fr;padding:16px;gap:16px;}
+  .rev-stats{grid-template-columns:repeat(2,1fr);}
+  .rev-roster-hd,.rev-row{grid-template-columns:28px 1fr 52px 1fr;font-size:11px;gap:6px;padding:8px 10px;}
+  .rev-roster-hd{font-size:9px;letter-spacing:.3px;}
+  .rev-ctag{font-size:10px;}
+
+  /* Results: single column, trophy cards 2x2, table scrolls within its own card */
+  .res-header{flex-direction:column;align-items:flex-start;gap:14px;padding:20px 16px;}
+  .res-h1{font-size:32px;}
+  .res-pts-wrap{text-align:left;}
+  .res-body{grid-template-columns:1fr;padding:16px;gap:16px;}
+  .res-body>div{min-width:0;}
+  .trophy-cards{grid-template-columns:repeat(2,1fr);}
+  .camp-card{overflow-x:auto;}
+  .camp-tbl{min-width:480px;}
+  #res-squad-grid{grid-template-columns:repeat(4,1fr) !important;}
+  .rev-body>div{min-width:0;}
+
+  /* Landing / fullscreen cards */
+  .land-logo{font-size:44px;}
+  .fc-card{padding:24px 20px;}
+
+  /* Minimum 44px tap targets on primary controls */
+  .fc-btn,.fc-input,.lobby-start,.lobby-leave,.rev-btn,.gt-spin,.btn-confirm,.btn-random,.res-newgame{min-height:44px;}
+  .step-btn{width:40px;height:40px;}
+  .tog{width:44px;height:24px;}
+  .tog::after{width:18px;height:18px;}
+  .tog.on::after{left:22px;}
+}
 </style>
 </head>
 <body>
