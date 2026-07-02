@@ -755,8 +755,8 @@ async function syncPick(player,isRandom){
 }
 
 // ══ CATEGORIES ══
-const AFRICAN_NATIONS=['Nigeria','Ghana','Senegal','Morocco','Cameroon','Mali','Algeria','Egypt',"Côte d'Ivoire",'Congo DR','Tunisia','Ivory Coast','Burkina Faso','Guinea','Zambia','Uganda','Kenya','South Africa','Gabon','Gambia','Mozambique','Angola','Cape Verde','Togo'];
-const ASIAN_NATIONS=['Japan','Korea Republic','Saudi Arabia','Indonesia','Thailand','Uzbekistan','Iraq','China','India','Iran'];
+const AFRICAN_NATIONS=['Algeria','Angola','Benin','Burkina Faso','Cameroon','Cape Verde','Cabo Verde','Central African Republic','Comoros','Congo','Congo DR','DR Congo',"Côte d'Ivoire",'Ivory Coast','Egypt','Equatorial Guinea','Ethiopia','Gabon','Gambia','Ghana','Guinea','Guinea-Bissau','Kenya','Libya','Madagascar','Mali','Mauritania','Morocco','Mozambique','Namibia','Nigeria','Senegal','Sierra Leone','South Africa','Sudan','Tanzania','Togo','Tunisia','Uganda','Zambia','Zimbabwe'];
+const ASIAN_NATIONS=['Japan','Korea Republic','South Korea','Saudi Arabia','Iran','Australia','Qatar','UAE','United Arab Emirates','Iraq','Uzbekistan','China','Thailand','Vietnam','India','Indonesia','Malaysia','Philippines'];
 const NA_NATIONS=['USA','Canada','Mexico','Panama','Jamaica','Honduras','Costa Rica'];
 const WC2026=['Czechia','Czech Republic','Mexico','South Africa','South Korea','Korea Republic','Bosnia and Herzegovina','Canada','Qatar','Switzerland','Brazil','Haiti','Morocco','Scotland','Australia','Paraguay','Turkey','Türkiye','USA','United States',"Curaçao",'Ecuador','Germany',"Côte d'Ivoire",'Ivory Coast','Japan','Netherlands','Sweden','Tunisia','Belgium','Egypt','Iran','New Zealand','Cape Verde','Cabo Verde','Saudi Arabia','Spain','Uruguay','France','Iraq','Norway','Senegal','Algeria','Argentina','Austria','Jordan','Colombia','DR Congo','Congo DR','Portugal','Uzbekistan','Croatia','England','Ghana','Panama'];
 const BIG6=['Arsenal','Chelsea','Liverpool','Manchester City','Manchester United','Tottenham Hotspur','Tottenham'];
@@ -854,7 +854,7 @@ const ALL_CATS=[
   {id:'juv',label:'Current Juventus player',type:'club',leagueRef:'Serie A',fn:p=>p.team==='Juventus'},
   {id:'dor',label:'Current Dortmund player',type:'club',leagueRef:'Bundesliga',fn:p=>p.team==='Borussia Dortmund'},
   {id:'no_big_club',label:'Never played for a Big Club',type:'club',fn:p=>!['Real Madrid','Barcelona','Manchester City','Manchester United','Liverpool','Arsenal','Chelsea','Bayern Munich','Paris Saint-Germain','Juventus','AC Milan','Inter'].some(c=>p.team===c)},
-  {id:'prom_club',label:'Promoted club player',type:'club',fn:p=>['Ipswich','Leicester','Southampton','Como','Strasbourg'].includes(p.team)},
+  {id:'prom_club',label:'Promoted club player',type:'club',fn:p=>['Leeds United','Sunderland','Burnley'].includes(p.team)},
   {id:'white_kit',label:'White kit club',type:'club',fn:p=>['Real Madrid','Juventus','Tottenham Hotspur','Leeds United','Swansea City','Fulham'].some(c=>p.team===c||p.team.includes(c))},
 
   // ── STAT expansions ──
