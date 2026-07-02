@@ -1311,59 +1311,76 @@ function doSim(){
   else if (effectiveAvg < 80) posFloor = 13 + Math.round(useR() * 4);   // 13-17
   const finalPos = posFloor !== null ? Math.max(posF, posFloor) : posF;
 
-  // ── UCL: proper knockout bracket logic (2 legs per round, realistic loss patterns) ──
-  // Knockout rounds: R16, QF, SF, F = up to 4 rounds x 2 legs = 8 games, plus 6 group games = 14 max.
-  // To advance past a 2-leg tie you need at least 1 win (or 2 draws); back-to-back losses end the run.
-  let uclR, uW=0, uD=0, uL=0, uclGamesPlayed=0;
-  const groupW = clamp(Math.round((effectiveAvg-72)*0.18 + useR()*2), 0, 6);
-  const groupD = clamp(Math.round(useR()*2), 0, 3);
-  const groupL = clamp(6 - groupW - groupD, 0, 6);
-  uclGamesPlayed = 6; uW += groupW; uD += groupD; uL += groupL;
-  const groupOnlyW = groupW, groupOnlyD = groupD, groupOnlyL = groupL;
-  const groupPts = groupW*3 + groupD;
-  const advancedGroup = groupPts >= 8 || (groupPts >= 6 && useR() < 0.5);
-  if (!advancedGroup) {
-    uclR = 'Group stage';
-  } else {
-    // Knockout rounds, each a 2-leg tie
-    const rounds = ['Round of 16','Quarter-finals','Semi-finals','Final'];
-    let roundIdx = 0;
-    let alive = true;
-    while (alive && roundIdx < rounds.length) {
-      const tieStrength = clamp((effectiveAvg - 75) * 0.045 + (useR()-0.45)*0.5, -0.4, 0.55);
-      // Leg results: realistic tie outcomes — win+win, win+draw, win+loss, draw+draw, loss+loss are the only sane combos
-      const legOutcomeRoll = useR() + tieStrength;
-      let leg1, leg2;
-      if (legOutcomeRoll > 0.62) { leg1='w'; leg2 = useR()<0.65?'w':'d'; }
-      else if (legOutcomeRoll > 0.42) { leg1='w'; leg2='l'; } // win one, lose one — survives on aggregate sometimes
-      else if (legOutcomeRoll > 0.28) { leg1='d'; leg2='d'; }
-      else if (legOutcomeRoll > 0.12) { leg1='l'; leg2='w'; }
-      else { leg1='l'; leg2 = useR()<0.7?'l':'d'; }
-      [leg1, leg2].forEach(o => { if(o==='w') uW++; else if(o==='d') uD++; else uL++; });
-      uclGamesPlayed += 2;
-      // Advance if not two losses (aggregate logic simplified: 2L = eliminated, everything else advances on tiebreak roughly half the time when mixed)
-      const twoLosses = leg1==='l' && leg2==='l';
-      const survives = !twoLosses && (leg1==='w'||leg2==='w'||useR()<0.5);
-      if (survives) {
-        roundIdx++;
-        if (roundIdx >= rounds.length) { uclR = 'Champions'; alive=false; }
-      } else {
-        uclR = rounds[roundIdx]; alive = false;
-      }
-    }
-    if (alive) uclR = 'Champions';
+  // ── UCL: real Swiss-model format (2024/25+ Champions League) ──
+  // League phase: 8 games in one combined 36-team table. 1st-8th go straight to the Round of
+  // 16. 9th-24th play a 2-legged Knockout Playoff for the remaining 8 R16 spots. 25th-36th are
+  // eliminated after the league phase. R16/QF/SF are 2-legged ties; the Final is a single match.
+  let uclR, uW=0, uD=0, uL=0, uclGamesPlayed=0, uclLeaguePos=0;
+  const leagueW = clamp(Math.round((effectiveAvg-72)*0.22 + useR()*2.5), 0, 8);
+  const leagueD = clamp(Math.round(useR()*2.5), 0, 4);
+  const leagueL = clamp(8 - leagueW - leagueD, 0, 8);
+  uclGamesPlayed = 8; uW = leagueW; uD = leagueD; uL = leagueL;
+  const leagueOnlyW = leagueW, leagueOnlyD = leagueD, leagueOnlyL = leagueL;
+  const leaguePts = leagueW*3 + leagueD;
+  uclLeaguePos = clamp(Math.round(36 - (leaguePts/24)*35 - (useR()-0.5)*6), 1, 36);
+
+  function uclTwoLegTie(){
+    const tieStrength = clamp((effectiveAvg - 75) * 0.045 + (useR()-0.45)*0.5, -0.4, 0.55);
+    // Leg results: realistic tie outcomes — win+win, win+draw, win+loss, draw+draw, loss+loss are the only sane combos
+    const legOutcomeRoll = useR() + tieStrength;
+    let leg1, leg2;
+    if (legOutcomeRoll > 0.62) { leg1='w'; leg2 = useR()<0.65?'w':'d'; }
+    else if (legOutcomeRoll > 0.42) { leg1='w'; leg2='l'; } // win one, lose one — survives on aggregate sometimes
+    else if (legOutcomeRoll > 0.28) { leg1='d'; leg2='d'; }
+    else if (legOutcomeRoll > 0.12) { leg1='l'; leg2='w'; }
+    else { leg1='l'; leg2 = useR()<0.7?'l':'d'; }
+    [leg1, leg2].forEach(o => { if(o==='w') uW++; else if(o==='d') uD++; else uL++; });
+    uclGamesPlayed += 2;
+    const twoLosses = leg1==='l' && leg2==='l';
+    return !twoLosses && (leg1==='w'||leg2==='w'||useR()<0.5);
   }
+  function uclFinal(){
+    // Single match at a neutral venue — no second leg. Draws go to ET/penalties (coin flip).
+    const tieStrength = clamp((effectiveAvg - 75) * 0.045 + (useR()-0.45)*0.5, -0.4, 0.55);
+    const rl = useR() + tieStrength;
+    let won;
+    if (rl > 0.55) { uW++; won = true; }
+    else if (rl > 0.3) { uD++; won = useR() < 0.5; }
+    else { uL++; won = false; }
+    uclGamesPlayed += 1;
+    return won;
+  }
+
+  if (uclLeaguePos > 24) {
+    uclR = 'League phase';
+  } else if (uclLeaguePos >= 9) {
+    if (!uclTwoLegTie()) uclR = 'Knockout Playoff';
+    else if (!uclTwoLegTie()) uclR = 'Round of 16';
+    else if (!uclTwoLegTie()) uclR = 'Quarter-finals';
+    else if (!uclTwoLegTie()) uclR = 'Semi-finals';
+    else if (!uclFinal()) uclR = 'Final';
+    else uclR = 'Champions';
+  } else {
+    if (!uclTwoLegTie()) uclR = 'Round of 16';
+    else if (!uclTwoLegTie()) uclR = 'Quarter-finals';
+    else if (!uclTwoLegTie()) uclR = 'Semi-finals';
+    else if (!uclFinal()) uclR = 'Final';
+    else uclR = 'Champions';
+  }
+  const uclTookPlayoffPath = uclLeaguePos >= 9 && uclLeaguePos <= 24;
+  const uclMaxGames = uclTookPlayoffPath ? 17 : 15;
+
   // Trophy tier override: guarantee deep runs for elite squads, guarantee early exits for weak ones.
   // Whenever this forces a different result than the natural sim produced, resynthesize
   // uclGamesPlayed/uW/uD/uL so the stats table always matches the displayed result exactly.
   if (effectiveAvg >= 89 && useR() < uclWinChance && uclR !== 'Champions') {
     uclR = 'Champions';
-    let legsNeeded = 14 - uclGamesPlayed;
+    let legsNeeded = uclMaxGames - uclGamesPlayed;
     while (legsNeeded-- > 0) { const rl=useR(); if(rl<0.75) uW++; else if(rl<0.9) uD++; else uL++; }
-    uclGamesPlayed = 14;
-  } else if (effectiveAvg < 80 && uclR !== 'Group stage' && useR() < 0.6) {
-    uclR = 'Group stage';
-    uW = groupOnlyW; uD = groupOnlyD; uL = groupOnlyL; uclGamesPlayed = 6;
+    uclGamesPlayed = uclMaxGames;
+  } else if (effectiveAvg < 80 && uclR !== 'League phase' && useR() < 0.6) {
+    uclR = 'League phase';
+    uW = leagueOnlyW; uD = leagueOnlyD; uL = leagueOnlyL; uclGamesPlayed = 8;
   }
 
   // ── Domestic Cup: real cup names only (FA Cup/Copa del Rey/DFB-Pokal/Coppa Italia/Coupe de France style — never Super Cup) ──
@@ -1389,9 +1406,9 @@ function doSim(){
     if (cupR !== 'Winners') { cW = 5; cL = 0; }
     cupR = 'Winners';
     if (uclR !== 'Champions') {
-      let legsNeeded = 14 - uclGamesPlayed;
+      let legsNeeded = uclMaxGames - uclGamesPlayed;
       while (legsNeeded-- > 0) { const rl=useR(); if(rl<0.75) uW++; else if(rl<0.9) uD++; else uL++; }
-      uclGamesPlayed = 14;
+      uclGamesPlayed = uclMaxGames;
     }
     uclR = 'Champions';
     plPts = Math.max(plPts, 88);
@@ -1414,7 +1431,7 @@ function doSim(){
   el('trophy-cards').innerHTML=`
     <div class="tc ${finalPosTreble===1?'won':''}"><div class="tc-comp">League</div><div class="tc-result ${finalPosTreble===1?'gold':finalPosTreble<=4?'silver':'dim'}">${finalPosTreble===1?'Champions':finalPosTreble<=4?'Top '+finalPosTreble:'P'+finalPosTreble}</div><div class="form-dots">${fdots(plW,plD,plL)}</div><div class="tc-det">${plW}W ${plD}D ${plL}L · ${plPts} pts</div></div>
     <div class="tc ${cupR==='Winners'?'won':''}"><div class="tc-comp">Domestic Cup</div><div class="tc-result ${cupR==='Winners'?'gold':cupR==='Finalists'?'silver':'dim'}">${cupR}</div><div class="form-dots">${fdots(cW,0,cL)}</div><div class="tc-det">${cW} wins</div></div>
-    <div class="tc ${uclR==='Champions'?'won':''}"><div class="tc-comp">UCL</div><div class="tc-result ${uclR==='Champions'?'gold':uclR==='Final'?'silver':'dim'}">${uclR}</div><div class="form-dots">${fdots(uW,uD,uL)}</div><div class="tc-det">${uW}W ${uD}D ${uL}L</div></div>
+    <div class="tc ${uclR==='Champions'?'won':''}"><div class="tc-comp">UCL</div><div class="tc-result ${uclR==='Champions'?'gold':uclR==='Final'?'silver':'dim'}">${uclR==='League phase'?'Eliminated':uclR}</div><div class="form-dots">${fdots(uW,uD,uL)}</div><div class="tc-det">${uclLeaguePos}${suf(uclLeaguePos)} in League Phase · ${uW}W ${uD}D ${uL}L</div></div>
     <div class="tc" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;"><div class="tc-comp">Season grade</div>${gradeHtml}<div class="tc-det" style="text-align:center">${avg.toFixed(1)} avg rating</div></div>`;
 
   el('camp-tbl').innerHTML=`
