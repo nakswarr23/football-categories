@@ -1234,11 +1234,33 @@ function doSim(){
   const useR = APP.mode === 'multiplayer' ? sr : r;
   const rndCount = G.squad.filter(s=>s&&s.isRandom).length;
   const rndPenalty = rndCount * 1.8;
-  const effectiveAvg = avg - rndPenalty;
+
+  // ── SQUAD COMPOSITION FACTORS ──
+  // Make results reflect the actual players picked, not just the average. Combined max swing ~±3.
+  let compBonus = 0;
+  const natCounts = {};
+  filled.forEach(s=>{const n=s.player.nationality||'Unknown'; natCounts[n]=(natCounts[n]||0)+1;});
+  const maxNatCount = Math.max(0,...Object.values(natCounts));
+  if (maxNatCount >= 4) compBonus += Math.min(0.5 + (maxNatCount-4)*0.25, 1);
+
+  const uclWcWinners = filled.filter(s=>(s.player.trophies||[]).some(t=>t.place==='Winner' && (t.league==='UEFA Champions League'||t.league==='FIFA World Cup'||t.league==='World Cup'))).length;
+  compBonus += Math.min(uclWcWinners * 0.2, 2.0);
+
+  const ages = filled.map(s=>s.player.age||25);
+  const vets = ages.filter(a=>a>=30).length, young = ages.filter(a=>a<24).length, peak = ages.filter(a=>a>=24&&a<30).length;
+  if (ages.every(a=>a>=35) || ages.every(a=>a<=19)) compBonus -= 0.5;
+  else if (vets>=2 && young>=2 && peak>=filled.length/2) compBonus += 0.5;
+
+  const leagueSet = new Set(filled.map(s=>s.player.league));
+  if (leagueSet.size === 1 && filled.length===11) compBonus -= 0.5;
+
+  compBonus = Math.max(-3, Math.min(3, compBonus));
+
+  const effectiveAvg = avg - rndPenalty + compBonus;
 
   // ── LEAGUE: wide spread, with a hard relegation floor below 80 avg ──
   const base = ((effectiveAvg - 68) / 26) * 30;
-  const variance = (useR() - 0.5) * 12;
+  const variance = (useR() - 0.5) * 18;
   let plW = clamp(Math.round(base + variance), 3, 34);
   let plD = clamp(Math.round(8 - plW * 0.12 + useR() * 5), 2, 14);
   let plL = clamp(38 - plW - plD, 0, 33);
@@ -1279,7 +1301,15 @@ function doSim(){
   // Nudge points up for high tiers so position reflects trophy push
   if (leagueWinBoost) { plPts = clamp(plPts + Math.round(leagueWinBoost * useR()), plPts, 95); }
   const posF = plPts>=88?1:plPts>=78?2:plPts>=71?3:plPts>=64?4:plPts>=58?5:plPts>=53?6:plPts>=48?7:plPts>=43?8:plPts>=38?9:plPts>=34?10:plPts>=30?11:plPts>=27?12:plPts>=24?13:plPts>=21?14:plPts>=18?15:plPts>=15?16:plPts>=12?17:plPts>=9?18:plPts>=6?19:20;
-  const finalPos = posCapPts!==null ? Math.max(posF, 18) : posF;
+  // Floor calibrated per-bracket so the three sub-80 tiers actually produce distinct outcome
+  // ranges (19-20th / 17-19th / 13-17th) instead of collapsing everything under 80 into 18-20th.
+  // Sampled per-run (not fixed) so weak squads still get real run-to-run variety instead of
+  // landing on the exact same position every single time.
+  let posFloor = null;
+  if (effectiveAvg < 65) posFloor = 19 + Math.round(useR());            // 19-20
+  else if (effectiveAvg < 72) posFloor = 17 + Math.round(useR() * 2);   // 17-19
+  else if (effectiveAvg < 80) posFloor = 13 + Math.round(useR() * 4);   // 13-17
+  const finalPos = posFloor !== null ? Math.max(posF, posFloor) : posF;
 
   // ── UCL: proper knockout bracket logic (2 legs per round, realistic loss patterns) ──
   // Knockout rounds: R16, QF, SF, F = up to 4 rounds x 2 legs = 8 games, plus 6 group games = 14 max.
@@ -1289,6 +1319,7 @@ function doSim(){
   const groupD = clamp(Math.round(useR()*2), 0, 3);
   const groupL = clamp(6 - groupW - groupD, 0, 6);
   uclGamesPlayed = 6; uW += groupW; uD += groupD; uL += groupL;
+  const groupOnlyW = groupW, groupOnlyD = groupD, groupOnlyL = groupL;
   const groupPts = groupW*3 + groupD;
   const advancedGroup = groupPts >= 8 || (groupPts >= 6 && useR() < 0.5);
   if (!advancedGroup) {
@@ -1322,9 +1353,18 @@ function doSim(){
     }
     if (alive) uclR = 'Champions';
   }
-  // Trophy tier override: guarantee deep runs for elite squads, guarantee early exits for weak ones
-  if (effectiveAvg >= 89 && useR() < uclWinChance) uclR = 'Champions';
-  else if (effectiveAvg < 80 && uclR !== 'Group stage' && useR() < 0.6) uclR = 'Group stage';
+  // Trophy tier override: guarantee deep runs for elite squads, guarantee early exits for weak ones.
+  // Whenever this forces a different result than the natural sim produced, resynthesize
+  // uclGamesPlayed/uW/uD/uL so the stats table always matches the displayed result exactly.
+  if (effectiveAvg >= 89 && useR() < uclWinChance && uclR !== 'Champions') {
+    uclR = 'Champions';
+    let legsNeeded = 14 - uclGamesPlayed;
+    while (legsNeeded-- > 0) { const rl=useR(); if(rl<0.75) uW++; else if(rl<0.9) uD++; else uL++; }
+    uclGamesPlayed = 14;
+  } else if (effectiveAvg < 80 && uclR !== 'Group stage' && useR() < 0.6) {
+    uclR = 'Group stage';
+    uW = groupOnlyW; uD = groupOnlyD; uL = groupOnlyL; uclGamesPlayed = 6;
+  }
 
   // ── Domestic Cup: real cup names only (FA Cup/Copa del Rey/DFB-Pokal/Coppa Italia/Coupe de France style — never Super Cup) ──
   let cupR, cW=0, cL=0;
@@ -1336,13 +1376,24 @@ function doSim(){
     else { cL++; cupR = cupRounds[cIdx]==='Final'?'Finalists':cupRounds[cIdx]; cAlive=false; }
   }
   if (cAlive) cupR='Winners';
-  if (useR() < cupWinChance) cupR = 'Winners';
-  else if (effectiveAvg < 80 && useR() < 0.5) cupR = cupRounds[clamp(Math.round(useR()*2),0,2)];
+  // Same consistency rule as UCL: if an override changes the result, resync games played to match.
+  if (useR() < cupWinChance && cupR !== 'Winners') { cupR = 'Winners'; cW = 5; cL = 0; }
+  else if (effectiveAvg < 80 && useR() < 0.5) {
+    const idx = clamp(Math.round(useR()*2),0,2);
+    cupR = cupRounds[idx]; cW = idx; cL = 1;
+  }
 
   // ── Treble override ──
   let isTreble = false;
   if (trebleRoll) {
-    cupR = 'Winners'; uclR = 'Champions';
+    if (cupR !== 'Winners') { cW = 5; cL = 0; }
+    cupR = 'Winners';
+    if (uclR !== 'Champions') {
+      let legsNeeded = 14 - uclGamesPlayed;
+      while (legsNeeded-- > 0) { const rl=useR(); if(rl<0.75) uW++; else if(rl<0.9) uD++; else uL++; }
+      uclGamesPlayed = 14;
+    }
+    uclR = 'Champions';
     plPts = Math.max(plPts, 88);
     isTreble = true;
   }
@@ -1357,7 +1408,7 @@ function doSim(){
   el('res-pos').textContent=finalPosTreble+suf(finalPosTreble)+' place';
   el('res-pts').textContent=plPts;
   el('res-gd').textContent='+'+(Math.max(0,plGF-plGA));
-  el('res-sub').textContent=`Squad avg ${effectiveAvg.toFixed(1)}${rndCount?` (${rndCount} random player${rndCount>1?'s':''})`:''}. ${isTreble?'The treble — an immortal season.':finalPosTreble===1?'Champions — an unstoppable season.':finalPosTreble<=2?'Runners up — so close.':finalPosTreble<=4?'Champions League secured.':finalPosTreble<=6?'Europa League football next year.':finalPosTreble<=10?'A solid mid-table finish.':finalPosTreble<=15?'A difficult campaign.':finalPosTreble<=18?'Relegation battle survived.':'Relegated.'}`;
+  el('res-sub').textContent=`Squad avg ${effectiveAvg.toFixed(1)}${rndCount?` (${rndCount} random player${rndCount>1?'s':''})`:''}. ${isTreble?'The treble — an immortal season.':finalPosTreble===1?'Champions — an unstoppable season.':finalPosTreble<=2?'Runners up — so close.':finalPosTreble<=4?'Champions League secured.':finalPosTreble<=6?'Europa League football next year.':finalPosTreble<=10?'A solid mid-table finish.':finalPosTreble<=14?'A difficult campaign.':finalPosTreble<=17?'Relegation battle survived.':'Relegated.'}`;
 
   const gradeHtml = `<span style="font-family:var(--fd);font-size:32px;color:${gradeColor};letter-spacing:2px;padding:4px 14px;border:2px solid ${gradeColor};border-radius:8px;background:${gradeColor}18;">${grade}</span>`;
   el('trophy-cards').innerHTML=`
