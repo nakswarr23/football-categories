@@ -290,20 +290,25 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .res-eyebrow{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ac);margin-bottom:10px;}
 .res-h1{font-family:var(--fd);font-size:42px;letter-spacing:1px;line-height:1.05;margin-bottom:6px;}
 .res-h1 span{color:var(--am);}
-.res-sub{font-size:13px;color:var(--tx2);}
+.res-sub{font-size:17px;color:var(--tx);font-weight:500;line-height:1.5;max-width:640px;margin-top:2px;}
 .res-pts-wrap{text-align:right;flex-shrink:0;}
 .res-pts-lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;}
 .res-pts{font-family:var(--fd);font-size:52px;color:var(--am);line-height:1;}
 .res-gd{font-family:var(--fd);font-size:22px;color:var(--gr);}
 .res-body{padding:28px 32px;display:grid;grid-template-columns:1fr 260px;gap:20px;}
 .trophy-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
-.tc{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:18px 14px;}
+.tc{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:20px 16px;}
 .tc.won{border-color:rgba(240,168,48,.4);background:rgba(240,168,48,.04);}
 .tc-comp{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);margin-bottom:8px;}
-.tc-result{font-family:var(--fd);font-size:20px;letter-spacing:.5px;margin-bottom:8px;}
+.tc-result{font-family:var(--fd);font-size:22px;letter-spacing:.5px;margin-bottom:8px;}
 .tc-result.gold{color:var(--am);}
 .tc-result.silver{color:#a0a8b8;}
 .tc-result.dim{color:var(--tx3);}
+.tc.tc-grade{background:var(--s1);border:2px solid var(--gc);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative;overflow:hidden;}
+.tc.tc-grade::before{content:'';position:absolute;top:-40%;right:-25%;width:130px;height:130px;border-radius:50%;background:var(--gc);opacity:.15;filter:blur(22px);pointer-events:none;}
+.tc-grade-badge{font-family:var(--fd);font-size:56px;letter-spacing:2px;color:var(--gc);line-height:1;position:relative;}
+.tc-grade-desc{font-size:11px;font-weight:700;color:var(--gc);text-transform:uppercase;letter-spacing:1.5px;position:relative;}
+.tc-grade-sub{font-size:11px;color:var(--tx3);position:relative;}
 .form-dots{display:flex;gap:3px;margin-bottom:6px;flex-wrap:wrap;}
 .fd{width:8px;height:8px;border-radius:2px;}
 .fd.w{background:var(--gr);}
@@ -1484,31 +1489,50 @@ function doSim(){
   }
   const finalPosTreble = isTreble ? 1 : finalPos;
 
-  const suf=n=>n===1?'st':n===2?'nd':n===3?'rd':'th';
+  const suf=n=>{const m=n%100;if(m>=11&&m<=13)return'th';switch(n%10){case 1:return'st';case 2:return'nd';case 3:return'rd';default:return'th';}};
   const fdots=(w,d,l)=>[...Array(Math.min(5,w)).fill('w'),...Array(Math.min(2,d)).fill('d'),...Array(Math.min(3,l)).fill('l')].map(x=>`<div class="fd ${x}"></div>`).join('');
 
   const grade = isTreble?'S+':plPts>=88?'S+':plPts>=78?'S':plPts>=68?'A+':plPts>=58?'A':plPts>=47?'B+':plPts>=36?'B':plPts>=25?'C':plPts>=15?'D':'F';
   const gradeColor = {'S+':'#f0c040','S':'#e8b820','A+':'#4caf50','A':'#66bb6a','B+':'#42a5f5','B':'#5c8fef','C':'#ff9800','D':'#f06060','F':'#cc3333'}[grade]||'#8b96a8';
+  const gradeDesc = {'S+':'Legendary','S':'Elite','A+':'Excellent','A':'Very good','B+':'Good','B':'Solid','C':'Below average','D':'Poor','F':'Disaster'}[grade]||'';
+
+  // Standout player + nationality mix, computed here so both the narrative below and the
+  // Player of the Season card can use the same values.
+  const bi=G.squad.reduce((bi,s,i)=>s&&(!G.squad[bi]||(s.player.rating||0)>(G.squad[bi]?.player?.rating||0))?i:bi,0);
+  const best=G.squad[bi];
+  const standoutName = best ? (best.player.name||best.player.fullName||best.player.lastname||'').split(' ').slice(-1)[0] : 'the squad';
+  const natEntry = Object.entries(natCounts).sort((a,b)=>b[1]-a[1])[0];
+  const natHeavy = natEntry && natEntry[1]>=4 ? natEntry[0] : null;
+  const trophyNote = uclWcWinners>=2 ? `${uclWcWinners} proven winners in the ranks` : null;
+
+  let narrative;
+  if (isTreble) narrative = `${natHeavy?`Your ${natHeavy}-heavy squad`:'Your squad'}, led by ${standoutName}, swept every competition — the treble, an immortal season.`;
+  else if (finalPosTreble===1) narrative = `${natHeavy?`A ${natHeavy}-heavy core`:'A squad built for the top'}, spearheaded by ${standoutName}, stormed to the title.`;
+  else if (finalPosTreble<=2) narrative = `${standoutName} inspired a title charge that fell just short — runners-up.`;
+  else if (finalPosTreble<=4) narrative = `${standoutName} led the line as the squad secured Champions League football.`;
+  else if (finalPosTreble<=6) narrative = `A steady campaign built around ${standoutName} lands Europa League football next season.`;
+  else if (finalPosTreble<=10) narrative = `${natHeavy?`Your ${natHeavy}-heavy squad`:'The squad'} settled into a solid mid-table finish, with ${standoutName} the standout performer.`;
+  else if (finalPosTreble<=14) narrative = `A difficult campaign${trophyNote?`, despite ${trophyNote}`:''} — ${standoutName} couldn't drag the squad higher.`;
+  else if (finalPosTreble<=17) narrative = `A relegation battle survived on the back of ${standoutName}'s performances.`;
+  else narrative = `Relegated — even ${standoutName} couldn't prevent the drop.`;
 
   el('res-pos').textContent=finalPosTreble+suf(finalPosTreble)+' place';
   el('res-pts').textContent=plPts;
   el('res-gd').textContent='+'+(Math.max(0,plGF-plGA));
-  el('res-sub').textContent=`Squad avg ${effectiveAvg.toFixed(1)}${rndCount?` (${rndCount} random player${rndCount>1?'s':''})`:''}. ${isTreble?'The treble — an immortal season.':finalPosTreble===1?'Champions — an unstoppable season.':finalPosTreble<=2?'Runners up — so close.':finalPosTreble<=4?'Champions League secured.':finalPosTreble<=6?'Europa League football next year.':finalPosTreble<=10?'A solid mid-table finish.':finalPosTreble<=14?'A difficult campaign.':finalPosTreble<=17?'Relegation battle survived.':'Relegated.'}`;
+  el('res-sub').textContent=`Squad avg ${effectiveAvg.toFixed(1)}${rndCount?` (${rndCount} random player${rndCount>1?'s':''})`:''}. ${narrative}`;
 
-  const gradeHtml = `<span style="font-family:var(--fd);font-size:32px;color:${gradeColor};letter-spacing:2px;padding:4px 14px;border:2px solid ${gradeColor};border-radius:8px;background:${gradeColor}18;">${grade}</span>`;
+  const gradeHtml = `<div class="tc-grade-badge">${grade}</div><div class="tc-grade-desc">${gradeDesc}</div>`;
   el('trophy-cards').innerHTML=`
     <div class="tc ${finalPosTreble===1?'won':''}"><div class="tc-comp">League</div><div class="tc-result ${finalPosTreble===1?'gold':finalPosTreble<=4?'silver':'dim'}">${finalPosTreble===1?'Champions':finalPosTreble<=4?'Top '+finalPosTreble:'P'+finalPosTreble}</div><div class="form-dots">${fdots(plW,plD,plL)}</div><div class="tc-det">${plW}W ${plD}D ${plL}L · ${plPts} pts</div></div>
     <div class="tc ${cupR==='Winners'?'won':''}"><div class="tc-comp">Domestic Cup</div><div class="tc-result ${cupR==='Winners'?'gold':cupR==='Finalists'?'silver':'dim'}">${cupR}</div><div class="form-dots">${fdots(cW,0,cL)}</div><div class="tc-det">${cW} wins</div></div>
     <div class="tc ${uclR==='Champions'?'won':''}"><div class="tc-comp">UCL</div><div class="tc-result ${uclR==='Champions'?'gold':uclR==='Final'?'silver':'dim'}">${uclR==='League phase'?'Eliminated':uclR}</div><div class="form-dots">${fdots(uW,uD,uL)}</div><div class="tc-det">${uclLeaguePos}${suf(uclLeaguePos)} in League Phase · ${uW}W ${uD}D ${uL}L</div></div>
-    <div class="tc" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;"><div class="tc-comp">Season grade</div>${gradeHtml}<div class="tc-det" style="text-align:center">${avg.toFixed(1)} avg rating</div></div>`;
+    <div class="tc tc-grade" style="--gc:${gradeColor}">${gradeHtml}<div class="tc-grade-sub">${avg.toFixed(1)} avg rating</div></div>`;
 
   el('camp-tbl').innerHTML=`
     <tr><td>Premier League</td><td>38</td><td>${plW}</td><td>${plD}</td><td>${plL}</td><td>${plGF}</td><td>${plGA}</td><td>${plPts}</td></tr>
     <tr><td>UCL</td><td>${uclGamesPlayed}</td><td>${uW}</td><td>${uD}</td><td>${uL}</td><td>${Math.round(uW*2.1+uD*1.1)}</td><td>${Math.round(uL*1.3+uD*.6)}</td><td>—</td></tr>
     <tr><td>Domestic Cup</td><td>${cW+cL}</td><td>${cW}</td><td>0</td><td>${cL}</td><td>${cW*2}</td><td>${Math.max(1,cL*1.4)|0}</td><td>—</td></tr>`;
 
-  const bi=G.squad.reduce((bi,s,i)=>s&&(!G.squad[bi]||(s.player.rating||0)>(G.squad[bi]?.player?.rating||0))?i:bi,0);
-  const best=G.squad[bi];
   if(best){
     el('pots-img').src=best.player.photo||'';
     el('pots-name').textContent=(best.player.fullName||best.player.name).toUpperCase();
