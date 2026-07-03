@@ -105,6 +105,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .lobby-start{width:100%;padding:13px;font-family:var(--fd);font-size:20px;letter-spacing:1px;background:var(--gr);color:#071a0e;border:none;border-radius:var(--r);cursor:pointer;margin-bottom:8px;}
 .lobby-start:disabled{background:var(--s3);color:var(--tx3);cursor:not-allowed;}
 .lobby-leave{width:100%;padding:9px;font-size:12px;color:var(--tx3);background:transparent;border:1px solid var(--bd);border-radius:var(--r);cursor:pointer;}
+.mp-settings-readonly{pointer-events:none;opacity:.6;}
 
 /* ══ GAME SHELL (draft + panels) ══ */
 #step-game{flex-direction:column;overflow:hidden;}
@@ -520,6 +521,33 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     </div>
     <div class="lobby-pl-lbl">Players in lobby</div>
     <div class="lobby-pl-list" id="lobby-pl-list"><div class="lobby-wait">Waiting for players...</div></div>
+
+    <div class="lobby-pl-lbl" style="margin-top:6px;">Game settings <span id="mp-settings-host-tag" style="font-weight:400;color:var(--tx3);text-transform:none;letter-spacing:0;font-size:10px;"></span></div>
+    <div id="mp-settings-wrap" style="border-top:1px solid var(--bd);padding-top:4px;margin-bottom:18px;">
+      <div class="srow">
+        <div class="srow-info"><div class="srow-label">Timer</div><div class="srow-desc">Seconds per pick. 0 = off.</div></div>
+        <div class="stepper"><button class="step-btn" onclick="mpAdj('timer',-15)">−</button><div class="step-val" id="mp-sv-timer">0</div><button class="step-btn" onclick="mpAdj('timer',15)">+</button></div>
+      </div>
+      <div class="srow">
+        <div class="srow-info"><div class="srow-label">Respins</div><div class="srow-desc">Times you can re-spin the wheel.</div></div>
+        <div class="stepper"><button class="step-btn" onclick="mpAdj('respins',-1)">−</button><div class="step-val" id="mp-sv-respins">3</div><button class="step-btn" onclick="mpAdj('respins',1)">+</button></div>
+      </div>
+      <div class="srow">
+        <div class="srow-info"><div class="srow-label">Auto on timeout</div><div class="srow-desc">Assign random player when time runs out.</div></div>
+        <div class="tog on" id="mp-tog-auto" onclick="mpToggleAuto(this)"></div>
+      </div>
+      <div class="srow" style="flex-direction:column;align-items:flex-start;gap:10px;">
+        <div class="srow-info"><div class="srow-label">Category types</div><div class="srow-desc">Tap to exclude from the wheel.</div></div>
+        <div class="cpills" id="mp-cpills">
+          <span class="cpill" data-t="trophy" onclick="mpToggleType(this)">🏆 Trophies</span>
+          <span class="cpill" data-t="nat" onclick="mpToggleType(this)">🌍 Nationalities</span>
+          <span class="cpill" data-t="league" onclick="mpToggleType(this)">⚽ Leagues</span>
+          <span class="cpill" data-t="club" onclick="mpToggleType(this)">🏟 Clubs</span>
+          <span class="cpill" data-t="stat" onclick="mpToggleType(this)">📊 Stats</span>
+        </div>
+      </div>
+    </div>
+
     <button class="lobby-start" id="lobby-start-btn" onclick="startMultiplayer()" disabled>Start Game</button>
     <button class="lobby-leave" onclick="leaveLobby()">Leave lobby</button>
   </div>
@@ -771,6 +799,7 @@ async function createLobby() {
     el('lobby-code-display').textContent=code; el('lobby-code-text').textContent=code;
     el('lobby-start-btn').disabled=false;
     showStep('step-lobby'); subLobby(code);
+    setupMpSettingsUI(); pushMpSettings();
   } catch(e){toast('Error: '+e.message,'err');}
 }
 async function joinLobby(codeOverride) {
@@ -788,14 +817,64 @@ async function joinLobby(codeOverride) {
     el('lobby-code-display').textContent=code; el('lobby-code-text').textContent=code;
     el('lobby-start-btn').style.display='none';
     showStep('step-lobby'); subLobby(code);
+    applyMpSettings(lb.settings); setupMpSettingsUI();
   } catch(e){toast('Error: '+e.message,'err');}
 }
 function subLobby(code) {
   plSub=sb.channel('lp-'+code).on('postgres_changes',{event:'*',schema:'public',table:'lobby_players',filter:'lobby_id=eq.'+code},()=>refreshPlayers(code)).subscribe();
   lobSub=sb.channel('ls-'+code).on('postgres_changes',{event:'UPDATE',schema:'public',table:'lobbies',filter:'id=eq.'+code},p=>{
+    applyMpSettings(p.new.settings);
     if(p.new.status==='playing'){if(p.new.used_players)p.new.used_players.forEach(id=>APP.usedPlayerIds.add(id));kickoff();}
   }).subscribe();
   refreshPlayers(code);
+}
+// ══ MULTIPLAYER SETTINGS SYNC ══
+function setupMpSettingsUI(){
+  const wrap=el('mp-settings-wrap');
+  if(!wrap)return;
+  wrap.classList.toggle('mp-settings-readonly',!APP.isHost);
+  const tag=el('mp-settings-host-tag');
+  if(tag)tag.textContent=APP.isHost?'':'(set by host)';
+  updateMpSettingsUI();
+}
+function updateMpSettingsUI(){
+  const a=el('mp-sv-timer');if(a)a.textContent=CFG.timer||'Off';
+  const b=el('mp-sv-respins');if(b)b.textContent=CFG.respins;
+  const c=el('mp-tog-auto');if(c)c.classList.toggle('on',CFG.autoOnTimeout);
+  document.querySelectorAll('#mp-cpills .cpill').forEach(p=>p.classList.toggle('off',CFG.excludedTypes.has(p.dataset.t)));
+}
+function mpAdj(key,delta){
+  if(!APP.isHost)return;
+  if(key==='timer')CFG.timer=Math.max(0,Math.min(120,CFG.timer+delta));
+  else if(key==='respins')CFG.respins=Math.max(0,Math.min(6,CFG.respins+delta));
+  updateMpSettingsUI();pushMpSettings();
+}
+function mpToggleAuto(elm){
+  if(!APP.isHost)return;
+  elm.classList.toggle('on');
+  CFG.autoOnTimeout=elm.classList.contains('on');
+  pushMpSettings();
+}
+function mpToggleType(elm){
+  if(!APP.isHost)return;
+  elm.classList.toggle('off');
+  const t=elm.dataset.t;
+  if(elm.classList.contains('off'))CFG.excludedTypes.add(t);else CFG.excludedTypes.delete(t);
+  pushMpSettings();
+}
+async function pushMpSettings(){
+  if(!APP.isHost||!APP.lobbyId)return;
+  try{
+    await sb.from('lobbies').update({settings:{timer:CFG.timer,respins:CFG.respins,autoOnTimeout:CFG.autoOnTimeout,excludedTypes:Array.from(CFG.excludedTypes)}}).eq('id',APP.lobbyId);
+  }catch(e){/* settings column may not exist yet -- non-fatal, host's local CFG still applies */}
+}
+function applyMpSettings(s){
+  if(!s)return;
+  if(typeof s.timer==='number')CFG.timer=s.timer;
+  if(typeof s.respins==='number')CFG.respins=s.respins;
+  if(typeof s.autoOnTimeout==='boolean')CFG.autoOnTimeout=s.autoOnTimeout;
+  if(Array.isArray(s.excludedTypes))CFG.excludedTypes=new Set(s.excludedTypes);
+  updateMpSettingsUI();
 }
 async function refreshPlayers(code) {
   const {data:ps}=await sb.from('lobby_players').select('*').eq('lobby_id',code).order('joined_at');
