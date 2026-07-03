@@ -1099,8 +1099,9 @@ function updateBar(){
 el('srch').addEventListener('input',onInput);
 el('srch').addEventListener('keydown',onKey);
 let hiIdx=-1;
+function normName(s){return(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
 function onInput(){
-  const q=el('srch').value.trim().toLowerCase();
+  const q=normName(el('srch').value.trim());
   const drop=el('ac-drop');
   if(q.length<2){drop.classList.remove('open');return;}
   if(!DB.length){drop.innerHTML='<div class="ac-empty">Loading…</div>';drop.classList.add('open');return;}
@@ -1111,8 +1112,8 @@ function onInput(){
     if(APP.mode==='multiplayer'&&APP.usedPlayerIds.has(p.id))return false;
     if(p.position!==SLOTS[G.pick].dbPos)return false;
     if(locked.includes(p.league))return false;
-    const nm=(p.fullName||p.name||'').toLowerCase();
-    return nm.includes(q)||(p.lastname||'').toLowerCase().startsWith(q)||(p.firstname||'').toLowerCase().startsWith(q);
+    const nm=normName(p.fullName||p.name);
+    return nm.includes(q)||normName(p.lastname).startsWith(q)||normName(p.firstname).startsWith(q);
   }).slice(0,9);
   if(!hits.length){drop.innerHTML='<div class="ac-empty">No players found</div>';drop.classList.add('open');return;}
   drop.innerHTML=hits.map(p=>`<div class="ac-item" onmousedown="event.preventDefault();pickById(${p.id})">
