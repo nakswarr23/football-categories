@@ -897,15 +897,22 @@ async function leaveLobby(){
   APP.lobbyId=null; APP.lobbyPlayerId=null; APP.mode='solo';
   showStep('step-landing');
 }
+let mpFeedCounts={};
 async function subMP(){
+  mpFeedCounts={};
   mpSub=sb.channel('mpg-'+APP.lobbyId)
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'lobby_players',filter:'lobby_id=eq.'+APP.lobbyId},()=>renderMPProgress())
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'lobby_players',filter:'lobby_id=eq.'+APP.lobbyId},async()=>{
+      const {data:ps}=await sb.from('lobby_players').select('*').eq('lobby_id',APP.lobbyId).order('joined_at');
+      if(!ps)return;
+      renderMPProgress(ps);
+      renderMpFeed(ps);
+    })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'lobbies',filter:'id=eq.'+APP.lobbyId},p=>{if(p.new.used_players)p.new.used_players.forEach(id=>APP.usedPlayerIds.add(id));}).subscribe();
   el('mp-sec').style.display='block';
   renderMPProgress();
 }
-async function renderMPProgress(){
-  const {data:ps}=await sb.from('lobby_players').select('*').eq('lobby_id',APP.lobbyId).order('joined_at');
+async function renderMPProgress(prefetched){
+  const ps=prefetched||(await sb.from('lobby_players').select('*').eq('lobby_id',APP.lobbyId).order('joined_at')).data;
   if(!ps)return;
   el('mp-list').innerHTML=ps.map(p=>{
     const me=p.id===APP.lobbyPlayerId, idx=p.current_idx||0;
@@ -914,10 +921,29 @@ async function renderMPProgress(){
     return `<div class="mp-row"><div class="mp-av ${me?'me':''}">${p.player_name[0].toUpperCase()}</div><div class="mp-nm">${p.player_name}</div><div class="mp-dots">${dots}</div><div class="mp-rat">${avg||'—'}</div></div>`;
   }).join('');
 }
+// Shared "who picked who" feed across the whole lobby (skips own row -- local addLog already covers that instantly)
+function renderMpFeed(ps){
+  ps.forEach(p=>{
+    if(p.id===APP.lobbyPlayerId)return;
+    const team=p.team||[];
+    const prevCount=mpFeedCounts[p.id]??team.length;
+    if(team.length>prevCount){
+      for(let i=prevCount;i<team.length;i++){
+        const pick=team[i];
+        if(!pick)continue;
+        const msg=pick.rnd
+          ?`Random: <b>${p.player_name}</b> got <b>${pick.n}</b> <span class="fc" style="color:var(--or)">${pick.k||''}</span>`
+          :`<b>${p.player_name}</b> → <b>${pick.n}</b> <span class="fc">${pick.c||''}</span>`;
+        addLog(msg);
+      }
+    }
+    mpFeedCounts[p.id]=team.length;
+  });
+}
 async function syncPick(player,isRandom){
   if(APP.mode!=='multiplayer'||!APP.lobbyPlayerId)return;
   if(!isRandom&&player.id){APP.usedPlayerIds.add(player.id);const{data:lb}=await sb.from('lobbies').select('used_players').eq('id',APP.lobbyId).single();const used=lb?.used_players||[];used.push(player.id);await sb.from('lobbies').update({used_players:used}).eq('id',APP.lobbyId);}
-  const td=G.squad.filter(Boolean).map(s=>({n:s.player.fullName||s.player.name,r:s.player.rating||0,rnd:!!s.isRandom}));
+  const td=G.squad.map((s,i)=>s?({n:s.player.fullName||s.player.name,r:s.player.rating||0,rnd:!!s.isRandom,c:s.cat.label,k:SLOTS[i].key}):null).filter(Boolean);
   await sb.from('lobby_players').update({team:td,current_idx:G.pick}).eq('id',APP.lobbyPlayerId);
 }
 
