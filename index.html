@@ -644,7 +644,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     </div>
     <div class="rev-actions">
       <button class="rev-btn rev-btn-ghost" onclick="showStep('step-landing')">← New draft</button>
-      <button class="rev-btn rev-btn-sim" onclick="doSim()">Simulate season →</button>
+      <button class="rev-btn rev-btn-sim" onclick="handleSimulateClick()">Simulate season →</button>
     </div>
   </div>
   <div class="rev-body">
@@ -894,6 +894,9 @@ async function leaveLobby(){
   if(APP.lobbyPlayerId)await sb.from('lobby_players').delete().eq('id',APP.lobbyPlayerId);
   if(plSub)sb.removeChannel(plSub);
   if(lobSub)sb.removeChannel(lobSub);
+  if(draftWaitInterval)clearInterval(draftWaitInterval);
+  if(resultWaitInterval)clearInterval(resultWaitInterval);
+  const dw=document.getElementById('mp-draftwait-overlay'); if(dw)dw.remove();
   APP.lobbyId=null; APP.lobbyPlayerId=null; APP.mode='solo';
   showStep('step-landing');
 }
@@ -943,7 +946,7 @@ function renderMpFeed(ps){
 async function syncPick(player,isRandom){
   if(APP.mode!=='multiplayer'||!APP.lobbyPlayerId)return;
   if(!isRandom&&player.id){APP.usedPlayerIds.add(player.id);const{data:lb}=await sb.from('lobbies').select('used_players').eq('id',APP.lobbyId).single();const used=lb?.used_players||[];used.push(player.id);await sb.from('lobbies').update({used_players:used}).eq('id',APP.lobbyId);}
-  const td=G.squad.map((s,i)=>s?({n:s.player.fullName||s.player.name,r:s.player.rating||0,rnd:!!s.isRandom,c:s.cat.label,k:SLOTS[i].key}):null).filter(Boolean);
+  const td=G.squad.map((s,i)=>s?({id:s.player.id,n:s.player.fullName||s.player.name,r:s.player.rating||0,rnd:!!s.isRandom,c:s.cat.label,k:SLOTS[i].key}):null).filter(Boolean);
   await sb.from('lobby_players').update({team:td,current_idx:G.pick}).eq('id',APP.lobbyPlayerId);
 }
 
@@ -1694,69 +1697,356 @@ function doSim(){
       <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;"><span style="color:var(--tx2)">Avg rating</span><span style="font-weight:700;color:var(--am)">${avg.toFixed(1)}</span></div>`;
   }
 
-  // Multiplayer: submit results then wait for others
-  if(APP.mode==='multiplayer'&&APP.lobbyPlayerId){
-    const simResult = {pts:plPts,pos:finalPosTreble,grade,avg:Math.round(avg*10)/10,gf:plGF,ga:plGA,ucl:uclR,cup:cupR,treble:isTreble,done:true};
-    sb.from('lobby_players').update({
-      team: G.squad.map((s,i)=>s?({n:s.player.fullName||s.player.name,r:s.player.rating||0,rnd:!!s.isRandom,c:s.cat.label,k:SLOTS[i].key}):null).filter(Boolean),
-      categories: [simResult]
-    }).eq('id',APP.lobbyPlayerId).then(()=>{
-      waitForAllAndShowLeaderboard();
-    });
-    // Show "waiting" overlay on results until everyone is done
-    showWaitingOverlay();
-  }
   window._simAnim = {finalPos:finalPosTreble, cupR, uclR, uclLeaguePos};
   revealSimResults();
 }
-
-function showWaitingOverlay(){
-  // Remove any existing
-  const ex = document.getElementById('mp-wait-overlay');
-  if(ex) ex.remove();
-  const div = document.createElement('div');
-  div.id = 'mp-wait-overlay';
-  div.style.cssText = 'position:fixed;inset:0;background:rgba(7,10,18,.88);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;backdrop-filter:blur(4px);';
-  div.innerHTML = `
-    <div style="font-family:var(--fd);font-size:36px;letter-spacing:2px;color:var(--tx)">Season simulated</div>
-    <div style="font-size:14px;color:var(--tx2)">Waiting for other players to finish...</div>
-    <div id="mp-wait-list" style="display:flex;flex-direction:column;gap:8px;min-width:280px;margin-top:8px;"></div>
-    <div style="font-size:11px;color:var(--tx3);margin-top:8px;">Results reveal when everyone is done</div>`;
-  document.body.appendChild(div);
-  pollForCompletion();
+// doSim() above is solo-only. Multiplayer uses handleSimulateClick() -> mpReadyToSim() ->
+// hostComputeSharedSeason() (one shared season across the whole lobby) -> renderResultsFromShared().
+function handleSimulateClick(){
+  if(APP.mode==='multiplayer') mpReadyToSim();
+  else doSim();
 }
 
-let pollInterval = null;
-function pollForCompletion(){
-  if(pollInterval) clearInterval(pollInterval);
-  pollInterval = setInterval(async()=>{
-    const {data:ps} = await sb.from('lobby_players').select('*').eq('lobby_id',APP.lobbyId).order('joined_at');
-    if(!ps) return;
-    const overlay = document.getElementById('mp-wait-overlay');
-    if(!overlay){ clearInterval(pollInterval); return; }
-    const waitList = document.getElementById('mp-wait-list');
-    if(waitList){
-      waitList.innerHTML = ps.map(p=>{
-        const done = !!(p.categories&&p.categories[0]&&p.categories[0].done);
+// ══ MULTIPLAYER: SYNCED SHARED SEASON ══
+// Everyone must finish drafting before anyone simulates -- the host then computes ONE shared
+// season across every squad in the lobby (distinct league positions, a single domestic cup
+// winner and a single UCL champion, chosen so a genuinely dominant squad tends to win and a
+// weak lobby can produce no winner at all) and writes each player's own result back to their row.
+let draftWaitInterval=null, resultWaitInterval=null;
+function mpReadyToSim(){
+  showMpDraftWaitOverlay();
+  pollForAllDraftsComplete();
+}
+function showMpDraftWaitOverlay(msg){
+  const ex=document.getElementById('mp-draftwait-overlay');
+  if(ex){ if(msg) ex.querySelector('.mp-dw-title').textContent=msg; return; }
+  const div=document.createElement('div');
+  div.id='mp-draftwait-overlay';
+  div.style.cssText='position:fixed;inset:0;background:rgba(7,10,18,.92);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;backdrop-filter:blur(4px);padding:2rem;text-align:center;';
+  div.innerHTML=`
+    <div class="mp-dw-title" style="font-family:var(--fd);font-size:30px;letter-spacing:2px;color:var(--tx);">${msg||'Waiting for the rest of the lobby'}</div>
+    <div style="font-size:13px;color:var(--tx2);max-width:360px;">Everyone needs to finish drafting before the shared season simulates -- so it's a real table, not 11 separate ones</div>
+    <div id="mp-draftwait-list" style="display:flex;flex-direction:column;gap:8px;min-width:280px;margin-top:8px;"></div>`;
+  document.body.appendChild(div);
+}
+function pollForAllDraftsComplete(){
+  if(draftWaitInterval)clearInterval(draftWaitInterval);
+  draftWaitInterval=setInterval(async()=>{
+    const {data:ps}=await sb.from('lobby_players').select('*').eq('lobby_id',APP.lobbyId).order('joined_at');
+    if(!ps)return;
+    const listEl=document.getElementById('mp-draftwait-list');
+    if(listEl){
+      listEl.innerHTML=ps.map(p=>{
+        const done=(p.current_idx||0)>=11;
         return`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--s1);border:1px solid ${done?'var(--acm)':'var(--bd)'};border-radius:8px;">
           <div style="width:8px;height:8px;border-radius:50%;background:${done?'var(--gr)':'var(--s3)'}"></div>
           <span style="font-size:13px;font-weight:500;${p.id===APP.lobbyPlayerId?'color:var(--ac)':''}">${p.player_name}${p.id===APP.lobbyPlayerId?' (you)':''}</span>
-          <span style="margin-left:auto;font-size:11px;color:var(--tx3)">${done?'Done':'Playing...'}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--tx3)">${done?'Ready':'Drafting…'}</span>
         </div>`;
       }).join('');
     }
-    const allDone = ps.every(p=>p.categories&&p.categories[0]&&p.categories[0].done);
+    const allDone=ps.length>0&&ps.every(p=>(p.current_idx||0)>=11);
     if(allDone){
-      clearInterval(pollInterval);
-      overlay.remove();
-      showMPLeaderboard(0,'','',0, ps);
+      clearInterval(draftWaitInterval);
+      showMpDraftWaitOverlay('Simulating the shared season…');
+      const listEl2=document.getElementById('mp-draftwait-list'); if(listEl2)listEl2.innerHTML='';
+      if(APP.isHost) await hostComputeSharedSeason();
+      pollForOwnResult();
     }
-  }, 2000);
+  },1500);
+}
+function pollForOwnResult(){
+  if(resultWaitInterval)clearInterval(resultWaitInterval);
+  resultWaitInterval=setInterval(async()=>{
+    const {data:p}=await sb.from('lobby_players').select('*').eq('id',APP.lobbyPlayerId).single();
+    if(p&&p.categories&&p.categories[0]&&p.categories[0].done){
+      clearInterval(resultWaitInterval);
+      const ov=document.getElementById('mp-draftwait-overlay'); if(ov)ov.remove();
+      renderResultsFromShared(p.categories[0]);
+      revealSimResults();
+    }
+  },1200);
 }
 
-function waitForAllAndShowLeaderboard(){
-  // Already handled by pollForCompletion
+async function hostComputeSharedSeason(){
+  const {data:ps}=await sb.from('lobby_players').select('*').eq('lobby_id',APP.lobbyId).order('joined_at');
+  if(!ps||!ps.length)return;
+  const r=()=>Math.random();
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+
+  const entries=ps.map(p=>{
+    const squad=(p.team||[]).map(t=>{
+      const player=DB.find(d=>d.id===t.id);
+      return player?{player,isRandom:!!t.rnd}:null;
+    }).filter(Boolean);
+    return {lobbyPlayerId:p.id,playerName:p.player_name,squad};
+  }).filter(e=>e.squad.length===11);
+  if(!entries.length)return;
+
+  // Per-entry natural simulation -- mirrors doSim()'s core formulas so a shared game feels
+  // like the same engine as solo, just without any single-player trophy overrides yet.
+  entries.forEach(e=>{
+    const filled=e.squad;
+    const avg=filled.reduce((a,s)=>a+(s.player.rating||0),0)/filled.length;
+    const rndCount=filled.filter(s=>s.isRandom).length;
+    const rndPenalty=rndCount*1.8;
+
+    let compBonus=0;
+    const natCounts={};
+    filled.forEach(s=>{const n=s.player.nationality||'Unknown';natCounts[n]=(natCounts[n]||0)+1;});
+    const maxNatCount=Math.max(0,...Object.values(natCounts));
+    if(maxNatCount>=4)compBonus+=Math.min(0.5+(maxNatCount-4)*0.25,1);
+    const uclWcWinners=filled.filter(s=>(s.player.trophies||[]).some(t=>t.place==='Winner'&&(t.league==='UEFA Champions League'||t.league==='FIFA World Cup'||t.league==='World Cup'))).length;
+    compBonus+=Math.min(uclWcWinners*0.2,2.0);
+    const ages=filled.map(s=>s.player.age||25);
+    const vets=ages.filter(a=>a>=30).length,young=ages.filter(a=>a<24).length,peak=ages.filter(a=>a>=24&&a<30).length;
+    if(ages.every(a=>a>=35)||ages.every(a=>a<=19))compBonus-=0.5;
+    else if(vets>=2&&young>=2&&peak>=filled.length/2)compBonus+=0.5;
+    const leagueSet=new Set(filled.map(s=>s.player.league));
+    if(leagueSet.size===1&&filled.length===11)compBonus-=0.5;
+    compBonus=Math.max(-3,Math.min(3,compBonus));
+    const effectiveAvg=avg-rndPenalty+compBonus;
+
+    const base=((effectiveAvg-68)/26)*30;
+    const variance=(r()-0.5)*18;
+    let plW=clamp(Math.round(base+variance),3,34);
+    let plD=clamp(Math.round(8-plW*0.12+r()*5),2,14);
+    let plL=clamp(38-plW-plD,0,33);
+    let plPts=plW*3+plD;
+    let posCapPts=null;
+    if(effectiveAvg<65)posCapPts=22;else if(effectiveAvg<72)posCapPts=30;else if(effectiveAvg<80)posCapPts=40;
+    if(posCapPts!==null&&plPts>posCapPts){
+      const scale=posCapPts/plPts;
+      plW=clamp(Math.round(plW*scale),1,plW);plD=clamp(Math.round(plD*scale),0,plD);plL=clamp(38-plW-plD,0,36);plPts=plW*3+plD;
+    }
+    const plGF=Math.round(plW*2.4+plD*0.7+15+r()*10);
+    const plGA=Math.round(clamp(72-effectiveAvg*0.6-r()*10+5,12,60));
+
+    let cupWinChance=0,leagueWinBoost=0,uclWinChance=0;
+    if(effectiveAvg>=89){cupWinChance=0.85;leagueWinBoost=14;uclWinChance=0.6;}
+    else if(effectiveAvg>=88){cupWinChance=0.55;leagueWinBoost=8;uclWinChance=0.3;}
+    else if(effectiveAvg>=87){cupWinChance=0.35;leagueWinBoost=2;uclWinChance=0.08;}
+    else if(effectiveAvg>=84){cupWinChance=0.12;uclWinChance=0.02;}
+    if(leagueWinBoost)plPts=clamp(plPts+Math.round(leagueWinBoost*r()),plPts,95);
+
+    const posOf=pts=>pts>=88?1:pts>=78?2:pts>=71?3:pts>=64?4:pts>=58?5:pts>=53?6:pts>=48?7:pts>=43?8:pts>=38?9:pts>=34?10:pts>=30?11:pts>=27?12:pts>=24?13:pts>=21?14:pts>=18?15:pts>=15?16:pts>=12?17:pts>=9?18:pts>=6?19:20;
+    const posF=posOf(plPts);
+    let posFloor=null;
+    if(effectiveAvg<65)posFloor=19+Math.round(r());
+    else if(effectiveAvg<72)posFloor=17+Math.round(r()*2);
+    else if(effectiveAvg<80)posFloor=13+Math.round(r()*4);
+    const finalPos=posFloor!==null?Math.max(posF,posFloor):posF;
+
+    let uclR,uW=0,uD=0,uL=0,uclGamesPlayed=0;
+    const leagueW=clamp(Math.round((effectiveAvg-72)*0.22+r()*2.5),0,8);
+    const leagueD=clamp(Math.round(r()*2.5),0,4);
+    const leagueL=clamp(8-leagueW-leagueD,0,8);
+    uclGamesPlayed=8;uW=leagueW;uD=leagueD;uL=leagueL;
+    const leaguePts=leagueW*3+leagueD;
+    const uclLeaguePos=clamp(Math.round(36-(leaguePts/24)*35-(r()-0.5)*6),1,36);
+    function uclTwoLegTie(){
+      const tieStrength=clamp((effectiveAvg-75)*0.045+(r()-0.45)*0.5,-0.4,0.55);
+      const legOutcomeRoll=r()+tieStrength;
+      let leg1,leg2;
+      if(legOutcomeRoll>0.62){leg1='w';leg2=r()<0.65?'w':'d';}
+      else if(legOutcomeRoll>0.42){leg1='w';leg2='l';}
+      else if(legOutcomeRoll>0.28){leg1='d';leg2='d';}
+      else if(legOutcomeRoll>0.12){leg1='l';leg2='w';}
+      else{leg1='l';leg2=r()<0.7?'l':'d';}
+      [leg1,leg2].forEach(o=>{if(o==='w')uW++;else if(o==='d')uD++;else uL++;});
+      uclGamesPlayed+=2;
+      const twoLosses=leg1==='l'&&leg2==='l';
+      return !twoLosses&&(leg1==='w'||leg2==='w'||r()<0.5);
+    }
+    function uclFinalMatch(){
+      const tieStrength=clamp((effectiveAvg-75)*0.045+(r()-0.45)*0.5,-0.4,0.55);
+      const rl=r()+tieStrength;
+      let won;
+      if(rl>0.55){uW++;won=true;}else if(rl>0.3){uD++;won=r()<0.5;}else{uL++;won=false;}
+      uclGamesPlayed+=1;
+      return won;
+    }
+    if(uclLeaguePos>24)uclR='League phase';
+    else if(uclLeaguePos>=9){
+      if(!uclTwoLegTie())uclR='Knockout Playoff';
+      else if(!uclTwoLegTie())uclR='Round of 16';
+      else if(!uclTwoLegTie())uclR='Quarter-finals';
+      else if(!uclTwoLegTie())uclR='Semi-finals';
+      else if(!uclFinalMatch())uclR='Final';else uclR='Champions';
+    }else{
+      if(!uclTwoLegTie())uclR='Round of 16';
+      else if(!uclTwoLegTie())uclR='Quarter-finals';
+      else if(!uclTwoLegTie())uclR='Semi-finals';
+      else if(!uclFinalMatch())uclR='Final';else uclR='Champions';
+    }
+    const uclTookPlayoffPath=uclLeaguePos>=9&&uclLeaguePos<=24;
+    const uclMaxGames=uclTookPlayoffPath?17:15;
+
+    let cupR,cW=0,cL=0;
+    const cupRounds=['Round 3','Round 4','Quarter-finals','Semi-finals','Final'];
+    let cIdx=0,cAlive=true;
+    while(cAlive&&cIdx<cupRounds.length){
+      const winRoll=r()+(effectiveAvg-74)*0.02;
+      if(winRoll>0.42){cW++;cIdx++;if(cIdx>=cupRounds.length){cupR='Winners';cAlive=false;}}
+      else{cL++;cupR=cupRounds[cIdx]==='Final'?'Finalists':cupRounds[cIdx];cAlive=false;}
+    }
+    if(cAlive)cupR='Winners';
+
+    Object.assign(e,{avg,effectiveAvg,rndCount,plW,plD,plL,plPts,plGF,plGA,finalPos,
+      cupWinChance,uclWinChance,cupR,cW,cL,uclR,uW,uD,uL,uclGamesPlayed,uclLeaguePos,uclMaxGames});
+  });
+
+  // Resolve league position collisions: rank by points (ties broken by effectiveAvg), then
+  // assign strictly-consecutive positions anchored at the strongest squad's own natural
+  // tier-appropriate position. Guaranteed unique and guaranteed to fit within 1-20 regardless
+  // of lobby size or how clustered everyone's natural positions are (a naive "floor = own
+  // natural position, push down on collision" approach can cascade past 20 for a weak lobby
+  // and then collide again once clamped back -- this anchor-and-space approach can't).
+  const sorted=[...entries].sort((a,b)=>b.plPts-a.plPts||b.effectiveAvg-a.effectiveAvg);
+  const bestNatural=Math.min(...entries.map(e=>e.finalPos));
+  const startPos=Math.max(1,Math.min(bestNatural,21-entries.length));
+  sorted.forEach((e,i)=>{ e.finalPos=startPos+i; });
+
+  // Arbitrate a single domestic cup winner and a single UCL champion across the whole lobby.
+  // Weighted by each entry's own trophy chance -- a dominant squad is far more likely to win,
+  // and if even the strongest squad's chance-roll fails, nobody in the lobby wins it at all
+  // (some club outside the lobby won it instead -- same "no honor system" logic as solo).
+  function pickTrophyWinner(chanceKey){
+    const strongest=Math.max(...entries.map(e=>e[chanceKey]));
+    if(strongest<=0||Math.random()>=strongest)return null;
+    const weights=entries.map(e=>Math.max(0.02,e[chanceKey]));
+    const total=weights.reduce((a,b)=>a+b,0);
+    let roll=Math.random()*total;
+    for(let i=0;i<entries.length;i++){ roll-=weights[i]; if(roll<=0)return entries[i]; }
+    return entries[entries.length-1];
+  }
+  const cupWinner=pickTrophyWinner('cupWinChance');
+  entries.forEach(e=>{
+    if(cupWinner&&e===cupWinner){ if(e.cupR!=='Winners'){e.cW=5;e.cL=0;} e.cupR='Winners'; }
+    else if(e.cupR==='Winners'){ e.cupR='Finalists'; e.cL=Math.max(e.cL,1); e.cW=Math.min(e.cW,4); }
+  });
+  const uclWinner=pickTrophyWinner('uclWinChance');
+  entries.forEach(e=>{
+    if(uclWinner&&e===uclWinner){
+      if(e.uclR!=='Champions'){
+        let legsNeeded=e.uclMaxGames-e.uclGamesPlayed;
+        while(legsNeeded-->0){const rl=Math.random();if(rl<0.75)e.uW++;else if(rl<0.9)e.uD++;else e.uL++;}
+        e.uclGamesPlayed=e.uclMaxGames;
+      }
+      e.uclR='Champions';
+    }else if(e.uclR==='Champions'){ e.uclR='Final'; }
+  });
+
+  // A treble emerges naturally if the same entry topped the league, won the cup, AND the UCL --
+  // no separate roll needed, it just falls out of the three arbitrations above.
+  entries.forEach(e=>{ e.isTreble=e.finalPos===1&&e.cupR==='Winners'&&e.uclR==='Champions'; });
+
+  const gradeOf=pts=>pts>=88?'S+':pts>=78?'S':pts>=68?'A+':pts>=58?'A':pts>=47?'B+':pts>=36?'B':pts>=25?'C':pts>=15?'D':'F';
+  for(const e of entries){
+    const grade=e.isTreble?'S+':gradeOf(e.plPts);
+    const simResult={pts:e.plPts,pos:e.finalPos,grade,avg:Math.round(e.avg*10)/10,gf:e.plGF,ga:e.plGA,ucl:e.uclR,cup:e.cupR,treble:e.isTreble,done:true,
+      effectiveAvg:Math.round(e.effectiveAvg*10)/10,plW:e.plW,plD:e.plD,plL:e.plL,uW:e.uW,uD:e.uD,uL:e.uL,uclGamesPlayed:e.uclGamesPlayed,uclLeaguePos:e.uclLeaguePos,cW:e.cW,cL:e.cL};
+    await sb.from('lobby_players').update({categories:[simResult]}).eq('id',e.lobbyPlayerId);
+  }
 }
+
+// Populates the results DOM from a host-computed shared result instead of a freshly-run local
+// simulation. Mirrors doSim()'s DOM-writing tail exactly, just sourcing values from `result`.
+function renderResultsFromShared(result){
+  const plW=result.plW||0,plD=result.plD||0,plL=result.plL||0,plPts=result.pts,plGF=result.gf,plGA=result.ga;
+  const finalPosTreble=result.pos;
+  const cupR=result.cup,cW=result.cW||0,cL=result.cL||0;
+  const uclR=result.ucl,uW=result.uW||0,uD=result.uD||0,uL=result.uL||0,uclGamesPlayed=result.uclGamesPlayed||0,uclLeaguePos=result.uclLeaguePos||0;
+  const isTreble=!!result.treble;
+  const avg=result.avg;
+  const effectiveAvg=result.effectiveAvg!=null?result.effectiveAvg:avg;
+  const rndCount=G.squad.filter(s=>s&&s.isRandom).length;
+
+  const fdots=(w,d,l)=>[...Array(Math.min(5,w)).fill('w'),...Array(Math.min(2,d)).fill('d'),...Array(Math.min(3,l)).fill('l')].map(x=>`<div class="fd ${x}"></div>`).join('');
+  const grade=result.grade;
+  const gradeColor={'S+':'#f0c040','S':'#e8b820','A+':'#4caf50','A':'#66bb6a','B+':'#42a5f5','B':'#5c8fef','C':'#ff9800','D':'#f06060','F':'#cc3333'}[grade]||'#8b96a8';
+  const gradeDesc={'S+':'Legendary','S':'Elite','A+':'Excellent','A':'Very good','B+':'Good','B':'Solid','C':'Below average','D':'Poor','F':'Disaster'}[grade]||'';
+
+  const natCounts={};
+  G.squad.filter(Boolean).forEach(s=>{const n=s.player.nationality||'Unknown';natCounts[n]=(natCounts[n]||0)+1;});
+  const uclWcWinners=G.squad.filter(Boolean).filter(s=>(s.player.trophies||[]).some(t=>t.place==='Winner'&&(t.league==='UEFA Champions League'||t.league==='FIFA World Cup'||t.league==='World Cup'))).length;
+  const bi=G.squad.reduce((bi,s,i)=>s&&(!G.squad[bi]||(s.player.rating||0)>(G.squad[bi]?.player?.rating||0))?i:bi,0);
+  const best=G.squad[bi];
+  const standoutName=best?(best.player.name||best.player.fullName||best.player.lastname||'').split(' ').slice(-1)[0]:'the squad';
+  const natEntry=Object.entries(natCounts).sort((a,b)=>b[1]-a[1])[0];
+  const natHeavy=natEntry&&natEntry[1]>=4?natEntry[0]:null;
+  const trophyNote=uclWcWinners>=2?`${uclWcWinners} proven winners in the ranks`:null;
+
+  let narrative;
+  if(isTreble)narrative=`${natHeavy?`Your ${natHeavy}-heavy squad`:'Your squad'}, led by ${standoutName}, swept every competition — the treble, an immortal season.`;
+  else if(finalPosTreble===1)narrative=`${natHeavy?`A ${natHeavy}-heavy core`:'A squad built for the top'}, spearheaded by ${standoutName}, stormed to the title.`;
+  else if(finalPosTreble<=2)narrative=`${standoutName} inspired a title charge that fell just short — runners-up.`;
+  else if(finalPosTreble<=4)narrative=`${standoutName} led the line as the squad secured Champions League football.`;
+  else if(finalPosTreble<=6)narrative=`A steady campaign built around ${standoutName} lands Europa League football next season.`;
+  else if(finalPosTreble<=10)narrative=`${natHeavy?`Your ${natHeavy}-heavy squad`:'The squad'} settled into a solid mid-table finish, with ${standoutName} the standout performer.`;
+  else if(finalPosTreble<=14)narrative=`A difficult campaign${trophyNote?`, despite ${trophyNote}`:''} — ${standoutName} couldn't drag the squad higher.`;
+  else if(finalPosTreble<=17)narrative=`A relegation battle survived on the back of ${standoutName}'s performances.`;
+  else narrative=`Relegated — even ${standoutName} couldn't prevent the drop.`;
+
+  el('res-pos').textContent=finalPosTreble+suf(finalPosTreble)+' place';
+  el('res-pts').textContent=plPts;
+  el('res-gd').textContent='+'+(Math.max(0,plGF-plGA));
+  el('res-sub').textContent=`Squad avg ${effectiveAvg.toFixed(1)}${rndCount?` (${rndCount} random player${rndCount>1?'s':''})`:''}. ${narrative}`;
+
+  const gradeHtml=`<div class="tc-grade-badge">${grade}</div><div class="tc-grade-desc">${gradeDesc}</div>`;
+  el('trophy-cards').innerHTML=`
+    <div class="tc ${finalPosTreble===1?'won':''}"><div class="tc-comp">League</div><div class="tc-result ${finalPosTreble===1?'gold':finalPosTreble<=4?'silver':'dim'}">${finalPosTreble===1?'Champions':finalPosTreble<=4?'Top '+finalPosTreble:'P'+finalPosTreble}</div><div class="form-dots">${fdots(plW,plD,plL)}</div><div class="tc-det">${plW}W ${plD}D ${plL}L · ${plPts} pts</div></div>
+    <div class="tc ${cupR==='Winners'?'won':''}"><div class="tc-comp">Domestic Cup</div><div class="tc-result ${cupR==='Winners'?'gold':cupR==='Finalists'?'silver':'dim'}">${cupR}</div><div class="form-dots">${fdots(cW,0,cL)}</div><div class="tc-det">${cW} wins</div></div>
+    <div class="tc ${uclR==='Champions'?'won':''}"><div class="tc-comp">UCL</div><div class="tc-result ${uclR==='Champions'?'gold':uclR==='Final'?'silver':'dim'}">${uclR==='League phase'?'Eliminated':uclR}</div><div class="form-dots">${fdots(uW,uD,uL)}</div><div class="tc-det">${uclLeaguePos}${suf(uclLeaguePos)} in League Phase · ${uW}W ${uD}D ${uL}L</div></div>
+    <div class="tc tc-grade" style="--gc:${gradeColor}">${gradeHtml}<div class="tc-grade-sub">${avg.toFixed(1)} avg rating</div></div>`;
+
+  el('camp-tbl').innerHTML=`
+    <tr><td>Premier League</td><td>38</td><td>${plW}</td><td>${plD}</td><td>${plL}</td><td>${plGF}</td><td>${plGA}</td><td>${plPts}</td></tr>
+    <tr><td>UCL</td><td>${uclGamesPlayed}</td><td>${uW}</td><td>${uD}</td><td>${uL}</td><td>${Math.round(uW*2.1+uD*1.1)}</td><td>${Math.round(uL*1.3+uD*.6)}</td><td>—</td></tr>
+    <tr><td>Domestic Cup</td><td>${cW+cL}</td><td>${cW}</td><td>0</td><td>${cL}</td><td>${cW*2}</td><td>${Math.max(1,cL*1.4)|0}</td><td>—</td></tr>`;
+
+  if(best){
+    el('pots-img').src=best.player.photo||'';
+    el('pots-name').textContent=(best.player.fullName||best.player.name).toUpperCase();
+    el('pots-role').textContent=(best.player.nationality||'—')+' · '+best.player.position;
+    el('pots-rat').textContent=best.player.rating;
+    el('pots-cat').textContent=best.cat.label;
+    el('pots-pos').textContent=SLOTS[bi].key;
+  }
+
+  const squadGrid=el('res-squad-grid');
+  if(squadGrid){
+    squadGrid.innerHTML=G.squad.map((s,i)=>{
+      if(!s)return`<div style="text-align:center;opacity:.3"><div style="width:100%;aspect-ratio:1;border-radius:50%;background:var(--s3);margin:0 auto 4px;max-width:36px;"></div><div style="font-size:8px;color:var(--tx3)">${SLOTS[i].key}</div></div>`;
+      const p=s.player;
+      const dn=(p.fullName||p.name).split(' ').slice(-1)[0];
+      return`<div style="text-align:center;cursor:pointer" title="${p.fullName||p.name} · ${p.rating}">
+        <img src="${p.photo||''}" style="width:100%;max-width:36px;aspect-ratio:1;border-radius:50%;object-fit:cover;object-position:top;border:2px solid ${s.isRandom?'rgba(249,115,22,.5)':'rgba(62,207,106,.4)'};display:block;margin:0 auto 3px;" onerror="this.style.opacity='.2'">
+        <div style="font-size:8px;font-weight:600;color:${s.isRandom?'var(--or)':'var(--tx)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${dn}</div>
+        <div style="font-size:7px;color:var(--tx3)">${p.rating}</div>
+      </div>`;
+    }).join('');
+  }
+
+  const statsBod=el('res-stats-body');
+  if(statsBod){
+    const filled=G.squad.filter(Boolean);
+    const lgs={};filled.forEach(s=>{lgs[s.player.league]=(lgs[s.player.league]||0)+1;});
+    const nats={};filled.forEach(s=>{nats[s.player.nationality||'?']=(nats[s.player.nationality||'?']||0)+1;});
+    const topLg=Object.entries(lgs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([l,c])=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--bd);"><span style="color:var(--tx2)">${l}</span><span style="font-weight:700">${c}</span></div>`).join('');
+    const topNat=Object.entries(nats).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([n,c])=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--bd);"><span style="color:var(--tx2)">${n}</span><span style="font-weight:700">${c}</span></div>`).join('');
+    statsBod.innerHTML=`
+      <div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Top leagues</div>
+      ${topLg}
+      <div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin:10px 0 4px;">Top nationalities</div>
+      ${topNat}
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding:8px 0 4px;"><span style="color:var(--tx2)">Random players</span><span style="font-weight:700;color:${rndCount?'var(--or)':'var(--gr)'}">${rndCount}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;"><span style="color:var(--tx2)">Avg rating</span><span style="font-weight:700;color:var(--am)">${avg.toFixed(1)}</span></div>`;
+  }
+
+  window._simAnim={finalPos:finalPosTreble,cupR,uclR,uclLeaguePos};
+}
+
 
 async function fetchAndShowLeaderboard(){
   const {data:ps} = await sb.from('lobby_players').select('*').eq('lobby_id',APP.lobbyId).order('joined_at');
@@ -1841,7 +2131,6 @@ function suf(n){const m=n%100;if(m>=11&&m<=13)return'th';switch(n%10){case 1:ret
 
 // ══ SEASON REPLAY ANIMATION ══
 function revealSimResults(){
-  if(APP.mode==='multiplayer'){showStep('step-results');return;}
   showSeasonReplay();
 }
 function zoneColor(pos){
