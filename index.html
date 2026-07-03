@@ -1486,14 +1486,14 @@ function doSim(){
   // 88-88.9: real shot at league title or UCL (not both). 89-90+: treble contention, very high odds.
   let cupWinChance = 0, leagueWinBoost = 0, uclWinChance = 0, trebleRoll = false;
   if (effectiveAvg >= 89) {
-    trebleRoll = useR() < 0.55; // most 89-90+ squads land a treble or near-treble
-    cupWinChance = 0.85; leagueWinBoost = 14; uclWinChance = 0.6;
+    trebleRoll = useR() < 0.28; // a genuine treble is still rare, even for 89-90+ squads
+    cupWinChance = 0.55; leagueWinBoost = 10; uclWinChance = 0.35;
   } else if (effectiveAvg >= 88) {
-    cupWinChance = 0.55; leagueWinBoost = 8; uclWinChance = 0.3;
+    cupWinChance = 0.35; leagueWinBoost = 5; uclWinChance = 0.15;
   } else if (effectiveAvg >= 87) {
-    cupWinChance = 0.35; leagueWinBoost = 2; uclWinChance = 0.08;
+    cupWinChance = 0.20; leagueWinBoost = 2; uclWinChance = 0.05;
   } else if (effectiveAvg >= 84) {
-    cupWinChance = 0.12; uclWinChance = 0.02;
+    cupWinChance = 0.06; uclWinChance = 0.01;
   }
   // Nudge points up for high tiers so position reflects trophy push
   if (leagueWinBoost) { plPts = clamp(plPts + Math.round(leagueWinBoost * useR()), plPts, 95); }
@@ -1522,27 +1522,27 @@ function doSim(){
   uclLeaguePos = clamp(Math.round(36 - (leaguePts/24)*35 - (useR()-0.5)*6), 1, 36);
 
   function uclTwoLegTie(){
-    const tieStrength = clamp((effectiveAvg - 75) * 0.045 + (useR()-0.45)*0.5, -0.4, 0.55);
+    const tieStrength = clamp((effectiveAvg - 78) * 0.032 + (useR()-0.5)*0.5, -0.45, 0.4);
     // Leg results: realistic tie outcomes — win+win, win+draw, win+loss, draw+draw, loss+loss are the only sane combos
     const legOutcomeRoll = useR() + tieStrength;
     let leg1, leg2;
-    if (legOutcomeRoll > 0.62) { leg1='w'; leg2 = useR()<0.65?'w':'d'; }
-    else if (legOutcomeRoll > 0.42) { leg1='w'; leg2='l'; } // win one, lose one — survives on aggregate sometimes
-    else if (legOutcomeRoll > 0.28) { leg1='d'; leg2='d'; }
-    else if (legOutcomeRoll > 0.12) { leg1='l'; leg2='w'; }
+    if (legOutcomeRoll > 0.68) { leg1='w'; leg2 = useR()<0.65?'w':'d'; }
+    else if (legOutcomeRoll > 0.48) { leg1='w'; leg2='l'; } // win one, lose one — survives on aggregate sometimes
+    else if (legOutcomeRoll > 0.32) { leg1='d'; leg2='d'; }
+    else if (legOutcomeRoll > 0.16) { leg1='l'; leg2='w'; }
     else { leg1='l'; leg2 = useR()<0.7?'l':'d'; }
     [leg1, leg2].forEach(o => { if(o==='w') uW++; else if(o==='d') uD++; else uL++; });
     uclGamesPlayed += 2;
     const twoLosses = leg1==='l' && leg2==='l';
-    return !twoLosses && (leg1==='w'||leg2==='w'||useR()<0.5);
+    return !twoLosses && (leg1==='w'||leg2==='w'||useR()<0.4);
   }
   function uclFinal(){
     // Single match at a neutral venue — no second leg. Draws go to ET/penalties (coin flip).
-    const tieStrength = clamp((effectiveAvg - 75) * 0.045 + (useR()-0.45)*0.5, -0.4, 0.55);
+    const tieStrength = clamp((effectiveAvg - 78) * 0.032 + (useR()-0.5)*0.5, -0.45, 0.4);
     const rl = useR() + tieStrength;
     let won;
-    if (rl > 0.55) { uW++; won = true; }
-    else if (rl > 0.3) { uD++; won = useR() < 0.5; }
+    if (rl > 0.62) { uW++; won = true; }
+    else if (rl > 0.35) { uD++; won = useR() < 0.45; }
     else { uL++; won = false; }
     uclGamesPlayed += 1;
     return won;
@@ -1585,8 +1585,8 @@ function doSim(){
   const cupRounds = ['Round 3','Round 4','Quarter-finals','Semi-finals','Final'];
   let cIdx=0, cAlive=true;
   while (cAlive && cIdx < cupRounds.length) {
-    const winRoll = useR() + (effectiveAvg-74)*0.02;
-    if (winRoll > 0.42) { cW++; cIdx++; if(cIdx>=cupRounds.length){cupR='Winners';cAlive=false;} }
+    const winRoll = useR() + (effectiveAvg-77)*0.014;
+    if (winRoll > 0.46) { cW++; cIdx++; if(cIdx>=cupRounds.length){cupR='Winners';cAlive=false;} }
     else { cL++; cupR = cupRounds[cIdx]==='Final'?'Finalists':cupRounds[cIdx]; cAlive=false; }
   }
   if (cAlive) cupR='Winners';
@@ -1823,10 +1823,10 @@ async function hostComputeSharedSeason(){
     const plGA=Math.round(clamp(72-effectiveAvg*0.6-r()*10+5,12,60));
 
     let cupWinChance=0,leagueWinBoost=0,uclWinChance=0;
-    if(effectiveAvg>=89){cupWinChance=0.85;leagueWinBoost=14;uclWinChance=0.6;}
-    else if(effectiveAvg>=88){cupWinChance=0.55;leagueWinBoost=8;uclWinChance=0.3;}
-    else if(effectiveAvg>=87){cupWinChance=0.35;leagueWinBoost=2;uclWinChance=0.08;}
-    else if(effectiveAvg>=84){cupWinChance=0.12;uclWinChance=0.02;}
+    if(effectiveAvg>=89){cupWinChance=0.55;leagueWinBoost=10;uclWinChance=0.35;}
+    else if(effectiveAvg>=88){cupWinChance=0.35;leagueWinBoost=5;uclWinChance=0.15;}
+    else if(effectiveAvg>=87){cupWinChance=0.20;leagueWinBoost=2;uclWinChance=0.05;}
+    else if(effectiveAvg>=84){cupWinChance=0.06;uclWinChance=0.01;}
     if(leagueWinBoost)plPts=clamp(plPts+Math.round(leagueWinBoost*r()),plPts,95);
 
     const posOf=pts=>pts>=88?1:pts>=78?2:pts>=71?3:pts>=64?4:pts>=58?5:pts>=53?6:pts>=48?7:pts>=43?8:pts>=38?9:pts>=34?10:pts>=30?11:pts>=27?12:pts>=24?13:pts>=21?14:pts>=18?15:pts>=15?16:pts>=12?17:pts>=9?18:pts>=6?19:20;
@@ -1845,24 +1845,24 @@ async function hostComputeSharedSeason(){
     const leaguePts=leagueW*3+leagueD;
     const uclLeaguePos=clamp(Math.round(36-(leaguePts/24)*35-(r()-0.5)*6),1,36);
     function uclTwoLegTie(){
-      const tieStrength=clamp((effectiveAvg-75)*0.045+(r()-0.45)*0.5,-0.4,0.55);
+      const tieStrength=clamp((effectiveAvg-78)*0.032+(r()-0.5)*0.5,-0.45,0.4);
       const legOutcomeRoll=r()+tieStrength;
       let leg1,leg2;
-      if(legOutcomeRoll>0.62){leg1='w';leg2=r()<0.65?'w':'d';}
-      else if(legOutcomeRoll>0.42){leg1='w';leg2='l';}
-      else if(legOutcomeRoll>0.28){leg1='d';leg2='d';}
-      else if(legOutcomeRoll>0.12){leg1='l';leg2='w';}
+      if(legOutcomeRoll>0.68){leg1='w';leg2=r()<0.65?'w':'d';}
+      else if(legOutcomeRoll>0.48){leg1='w';leg2='l';}
+      else if(legOutcomeRoll>0.32){leg1='d';leg2='d';}
+      else if(legOutcomeRoll>0.16){leg1='l';leg2='w';}
       else{leg1='l';leg2=r()<0.7?'l':'d';}
       [leg1,leg2].forEach(o=>{if(o==='w')uW++;else if(o==='d')uD++;else uL++;});
       uclGamesPlayed+=2;
       const twoLosses=leg1==='l'&&leg2==='l';
-      return !twoLosses&&(leg1==='w'||leg2==='w'||r()<0.5);
+      return !twoLosses&&(leg1==='w'||leg2==='w'||r()<0.4);
     }
     function uclFinalMatch(){
-      const tieStrength=clamp((effectiveAvg-75)*0.045+(r()-0.45)*0.5,-0.4,0.55);
+      const tieStrength=clamp((effectiveAvg-78)*0.032+(r()-0.5)*0.5,-0.45,0.4);
       const rl=r()+tieStrength;
       let won;
-      if(rl>0.55){uW++;won=true;}else if(rl>0.3){uD++;won=r()<0.5;}else{uL++;won=false;}
+      if(rl>0.62){uW++;won=true;}else if(rl>0.35){uD++;won=r()<0.45;}else{uL++;won=false;}
       uclGamesPlayed+=1;
       return won;
     }
@@ -1886,8 +1886,8 @@ async function hostComputeSharedSeason(){
     const cupRounds=['Round 3','Round 4','Quarter-finals','Semi-finals','Final'];
     let cIdx=0,cAlive=true;
     while(cAlive&&cIdx<cupRounds.length){
-      const winRoll=r()+(effectiveAvg-74)*0.02;
-      if(winRoll>0.42){cW++;cIdx++;if(cIdx>=cupRounds.length){cupR='Winners';cAlive=false;}}
+      const winRoll=r()+(effectiveAvg-77)*0.014;
+      if(winRoll>0.46){cW++;cIdx++;if(cIdx>=cupRounds.length){cupR='Winners';cAlive=false;}}
       else{cL++;cupR=cupRounds[cIdx]==='Final'?'Finalists':cupRounds[cIdx];cAlive=false;}
     }
     if(cAlive)cupR='Winners';
@@ -1907,6 +1907,45 @@ async function hostComputeSharedSeason(){
   const startPos=Math.max(1,Math.min(bestNatural,21-entries.length));
   sorted.forEach((e,i)=>{ e.finalPos=startPos+i; });
 
+  // Points were rolled independently per squad BEFORE any cross-player ranking happened, so
+  // they no longer mean anything relative to the reassigned position (e.g. a "2nd place" squad
+  // could keep whatever points it happened to roll on its own, even 55 -- unrealistic for a
+  // real runner-up finish). Recompute points/W/D/L to a realistic band for the assigned
+  // position, keeping the same relative order `sorted` already has.
+  function pointsBandForPos(pos){
+    if(pos===1)return[82,96];
+    if(pos===2)return[74,88];
+    if(pos<=4)return[66,80];
+    if(pos<=6)return[58,70];
+    if(pos<=10)return[46,60];
+    if(pos<=14)return[34,48];
+    if(pos<=17)return[24,36];
+    return[14,26];
+  }
+  sorted.forEach(e=>{
+    const [lo,hi]=pointsBandForPos(e.finalPos);
+    const t=clamp((e.effectiveAvg-60)/35,0,1);
+    let target=Math.round(lo+(hi-lo)*(0.35+0.55*t)+(Math.random()-0.5)*4);
+    target=clamp(target,lo,hi);
+    const plD=clamp(Math.round(6+Math.random()*6),2,14);
+    let plW=clamp(Math.round((target-plD)/3),0,34);
+    let plL=38-plW-plD;
+    if(plL<0){ plL=0; plW=38-plD; }
+    e.plW=plW; e.plD=plD; e.plL=plL; e.plPts=plW*3+plD;
+  });
+  // Enforce strictly-decreasing points to match strictly-worsening positions -- the bands
+  // above can overlap at the edges, which could otherwise let a worse position roll higher
+  // points than the one above it.
+  for(let i=1;i<sorted.length;i++){
+    while(sorted[i].plPts>=sorted[i-1].plPts&&sorted[i].plW>0){
+      sorted[i].plW--; sorted[i].plL++; sorted[i].plPts=sorted[i].plW*3+sorted[i].plD;
+    }
+  }
+  sorted.forEach(e=>{
+    e.plGF=Math.round(e.plW*2.4+e.plD*0.7+15+Math.random()*10);
+    e.plGA=Math.round(clamp(72-e.effectiveAvg*0.6-Math.random()*10+5,12,60));
+  });
+
   // Arbitrate a single domestic cup winner and a single UCL champion across the whole lobby.
   // Weighted by each entry's own trophy chance -- a dominant squad is far more likely to win,
   // and if even the strongest squad's chance-roll fails, nobody in the lobby wins it at all
@@ -1920,12 +1959,22 @@ async function hostComputeSharedSeason(){
     for(let i=0;i<entries.length;i++){ roll-=weights[i]; if(roll<=0)return entries[i]; }
     return entries[entries.length-1];
   }
+
+  // Only ONE entry can be the runner-up -- a cup/UCL final only has two sides. If more than
+  // one lobby member's independent simulation naturally reached the final, only the strongest
+  // of the non-winners keeps that runner-up result; any others get pushed to a Semi-final exit.
   const cupWinner=pickTrophyWinner('cupWinChance');
+  const cupRunnerUp=entries.filter(e=>e!==cupWinner&&(e.cupR==='Winners'||e.cupR==='Finalists'))
+    .sort((a,b)=>b.cupWinChance-a.cupWinChance||b.effectiveAvg-a.effectiveAvg)[0]||null;
   entries.forEach(e=>{
     if(cupWinner&&e===cupWinner){ if(e.cupR!=='Winners'){e.cW=5;e.cL=0;} e.cupR='Winners'; }
-    else if(e.cupR==='Winners'){ e.cupR='Finalists'; e.cL=Math.max(e.cL,1); e.cW=Math.min(e.cW,4); }
+    else if(e===cupRunnerUp){ e.cupR='Finalists'; e.cW=4; e.cL=1; }
+    else if(e.cupR==='Winners'||e.cupR==='Finalists'){ e.cupR='Semi-finals'; e.cW=3; e.cL=1; }
   });
+
   const uclWinner=pickTrophyWinner('uclWinChance');
+  const uclRunnerUp=entries.filter(e=>e!==uclWinner&&(e.uclR==='Champions'||e.uclR==='Final'))
+    .sort((a,b)=>b.uclWinChance-a.uclWinChance||b.effectiveAvg-a.effectiveAvg)[0]||null;
   entries.forEach(e=>{
     if(uclWinner&&e===uclWinner){
       if(e.uclR!=='Champions'){
@@ -1934,7 +1983,25 @@ async function hostComputeSharedSeason(){
         e.uclGamesPlayed=e.uclMaxGames;
       }
       e.uclR='Champions';
-    }else if(e.uclR==='Champions'){ e.uclR='Final'; }
+    } else if (e===uclRunnerUp) {
+      // reached the final either way -- same games played as the champion, just flip the
+      // final's result to a loss if their natural run had them winning it
+      if(e.uclR==='Champions'){ e.uW=Math.max(0,e.uW-1); e.uL++; }
+      e.uclR='Final';
+    } else if (e.uclR==='Champions'||e.uclR==='Final') {
+      // more than 2 lobby members can't share one final -- push extras to a Semi-final exit,
+      // rescaling their games/stats down so they stay internally consistent
+      const semiGames=e.uclMaxGames-3;
+      const total=e.uW+e.uD+e.uL;
+      if(total>0&&semiGames<total){
+        const scale=semiGames/total;
+        let nw=Math.round(e.uW*scale), nd=Math.round(e.uD*scale), nl=semiGames-nw-nd;
+        if(nl<0){ nd=Math.min(nd,semiGames); nw=semiGames-nd; nl=0; }
+        e.uW=nw; e.uD=nd; e.uL=nl;
+      }
+      e.uclGamesPlayed=semiGames;
+      e.uclR='Semi-finals';
+    }
   });
 
   // A treble emerges naturally if the same entry topped the league, won the cup, AND the UCL --
