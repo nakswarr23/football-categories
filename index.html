@@ -947,7 +947,10 @@ async function syncPick(player,isRandom){
   if(APP.mode!=='multiplayer'||!APP.lobbyPlayerId)return;
   if(!isRandom&&player.id){APP.usedPlayerIds.add(player.id);const{data:lb}=await sb.from('lobbies').select('used_players').eq('id',APP.lobbyId).single();const used=lb?.used_players||[];used.push(player.id);await sb.from('lobbies').update({used_players:used}).eq('id',APP.lobbyId);}
   const td=G.squad.map((s,i)=>s?({id:s.player.id,n:s.player.fullName||s.player.name,r:s.player.rating||0,rnd:!!s.isRandom,c:s.cat.label,k:SLOTS[i].key}):null).filter(Boolean);
-  await sb.from('lobby_players').update({team:td,current_idx:G.pick}).eq('id',APP.lobbyPlayerId);
+  // current_idx = count of picks completed so far (this fn runs before G.pick is incremented
+  // in commit(), so G.pick+1 -- not G.pick -- is the true count; syncing the raw pre-increment
+  // value meant it topped out at 10 after all 11 real picks and never reached the "done" gate).
+  await sb.from('lobby_players').update({team:td,current_idx:G.pick+1}).eq('id',APP.lobbyPlayerId);
 }
 
 // ══ CATEGORIES ══
