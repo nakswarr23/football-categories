@@ -34,6 +34,14 @@ button{font-family:var(--fb);cursor:pointer;}
 .p-meta{font-size:13px;color:var(--tx2);margin-bottom:2px;}
 .p-meta2{font-size:11px;color:var(--tx3);margin-bottom:14px;}
 .p-badge{display:inline-block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--am);background:rgba(240,168,48,.1);border:1px solid rgba(240,168,48,.3);border-radius:20px;padding:3px 10px;margin-bottom:14px;}
+.rating-edit{display:flex;gap:14px;justify-content:center;align-items:flex-end;margin-bottom:6px;}
+.rating-field{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.rating-field label{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);}
+.rating-field input{width:64px;text-align:center;background:var(--s2);border:2px solid var(--bd2);border-radius:8px;color:var(--tx);font-family:var(--fd);font-size:20px;padding:6px 4px;}
+.rating-field input.edited{border-color:var(--am);background:rgba(240,168,48,.08);}
+.reset-link{font-size:11px;color:var(--tx3);text-decoration:underline;background:none;border:none;padding:8px 0 0;}
+.reset-link:hover{color:var(--tx2);}
+.orig-note{font-size:10px;color:var(--tx3);margin-bottom:14px;}
 .tags-current{min-height:26px;margin-bottom:14px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
 .tag-pill{font-size:12px;font-weight:700;color:var(--gr);background:rgba(62,207,106,.1);border:1px solid rgba(62,207,106,.3);border-radius:20px;padding:4px 10px;}
 .grouprow{margin-bottom:10px;}
@@ -65,8 +73,8 @@ button{font-family:var(--fb);cursor:pointer;}
     <input type="text" id="searchBox" placeholder="Search player name…">
     <button class="btn" id="untaggedOnlyBtn">Untagged only: ON</button>
     <button class="btn" onclick="applyFilters()">🔄 Refresh list</button>
-    <button class="btn" onclick="exportTags()">Export tags (JSON)</button>
-    <label class="btn" style="display:inline-block;">Import tags
+    <button class="btn" onclick="exportAll()">Export changes (JSON)</button>
+    <label class="btn" style="display:inline-block;">Import changes
       <input type="file" id="importFile" accept="application/json" style="display:none;">
     </label>
   </div>
@@ -93,9 +101,12 @@ const NUM_GUESS = {2:'RB',3:'LB',4:'CB',5:'CB',6:'CDM',7:'RW',8:'CM',9:'ST',10:'
 const KEYMAP = ['LB','CB','RB','CDM','CM','CAM','LW','ST','RW']; // keys 1-9, fixed layout
 const EXTRA_KEYMAP = { 'q':'LM', 'w':'RM' };
 
+const RATINGS_KEY = 'posTaggerRatings_v1';
+
 let DB = [];
-let tags = {};          // id -> array of sub-position strings, e.g. ["CM","RB"]
-let filtered = [];       // frozen snapshot list for the current filter -- NOT rebuilt on every tag
+let tags = {};            // id -> array of sub-position strings, e.g. ["CM","RB"]
+let ratingOverrides = {}; // id -> {rating, potential} -- only present for players you've edited
+let filtered = [];        // frozen snapshot list for the current filter -- NOT rebuilt on every tag
 let cursor = 0;
 
 function loadTags(){
@@ -107,6 +118,33 @@ function loadTags(){
 }
 function saveTags(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tags));
+}
+function loadRatings(){
+  try { ratingOverrides = JSON.parse(localStorage.getItem(RATINGS_KEY)||'{}'); } catch(e){ ratingOverrides = {}; }
+}
+function saveRatings(){
+  localStorage.setItem(RATINGS_KEY, JSON.stringify(ratingOverrides));
+}
+function effRating(p){ return ratingOverrides[p.id]?.rating ?? p.rating; }
+function effPotential(p){ return ratingOverrides[p.id]?.potential ?? p.potential; }
+function updateRating(field, value){
+  const p = filtered[cursor];
+  if (!p) return;
+  const v = Math.max(1, Math.min(99, parseInt(value)||0));
+  const existing = ratingOverrides[p.id] || {rating:p.rating, potential:p.potential};
+  existing[field] = v;
+  ratingOverrides[p.id] = existing;
+  saveRatings();
+  renderBar();
+  renderCard();
+}
+function resetRatings(){
+  const p = filtered[cursor];
+  if (!p) return;
+  delete ratingOverrides[p.id];
+  saveRatings();
+  renderBar();
+  renderCard();
 }
 function guessFor(p){
   const g = GUESS_GROUP[p.position];
@@ -125,6 +163,7 @@ function toggleTag(id, subPos){
 
 async function init(){
   loadTags();
+  loadRatings();
   const el = document.getElementById('cardWrap');
   el.innerHTML = '<div class="empty">Loading database…</div>';
   const res = await fetch(DB_URL);
@@ -183,9 +222,11 @@ function applyFilters(){
 function renderBar(){
   const total = DB.filter(p=>p.position!=='Goalkeeper').length;
   const done = DB.filter(p=>p.position!=='Goalkeeper' && tags[p.id] && tags[p.id].length).length;
+  const ratingEdits = Object.keys(ratingOverrides).length;
   document.getElementById('bar').innerHTML = `
     <div class="bar-stat"><b>${done}</b>/${total} tagged</div>
     <div class="bar-stat"><b>${total-done}</b> remaining</div>
+    <div class="bar-stat"><b>${ratingEdits}</b> rating/potential edits</div>
     <div class="bar-stat"><b>${filtered.length}</b> in current list</div>
   `;
   renderDist();
@@ -208,13 +249,26 @@ function renderCard(){
   const p = filtered[cursor];
   const guess = guessFor(p);
   const current = tags[p.id] || [];
+  const edited = !!ratingOverrides[p.id];
   wrap.innerHTML = `
     <div class="card">
       <img src="${p.photo||''}" onerror="this.style.opacity=.15">
       <div class="p-badge">DB position: ${p.position}</div>
       <div class="p-name">${p.fullName||p.name}</div>
       <div class="p-meta">${p.team} · ${p.league}</div>
-      <div class="p-meta2">${p.nationality||'—'} · Rating ${p.rating||'—'} · #${p.number||'—'}</div>
+      <div class="p-meta2">${p.nationality||'—'} · #${p.number||'—'}</div>
+      <div class="rating-edit">
+        <div class="rating-field">
+          <label>Rating</label>
+          <input type="number" min="1" max="99" class="${edited?'edited':''}" value="${effRating(p)}" onchange="updateRating('rating',this.value)">
+        </div>
+        <div class="rating-field">
+          <label>Potential</label>
+          <input type="number" min="1" max="99" class="${edited?'edited':''}" value="${effPotential(p)}" onchange="updateRating('potential',this.value)">
+        </div>
+        ${edited?'<button class="reset-link" onclick="resetRatings()">↺ reset</button>':''}
+      </div>
+      ${edited?`<div class="orig-note">Original: ${p.rating}/${p.potential}</div>`:'<div class="orig-note" style="visibility:hidden">.</div>'}
       <div class="tags-current">${current.length?current.map(t=>`<span class="tag-pill">${t}</span>`).join(''):'<span style="color:var(--tx3);font-size:12px;">No tags yet</span>'}</div>
       ${GROUP_ROWS.map(row=>`
         <div class="grouprow">
@@ -258,11 +312,12 @@ function nav(delta){
   renderCard();
 }
 
-function exportTags(){
-  const blob = new Blob([JSON.stringify(tags,null,2)], {type:'application/json'});
+function exportAll(){
+  const payload = { positions: tags, ratings: ratingOverrides };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'position_tags.json';
+  a.href = url; a.download = 'position_and_rating_edits.json';
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
@@ -273,10 +328,23 @@ function importTags(e){
   reader.onload = ()=>{
     try {
       const incoming = JSON.parse(reader.result);
-      Object.entries(incoming).forEach(([id,val])=>{ tags[id] = Array.isArray(val) ? val : [val]; });
-      saveTags();
+      let posCount = 0, ratCount = 0;
+      if (incoming.positions || incoming.ratings){
+        if (incoming.positions){
+          Object.entries(incoming.positions).forEach(([id,val])=>{ tags[id] = Array.isArray(val) ? val : [val]; posCount++; });
+          saveTags();
+        }
+        if (incoming.ratings){
+          Object.entries(incoming.ratings).forEach(([id,val])=>{ ratingOverrides[id] = val; ratCount++; });
+          saveRatings();
+        }
+      } else {
+        // older export format: a flat {id: [tags]} file with no ratings section
+        Object.entries(incoming).forEach(([id,val])=>{ tags[id] = Array.isArray(val) ? val : [val]; posCount++; });
+        saveTags();
+      }
       applyFilters();
-      alert('Imported '+Object.keys(incoming).length+' tags.');
+      alert(`Imported ${posCount} position tags and ${ratCount} rating/potential edits.`);
     } catch(err){ alert('Could not parse that file: '+err.message); }
   };
   reader.readAsText(file);
