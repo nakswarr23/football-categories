@@ -83,12 +83,15 @@ const STORAGE_KEY = 'posTaggerProgress_v2';
 // a Midfielder like Konrad Laimer can still be tagged RB in addition to CM.
 const GROUP_ROWS = [
   {label:'Defender',   opts:['LB','CB','RB']},
-  {label:'Midfielder', opts:['CDM','CM','CAM']},
+  {label:'Midfielder', opts:['CDM','CM','CAM','LM','RM']},
   {label:'Attacker',   opts:['LW','ST','RW']},
 ];
+// LM/RM included so future formations (e.g. a 4-4-2) can use them, but they're rare enough for
+// the current 4-3-3 that they don't get a guess or a number-key shortcut -- click only, or Q/W.
 const GUESS_GROUP = { Defender:['LB','CB','RB'], Midfielder:['CDM','CM','CAM'], Attacker:['LW','ST','RW'] };
 const NUM_GUESS = {2:'RB',3:'LB',4:'CB',5:'CB',6:'CDM',7:'RW',8:'CM',9:'ST',10:'CAM',11:'LW'};
 const KEYMAP = ['LB','CB','RB','CDM','CM','CAM','LW','ST','RW']; // keys 1-9, fixed layout
+const EXTRA_KEYMAP = { 'q':'LM', 'w':'RM' };
 
 let DB = [];
 let tags = {};          // id -> array of sub-position strings, e.g. ["CM","RB"]
@@ -190,7 +193,7 @@ function renderBar(){
 function renderDist(){
   const counts = {};
   Object.values(tags).forEach(arr=>arr.forEach(t=>{ if(t!=='GK') counts[t]=(counts[t]||0)+1; }));
-  const order=['LB','CB','RB','CDM','CM','CAM','LW','ST','RW'];
+  const order=['LB','CB','RB','CDM','CM','CAM','LM','RM','LW','ST','RW'];
   document.getElementById('dist').innerHTML = order.map(k=>`<span>${k}: <b>${counts[k]||0}</b></span>`).join('');
 }
 
@@ -218,9 +221,11 @@ function renderCard(){
           <div class="grouprow-lbl">${row.label}</div>
           <div class="options">
             ${row.opts.map(o=>{
-              const keyNum = KEYMAP.indexOf(o)+1;
+              const numIdx = KEYMAP.indexOf(o);
+              const extraKey = Object.keys(EXTRA_KEYMAP).find(k=>EXTRA_KEYMAP[k]===o);
+              const keyLabel = numIdx>=0 ? ('key '+(numIdx+1)) : (extraKey ? ('key '+extraKey.toUpperCase()) : 'click only');
               const cls = current.includes(o) ? 'chosen' : (o===guess ? 'guess' : '');
-              return `<button class="opt ${cls}" onclick="tagCurrent('${o}')">${o}<span class="k">key ${keyNum}</span></button>`;
+              return `<button class="opt ${cls}" onclick="tagCurrent('${o}')">${o}<span class="k">${keyLabel}</span></button>`;
             }).join('')}
           </div>
         </div>`).join('')}
@@ -283,6 +288,7 @@ document.addEventListener('keydown', (e)=>{
   const p = filtered[cursor];
   if (!p) return;
   if (e.key>='1' && e.key<='9'){ tagCurrent(KEYMAP[parseInt(e.key)-1]); }
+  else if (EXTRA_KEYMAP[e.key.toLowerCase()]){ tagCurrent(EXTRA_KEYMAP[e.key.toLowerCase()]); }
   else if (e.key==='Enter'){ advance(); }
   else if (e.key==='ArrowRight'){ advance(); }
   else if (e.key==='ArrowLeft'){ nav(-1); }
