@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Position Tagger — internal tool</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0b0f17;--s1:#111827;--s2:#171f2e;--s3:#1e2a3a;
+  --bd:rgba(255,255,255,.07);--bd2:rgba(255,255,255,.12);
+  --tx:#e8edf4;--tx2:#8b96a8;--tx3:#5a6478;
+  --ac:#6c8ef7;--acd:rgba(108,142,247,.10);--acm:rgba(108,142,247,.22);
+  --am:#f0a830;--gr:#3ecf6a;--re:#f05060;--or:#f97316;
+  --fd:'Bebas Neue',Impact,sans-serif;--fb:'Inter',-apple-system,sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb);font-size:14px;}
+#app{max-width:720px;margin:0 auto;padding:24px 20px 60px;}
+h1{font-family:var(--fd);font-size:32px;letter-spacing:2px;margin-bottom:4px;}
+.sub{font-size:12px;color:var(--tx3);margin-bottom:20px;}
+.bar{display:flex;align-items:center;gap:14px;background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:12px 16px;margin-bottom:16px;flex-wrap:wrap;}
+.bar-stat{font-size:12px;color:var(--tx2);}
+.bar-stat b{color:var(--tx);font-family:var(--fd);font-size:18px;letter-spacing:.5px;margin-right:3px;}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+select,input[type=text]{background:var(--s2);border:1px solid var(--bd2);border-radius:8px;color:var(--tx);padding:8px 10px;font-size:13px;font-family:var(--fb);}
+button{font-family:var(--fb);cursor:pointer;}
+.btn{background:var(--s2);border:1px solid var(--bd2);border-radius:8px;color:var(--tx2);padding:8px 14px;font-size:13px;font-weight:600;}
+.btn:hover{background:var(--s3);}
+.btn.primary{background:var(--ac);color:#080c14;border-color:var(--ac);}
+.card{background:var(--s1);border:1px solid var(--bd2);border-radius:14px;padding:26px;text-align:center;}
+.card img{width:96px;height:96px;border-radius:50%;object-fit:cover;object-position:top center;border:3px solid var(--bd2);background:var(--s3);margin-bottom:12px;}
+.p-name{font-family:var(--fd);font-size:28px;letter-spacing:1px;margin-bottom:2px;}
+.p-meta{font-size:13px;color:var(--tx2);margin-bottom:2px;}
+.p-meta2{font-size:11px;color:var(--tx3);margin-bottom:18px;}
+.p-badge{display:inline-block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--am);background:rgba(240,168,48,.1);border:1px solid rgba(240,168,48,.3);border-radius:20px;padding:3px 10px;margin-bottom:18px;}
+.options{display:flex;gap:10px;justify-content:center;margin-bottom:14px;flex-wrap:wrap;}
+.opt{width:100px;padding:16px 8px;background:var(--s2);border:2px solid var(--bd2);border-radius:10px;color:var(--tx);font-size:13px;font-weight:700;}
+.opt .k{display:block;font-size:10px;color:var(--tx3);font-weight:400;margin-top:4px;}
+.opt:hover{background:var(--s3);}
+.opt.guess{border-color:var(--am);background:rgba(240,168,48,.08);}
+.opt.chosen{border-color:var(--gr);background:rgba(62,207,106,.1);}
+.done-msg{font-size:13px;color:var(--gr);margin-bottom:10px;}
+.nav{display:flex;gap:8px;justify-content:center;margin-top:16px;}
+.hint{font-size:11px;color:var(--tx3);text-align:center;margin-top:14px;line-height:1.6;}
+.empty{text-align:center;padding:60px 20px;color:var(--tx2);}
+.dist{font-size:11px;color:var(--tx3);margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+.dist span b{color:var(--tx2);}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Position Tagger</h1>
+  <div class="sub">Internal tool — not part of the live game. Tags sub-positions (RB/LB/CB/CDM/CM/CAM/LW/ST/RW) so the draft can eventually enforce exact positions instead of broad groups.</div>
+
+  <div class="bar" id="bar"></div>
+
+  <div class="controls">
+    <select id="leagueSel"><option value="">All leagues</option></select>
+    <select id="teamSel"><option value="">All teams</option></select>
+    <input type="text" id="searchBox" placeholder="Search player name…">
+    <button class="btn" id="untaggedOnlyBtn">Untagged only: ON</button>
+    <button class="btn" onclick="exportTags()">Export tags (JSON)</button>
+    <label class="btn" style="display:inline-block;">Import tags
+      <input type="file" id="importFile" accept="application/json" style="display:none;">
+    </label>
+  </div>
+
+  <div id="cardWrap"></div>
+  <div class="dist" id="dist"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const DB_URL = 'https://raw.githubusercontent.com/nakswarr23/football-categories/refs/heads/main/football_categories_db_v9.json';
+const STORAGE_KEY = 'posTaggerProgress_v1';
+
+const GROUPS = {
+  Defender:  ['LB','CB','RB'],
+  Midfielder:['CDM','CM','CAM'],
+  Attacker:  ['LW','ST','RW'],
+};
+const NUM_GUESS = {2:'RB',3:'LB',4:'CB',5:'CB',6:'CDM',7:'RW',8:'CM',9:'ST',10:'CAM',11:'LW'};
+
+let DB = [];
+let tags = {};          // id -> subPosition
+let filtered = [];       // current filtered/ordered list of player objects (excludes GK always)
+let cursor = 0;          // index into `filtered`
+let untaggedOnly = true;
+
+function loadTags(){
+  try { tags = JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'); } catch(e){ tags = {}; }
+}
+function saveTags(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tags));
+}
+function guessFor(p){
+  const g = GROUPS[p.position];
+  if(!g) return null;
+  const byNum = NUM_GUESS[p.number];
+  if (byNum && g.includes(byNum)) return byNum;
+  return g[1]; // middle option as a neutral fallback
+}
+
+async function init(){
+  loadTags();
+  const el = document.getElementById('cardWrap');
+  el.innerHTML = '<div class="empty">Loading database…</div>';
+  const res = await fetch(DB_URL);
+  const data = await res.json();
+  DB = data.players;
+
+  // Goalkeepers don't need review -- auto-tag if not already present.
+  let autoGkCount = 0;
+  DB.forEach(p=>{
+    if (p.position==='Goalkeeper' && !tags[p.id]){ tags[p.id]='GK'; autoGkCount++; }
+  });
+  if (autoGkCount) saveTags();
+
+  populateFilters();
+  document.getElementById('leagueSel').onchange = applyFilters;
+  document.getElementById('teamSel').onchange = applyFilters;
+  document.getElementById('searchBox').oninput = applyFilters;
+  document.getElementById('untaggedOnlyBtn').onclick = ()=>{
+    untaggedOnly = !untaggedOnly;
+    document.getElementById('untaggedOnlyBtn').textContent = 'Untagged only: '+(untaggedOnly?'ON':'OFF');
+    applyFilters();
+  };
+  document.getElementById('importFile').onchange = importTags;
+
+  applyFilters();
+}
+
+function populateFilters(){
+  const leagues = [...new Set(DB.map(p=>p.league).filter(Boolean))].sort();
+  const teams = [...new Set(DB.map(p=>p.team).filter(Boolean))].sort();
+  const lSel = document.getElementById('leagueSel');
+  leagues.forEach(l=>{ const o=document.createElement('option'); o.value=l; o.textContent=l; lSel.appendChild(o); });
+  const tSel = document.getElementById('teamSel');
+  teams.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; tSel.appendChild(o); });
+}
+
+function applyFilters(){
+  const league = document.getElementById('leagueSel').value;
+  const team = document.getElementById('teamSel').value;
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  filtered = DB.filter(p=>{
+    if (p.position==='Goalkeeper') return false; // never needs manual review
+    if (league && p.league!==league) return false;
+    if (team && p.team!==team) return false;
+    if (q && !((p.fullName||p.name||'').toLowerCase().includes(q))) return false;
+    if (untaggedOnly && tags[p.id]) return false;
+    return true;
+  }).sort((a,b)=>(a.league||'').localeCompare(b.league||'')||(a.team||'').localeCompare(b.team||'')||(b.rating||0)-(a.rating||0));
+  cursor = 0;
+  renderBar();
+  renderCard();
+}
+
+function renderBar(){
+  const total = DB.filter(p=>p.position!=='Goalkeeper').length;
+  const done = DB.filter(p=>p.position!=='Goalkeeper' && tags[p.id]).length;
+  document.getElementById('bar').innerHTML = `
+    <div class="bar-stat"><b>${done}</b>/${total} tagged</div>
+    <div class="bar-stat"><b>${total-done}</b> remaining</div>
+    <div class="bar-stat"><b>${filtered.length}</b> in current filter</div>
+  `;
+  renderDist();
+}
+function renderDist(){
+  const counts = {};
+  Object.values(tags).forEach(t=>{ if(t!=='GK') counts[t]=(counts[t]||0)+1; });
+  const order=['LB','CB','RB','CDM','CM','CAM','LW','ST','RW'];
+  document.getElementById('dist').innerHTML = order.map(k=>`<span>${k}: <b>${counts[k]||0}</b></span>`).join('');
+}
+
+function renderCard(){
+  const wrap = document.getElementById('cardWrap');
+  if (!filtered.length){
+    wrap.innerHTML = '<div class="empty">Nothing matches this filter 🎉<br>Try turning off "Untagged only" or changing the filters.</div>';
+    return;
+  }
+  if (cursor>=filtered.length) cursor = filtered.length-1;
+  if (cursor<0) cursor = 0;
+  const p = filtered[cursor];
+  const guess = guessFor(p);
+  const current = tags[p.id];
+  const opts = GROUPS[p.position]||[];
+  wrap.innerHTML = `
+    <div class="card">
+      <img src="${p.photo||''}" onerror="this.style.opacity=.15">
+      <div class="p-badge">${p.position}</div>
+      <div class="p-name">${p.fullName||p.name}</div>
+      <div class="p-meta">${p.team} · ${p.league}</div>
+      <div class="p-meta2">${p.nationality||'—'} · Rating ${p.rating||'—'} · #${p.number||'—'}</div>
+      ${current?`<div class="done-msg">Tagged: ${current}</div>`:''}
+      <div class="options">
+        ${opts.map((o,i)=>`<button class="opt ${o===current?'chosen':(o===guess&&!current?'guess':'')}" onclick="tagCurrent('${o}')">${o}<span class="k">key ${i+1}</span></button>`).join('')}
+      </div>
+      <div class="nav">
+        <button class="btn" onclick="nav(-1)">← Prev (←)</button>
+        <button class="btn" onclick="skip()">Skip (S)</button>
+        <button class="btn primary" onclick="tagCurrent('${guess}')">Confirm guess: ${guess} (Enter)</button>
+        <button class="btn" onclick="nav(1)">Next (→)</button>
+      </div>
+      <div class="hint">${cursor+1} / ${filtered.length} in this filter · number keys pick an option · Enter confirms the amber-highlighted guess</div>
+    </div>`;
+}
+
+function tagCurrent(subPos){
+  const p = filtered[cursor];
+  if (!p || !subPos) return;
+  tags[p.id] = subPos;
+  saveTags();
+  // if we're in "untagged only" mode, this player drops out of the filtered list --
+  // recompute so the list shrinks and we land on the next untagged one automatically.
+  if (untaggedOnly){
+    filtered.splice(cursor,1);
+    if (cursor>=filtered.length) cursor = filtered.length-1;
+  } else {
+    nav(1);
+  }
+  renderBar();
+  renderCard();
+}
+function nav(delta){
+  cursor = Math.max(0, Math.min(filtered.length-1, cursor+delta));
+  renderCard();
+}
+function skip(){ nav(1); }
+
+function exportTags(){
+  const blob = new Blob([JSON.stringify(tags,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'position_tags.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function importTags(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try {
+      const incoming = JSON.parse(reader.result);
+      Object.assign(tags, incoming);
+      saveTags();
+      applyFilters();
+      alert('Imported '+Object.keys(incoming).length+' tags.');
+    } catch(err){ alert('Could not parse that file: '+err.message); }
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+document.addEventListener('keydown', (e)=>{
+  if (document.activeElement && (document.activeElement.tagName==='INPUT')) return;
+  const p = filtered[cursor];
+  if (!p) return;
+  const opts = GROUPS[p.position]||[];
+  if (e.key>='1' && e.key<=String(opts.length)){ tagCurrent(opts[parseInt(e.key)-1]); }
+  else if (e.key==='Enter'){ tagCurrent(guessFor(p)); }
+  else if (e.key==='ArrowRight'){ nav(1); }
+  else if (e.key==='ArrowLeft'){ nav(-1); }
+  else if (e.key.toLowerCase()==='s'){ skip(); }
+});
+
+init();
+</script>
+</body>
+</html>

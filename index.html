@@ -968,7 +968,6 @@ const BIG6=['Arsenal','Chelsea','Liverpool','Manchester City','Manchester United
 const BLUE_CLUBS=['Chelsea','Manchester City','Everton','Leicester','Ipswich','Inter','Napoli','Lazio','Marseille','Porto','Galatasaray','Al Hilal'];
 const RED_CLUBS=['Liverpool','Manchester United','Arsenal','AC Milan','Bayern Munich','Benfica','AS Roma','Atletico Madrid','Southampton'];
 const YG_CLUBS=['Borussia Dortmund','Villarreal','Al Nassr','Sporting CP','Norwich'];
-const ANIMAL_CLUBS=['Wolverhampton Wanderers','Wolves','Newcastle United','Newcastle','Leicester','Crystal Palace','Brentford','Brighton','Atalanta','Fiorentina','Borussia Dortmund','SC Freiburg'];
 const CAP_CLUBS=['Arsenal','Chelsea','Tottenham Hotspur','Crystal Palace','West Ham','Brentford','Fulham','Atletico Madrid','Real Madrid','Getafe','Rayo Vallecano','AS Roma','Lazio','Paris Saint-Germain','Benfica','Sporting CP','Galatasaray','Fenerbahçe','Inter Miami'];
 const TOP5=['Premier League','La Liga','Serie A','Bundesliga','Ligue 1'];
 function hasTrophy(p,l,pl='Winner'){return(p.trophies||[]).some(t=>t.league===l&&t.place===pl);}
@@ -1002,7 +1001,6 @@ const ALL_CATS=[
   {id:'blue_cl',label:'Blue club player',type:'club',fn:p=>BLUE_CLUBS.some(c=>p.team===c||p.team.includes(c))},
   {id:'red_cl',label:'Red club player',type:'club',fn:p=>RED_CLUBS.some(c=>p.team===c||p.team.includes(c))},
   {id:'yg_cl',label:'Yellow or green club',type:'club',fn:p=>YG_CLUBS.some(c=>p.team===c||p.team.includes(c))},
-  {id:'animal',label:'Animal logo club',type:'club',fn:p=>ANIMAL_CLUBS.some(c=>p.team.toLowerCase().includes(c.toLowerCase()))},
   {id:'capital',label:'Capital city club',type:'club',fn:p=>CAP_CLUBS.some(c=>p.team===c||p.team.includes(c))},
   {id:'lfc',label:'Current Liverpool player',type:'club',leagueRef:'Premier League',fn:p=>p.team==='Liverpool'},
   {id:'bfc',label:'Current Barcelona player',type:'club',leagueRef:'La Liga',fn:p=>p.team==='Barcelona'},
