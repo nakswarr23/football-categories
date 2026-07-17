@@ -460,6 +460,10 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     <p class="fc-hint">Shown in results and activity log.</p>
     <div style="border-top:1px solid var(--bd);padding-top:16px;margin-bottom:14px;">
       <div class="srow">
+        <div class="srow-info"><div class="srow-label">Formation</div><div class="srow-desc" id="sv-formation-desc">The classic — balanced midfield three.</div></div>
+        <select class="fc-input" id="sv-formation" style="width:auto;margin-bottom:0;" onchange="setSoloFormation(this.value)"></select>
+      </div>
+      <div class="srow">
         <div class="srow-info"><div class="srow-label">Timer</div><div class="srow-desc">Seconds per pick. 0 = off.</div></div>
         <div class="stepper"><button class="step-btn" onclick="adj('timer',-15)">−</button><div class="step-val" id="sv-timer">0</div><button class="step-btn" onclick="adj('timer',15)">+</button></div>
       </div>
@@ -524,6 +528,14 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 
     <div class="lobby-pl-lbl" style="margin-top:6px;">Game settings <span id="mp-settings-host-tag" style="font-weight:400;color:var(--tx3);text-transform:none;letter-spacing:0;font-size:10px;"></span></div>
     <div id="mp-settings-wrap" style="border-top:1px solid var(--bd);padding-top:4px;margin-bottom:18px;">
+      <div class="srow" id="mp-formation-mode-row">
+        <div class="srow-info"><div class="srow-label">Let everyone pick their own formation</div><div class="srow-desc">Off: everyone follows the host's formation.</div></div>
+        <div class="tog" id="mp-tog-formation-mode" onclick="mpToggleFormationMode(this)"></div>
+      </div>
+      <div class="srow">
+        <div class="srow-info"><div class="srow-label">Formation</div><div class="srow-desc" id="mp-sv-formation-desc">The classic — balanced midfield three.</div></div>
+        <select class="fc-input" id="mp-sv-formation" style="width:auto;margin-bottom:0;" onchange="mpSetFormation(this.value)"></select>
+      </div>
       <div class="srow">
         <div class="srow-info"><div class="srow-label">Timer</div><div class="srow-desc">Seconds per pick. 0 = off.</div></div>
         <div class="stepper"><button class="step-btn" onclick="mpAdj('timer',-15)">−</button><div class="step-val" id="mp-sv-timer">0</div><button class="step-btn" onclick="mpAdj('timer',15)">+</button></div>
@@ -740,7 +752,7 @@ let DB = [];
 // ══ APP STATE ══
 const APP = { mode:'solo', playerName:'Scout', lobbyId:null, lobbyPlayerId:null, isHost:false, usedPlayerIds:new Set() };
 let lobSub=null, plSub=null, mpSub=null, gameStarted=false;
-const CFG = { timer:0, respins:3, autoOnTimeout:true, excludedTypes:new Set() };
+const CFG = { timer:0, respins:3, autoOnTimeout:true, excludedTypes:new Set(), formation:'f433', mpFormationMode:'host' };
 
 // ══ STEP NAVIGATION ══
 function showStep(id) {
@@ -778,6 +790,15 @@ async function loadDB() {
 loadDB();
 
 // ══ SETTINGS ══
+function populateFormationSelects(){
+  const opts=FORMATIONS.map(f=>`<option value="${f.id}">${f.label}</option>`).join('');
+  const s1=el('sv-formation'); if(s1){s1.innerHTML=opts;s1.value=CFG.formation;}
+  const s2=el('mp-sv-formation'); if(s2){s2.innerHTML=opts;s2.value=CFG.formation;}
+}
+function setSoloFormation(id){
+  CFG.formation=id;
+  const d=el('sv-formation-desc'); if(d)d.textContent=getFormation(id).desc;
+}
 function adj(key, d) {
   if (key==='timer') { CFG.timer=Math.max(0,Math.min(120,CFG.timer+d)); el('sv-timer').textContent=CFG.timer||'Off'; }
   if (key==='respins') { CFG.respins=Math.max(0,Math.min(10,CFG.respins+d)); el('sv-respins').textContent=CFG.respins; }
@@ -841,6 +862,7 @@ function setupMpSettingsUI(){
   wrap.classList.toggle('mp-settings-readonly',!APP.isHost);
   const tag=el('mp-settings-host-tag');
   if(tag)tag.textContent=APP.isHost?'':'(set by host)';
+  populateFormationSelects();
   updateMpSettingsUI();
 }
 function updateMpSettingsUI(){
@@ -848,6 +870,18 @@ function updateMpSettingsUI(){
   const b=el('mp-sv-respins');if(b)b.textContent=CFG.respins;
   const c=el('mp-tog-auto');if(c)c.classList.toggle('on',CFG.autoOnTimeout);
   document.querySelectorAll('#mp-cpills .cpill').forEach(p=>p.classList.toggle('off',CFG.excludedTypes.has(p.dataset.t)));
+  const modeTog=el('mp-tog-formation-mode'); if(modeTog)modeTog.classList.toggle('on',CFG.mpFormationMode==='own');
+  // Formation select is a special case: host can always edit it, but so can a non-host
+  // when the admin has switched formationMode to 'own' -- so it can't just inherit the
+  // parent wrap's blanket readonly state like the other rows do.
+  const sel=el('mp-sv-formation');
+  if(sel){
+    sel.value=CFG.formation;
+    const canPick=APP.isHost||CFG.mpFormationMode==='own';
+    sel.style.pointerEvents=canPick?'auto':'none';
+    sel.style.opacity=canPick?'1':'.55';
+  }
+  const fdesc=el('mp-sv-formation-desc'); if(fdesc)fdesc.textContent=getFormation(CFG.formation).desc;
 }
 function mpAdj(key,delta){
   if(!APP.isHost)return;
@@ -868,10 +902,24 @@ function mpToggleType(elm){
   if(elm.classList.contains('off'))CFG.excludedTypes.add(t);else CFG.excludedTypes.delete(t);
   pushMpSettings();
 }
+function mpSetFormation(id){
+  const canPick=APP.isHost||CFG.mpFormationMode==='own';
+  if(!canPick)return;
+  CFG.formation=id;
+  const fdesc=el('mp-sv-formation-desc'); if(fdesc)fdesc.textContent=getFormation(id).desc;
+  if(APP.isHost)pushMpSettings();
+}
+function mpToggleFormationMode(elm){
+  if(!APP.isHost)return;
+  CFG.mpFormationMode=CFG.mpFormationMode==='own'?'host':'own';
+  elm.classList.toggle('on',CFG.mpFormationMode==='own');
+  updateMpSettingsUI();
+  pushMpSettings();
+}
 async function pushMpSettings(){
   if(!APP.isHost||!APP.lobbyId)return;
   try{
-    await sb.from('lobbies').update({settings:{timer:CFG.timer,respins:CFG.respins,autoOnTimeout:CFG.autoOnTimeout,excludedTypes:Array.from(CFG.excludedTypes)}}).eq('id',APP.lobbyId);
+    await sb.from('lobbies').update({settings:{timer:CFG.timer,respins:CFG.respins,autoOnTimeout:CFG.autoOnTimeout,excludedTypes:Array.from(CFG.excludedTypes),formation:CFG.formation,formationMode:CFG.mpFormationMode}}).eq('id',APP.lobbyId);
   }catch(e){/* settings column may not exist yet -- non-fatal, host's local CFG still applies */}
 }
 function applyMpSettings(s){
@@ -880,6 +928,10 @@ function applyMpSettings(s){
   if(typeof s.respins==='number')CFG.respins=s.respins;
   if(typeof s.autoOnTimeout==='boolean')CFG.autoOnTimeout=s.autoOnTimeout;
   if(Array.isArray(s.excludedTypes))CFG.excludedTypes=new Set(s.excludedTypes);
+  if(typeof s.formationMode==='string')CFG.mpFormationMode=s.formationMode;
+  // Only force-sync the host's formation onto this client while formationMode is 'host'.
+  // In 'own' mode each non-host player keeps whatever formation they've independently picked.
+  if(typeof s.formation==='string'&&!APP.isHost&&CFG.mpFormationMode==='host')CFG.formation=s.formation;
   updateMpSettingsUI();
 }
 async function refreshPlayers(code) {
@@ -1101,21 +1153,76 @@ const ALL_CATS=[
 ];
 const GK_IDS=['ucl_w','no_ucl','wc_w','no_wc','pl_w','no_title','euro_w','bra','afr','ned','asi_nam','no_wc26','bl','spl','pl1','no_big5','blue_cl','red_cl','yg_cl','capital','u21','o35','rat85','same_nat'];
 
-// ══ SLOTS (4-3-3) ══
-const SLOTS=[
-  {key:'GK',label:'Goalkeeper',dbPos:'Goalkeeper'},
-  {key:'LB',label:'Left Back',dbPos:'Defender'},
-  {key:'CB',label:'Centre Back',dbPos:'Defender'},
-  {key:'CB',label:'Centre Back',dbPos:'Defender'},
-  {key:'RB',label:'Right Back',dbPos:'Defender'},
-  {key:'CM',label:'Central Mid',dbPos:'Midfielder'},
-  {key:'CM',label:'Central Mid',dbPos:'Midfielder'},
-  {key:'CM',label:'Central Mid',dbPos:'Midfielder'},
-  {key:'LW',label:'Left Wing',dbPos:'Attacker'},
-  {key:'ST',label:'Striker',dbPos:'Attacker'},
-  {key:'RW',label:'Right Wing',dbPos:'Attacker'},
+// ══ FORMATIONS ══
+// The original 4-3-3 keeps its lenient broad-position matching (dbPos) unchanged.
+// Every other formation matches on exact sub-position tags (slot.exact) from the
+// player's `positions[]` array, so e.g. a CDM slot only accepts players tagged CDM.
+const GK_SLOT={key:'GK',label:'Goalkeeper',dbPos:'Goalkeeper',exact:'GK'};
+const LB_SLOT={key:'LB',label:'Left Back',dbPos:'Defender',exact:'LB'};
+const CB_SLOT={key:'CB',label:'Centre Back',dbPos:'Defender',exact:'CB'};
+const RB_SLOT={key:'RB',label:'Right Back',dbPos:'Defender',exact:'RB'};
+const CDM_SLOT={key:'CDM',label:'Defensive Mid',dbPos:'Midfielder',exact:'CDM'};
+const CM_SLOT={key:'CM',label:'Central Mid',dbPos:'Midfielder',exact:'CM'};
+const CAM_SLOT={key:'CAM',label:'Attacking Mid',dbPos:'Midfielder',exact:'CAM'};
+const LM_SLOT={key:'LM',label:'Left Mid',dbPos:'Midfielder',exact:'LM'};
+const RM_SLOT={key:'RM',label:'Right Mid',dbPos:'Midfielder',exact:'RM'};
+const LW_SLOT={key:'LW',label:'Left Wing',dbPos:'Attacker',exact:'LW'};
+const ST_SLOT={key:'ST',label:'Striker',dbPos:'Attacker',exact:'ST'};
+const RW_SLOT={key:'RW',label:'Right Wing',dbPos:'Attacker',exact:'RW'};
+
+const FORMATIONS=[
+  { id:'f433', label:'4-3-3', desc:'The classic — balanced midfield three.',
+    slots:[
+      {key:'GK',label:'Goalkeeper',dbPos:'Goalkeeper'},
+      {key:'LB',label:'Left Back',dbPos:'Defender'},
+      {key:'CB',label:'Centre Back',dbPos:'Defender'},
+      {key:'CB',label:'Centre Back',dbPos:'Defender'},
+      {key:'RB',label:'Right Back',dbPos:'Defender'},
+      {key:'CM',label:'Central Mid',dbPos:'Midfielder'},
+      {key:'CM',label:'Central Mid',dbPos:'Midfielder'},
+      {key:'CM',label:'Central Mid',dbPos:'Midfielder'},
+      {key:'LW',label:'Left Wing',dbPos:'Attacker'},
+      {key:'ST',label:'Striker',dbPos:'Attacker'},
+      {key:'RW',label:'Right Wing',dbPos:'Attacker'},
+    ],
+    rows:[[8,9,10],[5,6,7],[1,2,3,4],[0]] },
+
+  { id:'f433a', label:'4-3-3 Attack', desc:'A CAM replaces one CM for more creativity.',
+    slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CM_SLOT,CM_SLOT,CAM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
+    rows:[[8,9,10],[5,6,7],[1,2,3,4],[0]] },
+
+  { id:'f433d', label:'4-3-3 Defense', desc:'A CDM anchors the midfield three.',
+    slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CDM_SLOT,CM_SLOT,CM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
+    rows:[[8,9,10],[5,6,7],[1,2,3,4],[0]] },
+
+  { id:'f442', label:'4-4-2', desc:'Two out-and-out strikers, flat midfield four.',
+    slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,LM_SLOT,CM_SLOT,CM_SLOT,RM_SLOT,ST_SLOT,ST_SLOT],
+    rows:[[9,10],[5,6,7,8],[1,2,3,4],[0]] },
+
+  { id:'f4231', label:'4-2-3-1', desc:'Double pivot behind a No.10 and wide forwards.',
+    slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CDM_SLOT,CDM_SLOT,LW_SLOT,CAM_SLOT,RW_SLOT,ST_SLOT],
+    rows:[[10],[7,8,9],[5,6],[1,2,3,4],[0]] },
+
+  { id:'f4141', label:'4-1-4-1', desc:'A lone pivot shields the back four, flat four ahead.',
+    slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CDM_SLOT,LM_SLOT,CM_SLOT,CM_SLOT,RM_SLOT,ST_SLOT],
+    rows:[[10],[6,7,8,9],[5],[1,2,3,4],[0]] },
+
+  { id:'f343', label:'3-4-3', desc:'Back three, wing-backs stretch the pitch.',
+    slots:[GK_SLOT,CB_SLOT,CB_SLOT,CB_SLOT,LM_SLOT,CM_SLOT,CM_SLOT,RM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
+    rows:[[8,9,10],[4,5,6,7],[1,2,3],[0]] },
 ];
-const FORMATION_ROWS=[[8,9,10],[5,6,7],[1,2,3,4],[0]];
+function getFormation(id){return FORMATIONS.find(f=>f.id===id)||FORMATIONS[0];}
+function slotMatches(p,slot){
+  if(slot.exact)return Array.isArray(p.positions)&&p.positions.includes(slot.exact);
+  return p.position===slot.dbPos;
+}
+let SLOTS=FORMATIONS[0].slots;
+let FORMATION_ROWS=FORMATIONS[0].rows;
+function setFormation(id){
+  const f=getFormation(id);
+  SLOTS=f.slots; FORMATION_ROWS=f.rows;
+}
+populateFormationSelects();
 const MAX_LEAGUE=3;
 const LEAGUES_SHOW=['Premier League','La Liga','Bundesliga','Serie A','Ligue 1','Saudi Pro League','Primeira Liga','MLS'];
 
@@ -1127,6 +1234,7 @@ function newG(){return{name:'Scout',pick:0,squad:Array(11).fill(null),cats:Array
 function launchGame() {
   const nm=(el('solo-name')?.value||APP.playerName||'Scout').trim()||'Scout';
   APP.playerName=nm;
+  setFormation(CFG.formation);
   G=newG(); G.name=nm; G.respinsLeft=CFG.respins; G.timerSec=CFG.timer;
   pickedIds=new Set();
   el('feed').innerHTML=''; el('srch').value=''; el('rp-sec').style.display='none';
@@ -1161,7 +1269,7 @@ function hasValidPlayers(cat) {
   return DB.some(p => {
     if(pickedIds.has(p.id)) return false;
     if(APP.mode==='multiplayer' && APP.usedPlayerIds.has(p.id)) return false;
-    if(p.position !== s.dbPos) return false;
+    if(!slotMatches(p,s)) return false;
     if(locked.includes(p.league)) return false;
     if(!cat.fn) return true;
     try { return (cat.type==='dep') ? cat.fn(p, G.squad) : cat.fn(p); } catch(e) { return false; }
@@ -1225,7 +1333,7 @@ function onInput(){
   const hits=DB.filter(p=>{
     if(pickedIds.has(p.id))return false;
     if(APP.mode==='multiplayer'&&APP.usedPlayerIds.has(p.id))return false;
-    if(p.position!==SLOTS[G.pick].dbPos)return false;
+    if(!slotMatches(p,SLOTS[G.pick]))return false;
     if(locked.includes(p.league))return false;
     const nm=normName(p.fullName||p.name);
     return nm.includes(q)||normName(p.lastname).startsWith(q)||normName(p.firstname).startsWith(q);
@@ -1258,7 +1366,7 @@ function checkCat(p,cat){
 function pickById(id){
   const p=DB.find(x=>x.id===id);
   if(!p)return;
-  if(p.position!==SLOTS[G.pick].dbPos){toast(p.fullName||p.name+' plays '+p.position+' — wrong position. Try again.','err');return;}
+  if(!slotMatches(p,SLOTS[G.pick])){toast((p.fullName||p.name)+' doesn\'t play '+SLOTS[G.pick].key+' — wrong position. Try again.','err');return;}
   if(pickedIds.has(p.id)||(APP.mode==='multiplayer'&&APP.usedPlayerIds.has(p.id))){toast('Already picked!','err');return;}
   if((G.leagueCounts[p.league]||0)>=MAX_LEAGUE){toast(p.league+' quota full','err');return;}
   const cat=G.cats[G.pick];
@@ -1274,7 +1382,7 @@ function doAuto(){
   const pool=DB.filter(p=>{
     if(pickedIds.has(p.id))return false;
     if(APP.mode==='multiplayer'&&APP.usedPlayerIds.has(p.id))return false;
-    if(p.position!==s.dbPos)return false;
+    if(!slotMatches(p,s))return false;
     if((G.leagueCounts[p.league]||0)>=MAX_LEAGUE)return false;
     const r=p.rating||0; return r>=73&&r<=79;
   });
