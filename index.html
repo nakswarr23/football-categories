@@ -814,14 +814,19 @@ function genCode() {
   const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return 'FC-'+Array(4).fill(0).map(()=>c[Math.floor(Math.random()*c.length)]).join('');
 }
+function defaultMpSettings(){
+  return {timer:CFG.timer,respins:CFG.respins,autoOnTimeout:CFG.autoOnTimeout,excludedTypes:Array.from(CFG.excludedTypes),formation:CFG.formation,formationMode:CFG.mpFormationMode};
+}
 async function createLobby() {
   const name=el('mp-name').value.trim();
   if (!name){toast('Enter your name','err');return;}
   APP.playerName=name; APP.mode='multiplayer'; APP.isHost=true;
   const code=genCode(); APP.lobbyId=code;
   try {
-    await sb.from('lobbies').insert({id:code,host_name:name,status:'waiting',used_players:[]});
-    const {data:pd}=await sb.from('lobby_players').insert({lobby_id:code,player_name:name,is_host:true,team:[],categories:[],current_idx:0}).select().single();
+    const {error:lobErr}=await sb.from('lobbies').insert({id:code,host_name:name,status:'waiting',used_players:[],settings:defaultMpSettings()});
+    if (lobErr) throw lobErr;
+    const {data:pd,error:plErr}=await sb.from('lobby_players').insert({lobby_id:code,player_name:name,is_host:true,team:[],categories:[],current_idx:0}).select().single();
+    if (plErr||!pd) throw (plErr||new Error('No player row returned'));
     APP.lobbyPlayerId=pd.id;
     el('lobby-code-display').textContent=code; el('lobby-code-text').textContent=code;
     el('lobby-start-btn').disabled=false;
@@ -836,10 +841,11 @@ async function joinLobby(codeOverride) {
   if (!code){toast('Enter a game code','err');return;}
   APP.playerName=name; APP.mode='multiplayer'; APP.isHost=false;
   try {
-    const {data:lb}=await sb.from('lobbies').select('*').eq('id',code).single();
-    if (!lb){toast('Lobby not found','err');return;}
+    const {data:lb,error:lbErr}=await sb.from('lobbies').select('*').eq('id',code).single();
+    if (lbErr||!lb){toast('Lobby not found','err');return;}
     if (lb.status!=='waiting'){toast('Game already started','err');return;}
-    const {data:pd}=await sb.from('lobby_players').insert({lobby_id:code,player_name:name,is_host:false,team:[],categories:[],current_idx:0}).select().single();
+    const {data:pd,error:plErr}=await sb.from('lobby_players').insert({lobby_id:code,player_name:name,is_host:false,team:[],categories:[],current_idx:0}).select().single();
+    if (plErr||!pd) throw (plErr||new Error('No player row returned'));
     APP.lobbyId=code; APP.lobbyPlayerId=pd.id;
     el('lobby-code-display').textContent=code; el('lobby-code-text').textContent=code;
     el('lobby-start-btn').style.display='none';
