@@ -1178,19 +1178,7 @@ const RW_SLOT={key:'RW',label:'Right Wing',dbPos:'Attacker',exact:'RW'};
 
 const FORMATIONS=[
   { id:'f433', label:'4-3-3', desc:'The classic — balanced midfield three.',
-    slots:[
-      {key:'GK',label:'Goalkeeper',dbPos:'Goalkeeper'},
-      {key:'LB',label:'Left Back',dbPos:'Defender'},
-      {key:'CB',label:'Centre Back',dbPos:'Defender'},
-      {key:'CB',label:'Centre Back',dbPos:'Defender'},
-      {key:'RB',label:'Right Back',dbPos:'Defender'},
-      {key:'CM',label:'Central Mid',dbPos:'Midfielder'},
-      {key:'CM',label:'Central Mid',dbPos:'Midfielder'},
-      {key:'CM',label:'Central Mid',dbPos:'Midfielder'},
-      {key:'LW',label:'Left Wing',dbPos:'Attacker'},
-      {key:'ST',label:'Striker',dbPos:'Attacker'},
-      {key:'RW',label:'Right Wing',dbPos:'Attacker'},
-    ],
+    slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CM_SLOT,CM_SLOT,CM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
     rows:[[8,9,10],[5,6,7],[1,2,3,4],[0]] },
 
   { id:'f433a', label:'4-3-3 Attack', desc:'A CAM replaces one CM for more creativity.',
