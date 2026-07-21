@@ -467,26 +467,61 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 <!-- ══ STEP: SIGN IN / SIGN UP ══ -->
 <div class="step fc-step" id="step-auth">
   <div class="fc-card">
-    <div class="fc-eyebrow">Account</div>
-    <div class="fc-title" id="auth-title">Sign in</div>
-    <div class="fc-sub" id="auth-sub">Sign in to join multiplayer and keep your stats.</div>
-    <label class="fc-label">Email</label>
-    <input class="fc-input" id="auth-email" type="email" placeholder="you@example.com" autocomplete="email">
-    <label class="fc-label">Password</label>
-    <input class="fc-input" id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuth()">
-    <div id="auth-displayname-wrap" style="display:none;">
-      <label class="fc-label">Display name</label>
-      <input class="fc-input" id="auth-displayname" placeholder="Shown on the leaderboard" maxlength="20">
+    <!-- Main sign in / sign up form -->
+    <div id="auth-form-panel">
+      <div class="fc-eyebrow">Account</div>
+      <div class="fc-title" id="auth-title">Sign in</div>
+      <div class="fc-sub" id="auth-sub">Sign in to join multiplayer and keep your stats.</div>
+      <label class="fc-label">Email</label>
+      <input class="fc-input" id="auth-email" type="email" placeholder="you@example.com" autocomplete="email">
+      <label class="fc-label">Password</label>
+      <input class="fc-input" id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuth()">
+      <div id="auth-displayname-wrap" style="display:none;">
+        <label class="fc-label">Display name</label>
+        <input class="fc-input" id="auth-displayname" placeholder="Shown on the leaderboard" maxlength="20">
+      </div>
+      <p class="fc-hint" id="auth-forgot-wrap" style="text-align:right;margin-top:-4px;">
+        <a href="javascript:void(0)" onclick="openForgotPassword()" style="color:var(--tx2);">Forgot password?</a>
+      </p>
+      <button class="fc-btn fc-btn-primary" id="auth-submit-btn" onclick="submitAuth()">Sign in</button>
+      <p class="fc-hint" style="text-align:center;">
+        <span id="auth-toggle-prompt">Don't have an account?</span>
+        <a href="javascript:void(0)" onclick="toggleAuthMode()" id="auth-toggle-link" style="color:var(--ac);">Sign up</a>
+      </p>
+      <div class="fc-divider"></div>
+      <div class="fc-divider-label">or</div>
+      <button class="fc-btn fc-btn-ghost" onclick="signInGoogle()">Continue with Google</button>
+      <button class="fc-btn fc-btn-ghost" onclick="showStep('step-landing')">← Back</button>
     </div>
-    <button class="fc-btn fc-btn-primary" id="auth-submit-btn" onclick="submitAuth()">Sign in</button>
-    <p class="fc-hint" style="text-align:center;">
-      <span id="auth-toggle-prompt">Don't have an account?</span>
-      <a href="javascript:void(0)" onclick="toggleAuthMode()" id="auth-toggle-link" style="color:var(--ac);">Sign up</a>
-    </p>
-    <div class="fc-divider"></div>
-    <div class="fc-divider-label">or</div>
-    <button class="fc-btn fc-btn-ghost" onclick="signInGoogle()">Continue with Google</button>
-    <button class="fc-btn fc-btn-ghost" onclick="showStep('step-landing')">← Back</button>
+
+    <!-- "Check your email" confirmation state (used for both signup confirmation and password reset) -->
+    <div id="auth-check-email-panel" style="display:none;">
+      <div class="fc-eyebrow">Account</div>
+      <div class="fc-title">Check your email</div>
+      <div class="fc-sub" id="auth-check-email-msg">We sent you a confirmation link.</div>
+      <button class="fc-btn fc-btn-primary" onclick="backToSignIn()">← Back to sign in</button>
+    </div>
+
+    <!-- Forgot password: request reset link -->
+    <div id="auth-forgot-panel" style="display:none;">
+      <div class="fc-eyebrow">Account</div>
+      <div class="fc-title">Reset password</div>
+      <div class="fc-sub">Enter your email and we'll send you a reset link.</div>
+      <label class="fc-label">Email</label>
+      <input class="fc-input" id="auth-forgot-email" type="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')submitForgotPassword()">
+      <button class="fc-btn fc-btn-primary" onclick="submitForgotPassword()">Send reset link</button>
+      <button class="fc-btn fc-btn-ghost" onclick="backToSignIn()">← Back to sign in</button>
+    </div>
+
+    <!-- Set new password, landed here via the emailed reset link -->
+    <div id="auth-newpass-panel" style="display:none;">
+      <div class="fc-eyebrow">Account</div>
+      <div class="fc-title">Set a new password</div>
+      <div class="fc-sub">Choose a new password for your account.</div>
+      <label class="fc-label">New password</label>
+      <input class="fc-input" id="auth-newpass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')submitNewPassword()">
+      <button class="fc-btn fc-btn-primary" onclick="submitNewPassword()">Update password</button>
+    </div>
   </div>
 </div>
 
@@ -819,7 +854,8 @@ async function initAuth(){
   const {data:{session}} = await sb.auth.getSession();
   if (session) await onAuthReady(session.user);
   sb.auth.onAuthStateChange(async (event, session)=>{
-    if (event==='SIGNED_IN' && session) await onAuthReady(session.user);
+    if (event==='PASSWORD_RECOVERY') { showAuthPanel('newpass'); showStep('step-auth'); }
+    else if (event==='SIGNED_IN' && session) await onAuthReady(session.user);
     else if (event==='SIGNED_OUT') { AUTH.user=null; AUTH.profile=null; updateAuthUI(); }
   });
 }
@@ -861,12 +897,48 @@ function onMultiplayerClick(){
   AUTH.pendingAction='multiplayer';
   openAuth();
 }
+function showAuthPanel(name){
+  const panels = {form:'auth-form-panel', checkEmail:'auth-check-email-panel', forgot:'auth-forgot-panel', newpass:'auth-newpass-panel'};
+  Object.entries(panels).forEach(([k,id])=>{ const e=el(id); if(e) e.style.display = (k===name) ? 'block' : 'none'; });
+}
 function openAuth(){
   AUTH.mode='signin';
   el('auth-email').value=''; el('auth-password').value='';
   updateAuthModeUI();
+  showAuthPanel('form');
   showStep('step-auth');
   setTimeout(()=>el('auth-email').focus(),100);
+}
+function backToSignIn(){
+  AUTH.mode='signin';
+  updateAuthModeUI();
+  showAuthPanel('form');
+}
+function openForgotPassword(){
+  el('auth-forgot-email').value = el('auth-email').value.trim();
+  showAuthPanel('forgot');
+  setTimeout(()=>el('auth-forgot-email').focus(),100);
+}
+async function submitForgotPassword(){
+  const email = el('auth-forgot-email').value.trim();
+  if (!email) { toast('Enter your email','err'); return; }
+  try{
+    const redirectTo = window.location.href.split('#')[0].split('?')[0];
+    const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo});
+    if (error) throw error;
+    el('auth-check-email-msg').textContent = 'We sent a password reset link to '+email+'. Click it to set a new password.';
+    showAuthPanel('checkEmail');
+  } catch(e){ toast('Error: '+e.message,'err'); }
+}
+async function submitNewPassword(){
+  const newPw = el('auth-newpass').value;
+  if (!newPw || newPw.length<6) { toast('Password must be at least 6 characters','err'); return; }
+  try{
+    const {error} = await sb.auth.updateUser({password:newPw});
+    if (error) throw error;
+    toast('Password updated — you\'re signed in','ok');
+    showStep('step-landing');
+  } catch(e){ toast('Error: '+e.message,'err'); }
 }
 function toggleAuthMode(){
   AUTH.mode = AUTH.mode==='signin' ? 'signup' : 'signin';
@@ -890,7 +962,11 @@ async function submitAuth(){
       const displayName = el('auth-displayname').value.trim() || email.split('@')[0];
       const {data,error} = await sb.auth.signUp({email, password, options:{data:{full_name:displayName}}});
       if (error) throw error;
-      if (data.user && !data.session) { toast('Check your email to confirm your account','ok'); showStep('step-landing'); return; }
+      if (data.user && !data.session) {
+        el('auth-check-email-msg').textContent = 'We sent a confirmation link to '+email+'. Click it, then come back and sign in.';
+        showAuthPanel('checkEmail');
+        return;
+      }
     } else {
       const {error} = await sb.auth.signInWithPassword({email, password});
       if (error) throw error;
