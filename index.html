@@ -996,7 +996,8 @@ async function submitAuth(){
   try{
     if (AUTH.mode==='signup') {
       const displayName = el('auth-displayname').value.trim() || email.split('@')[0];
-      const {data,error} = await sb.auth.signUp({email, password, options:{data:{full_name:displayName}}});
+      const emailRedirectTo = window.location.href.split('#')[0].split('?')[0];
+      const {data,error} = await sb.auth.signUp({email, password, options:{data:{full_name:displayName}, emailRedirectTo}});
       if (error) throw error;
       if (data.user && !data.session) {
         el('auth-check-email-msg').textContent = 'We sent a confirmation link to '+email+'. Click it, then come back and sign in.';
