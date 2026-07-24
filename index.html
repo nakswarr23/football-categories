@@ -504,9 +504,6 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
         <span id="auth-toggle-prompt">Don't have an account?</span>
         <a href="javascript:void(0)" onclick="toggleAuthMode()" id="auth-toggle-link" style="color:var(--ac);">Sign up</a>
       </p>
-      <div class="fc-divider"></div>
-      <div class="fc-divider-label">or</div>
-      <button class="fc-btn fc-btn-ghost" onclick="signInGoogle()">Continue with Google</button>
       <button class="fc-btn fc-btn-ghost" onclick="showStep('step-landing')">← Back</button>
     </div>
 
@@ -1008,12 +1005,6 @@ async function submitAuth(){
       const {error} = await sb.auth.signInWithPassword({email, password});
       if (error) throw error;
     }
-  } catch(e){ toast('Error: '+e.message,'err'); }
-}
-async function signInGoogle(){
-  try{
-    const {error} = await sb.auth.signInWithOAuth({provider:'google', options:{redirectTo:window.location.href.split('#')[0]}});
-    if (error) throw error;
   } catch(e){ toast('Error: '+e.message,'err'); }
 }
 async function signOut(){
