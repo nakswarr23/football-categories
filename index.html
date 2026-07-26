@@ -485,6 +485,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
         <input class="fc-input" id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuth()">
         <button type="button" class="pw-toggle" onclick="togglePwVisibility(this,'auth-password')">Show</button>
       </div>
+      <p class="fc-hint" id="auth-password-hint" style="display:none;margin-top:-4px;">At least 8 characters, with a letter and a number.</p>
       <div id="auth-confirm-wrap" style="display:none;">
         <label class="fc-label">Confirm password</label>
         <div class="pw-wrap">
@@ -536,6 +537,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
         <input class="fc-input" id="auth-newpass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')submitNewPassword()">
         <button type="button" class="pw-toggle" onclick="togglePwVisibility(this,'auth-newpass')">Show</button>
       </div>
+      <p class="fc-hint" style="margin-top:-4px;">At least 8 characters, with a letter and a number.</p>
       <label class="fc-label">Confirm new password</label>
       <div class="pw-wrap">
         <input class="fc-input" id="auth-newpass-confirm" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')submitNewPassword()">
@@ -957,10 +959,16 @@ async function submitForgotPassword(){
     showAuthPanel('checkEmail');
   } catch(e){ toast('Error: '+e.message,'err'); }
 }
+function passwordIssue(pw){
+  if (pw.length<8) return 'Password must be at least 8 characters';
+  if (!/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) return 'Password must include a letter and a number';
+  return null;
+}
 async function submitNewPassword(){
   const newPw = el('auth-newpass').value;
   const confirmPw = el('auth-newpass-confirm').value;
-  if (!newPw || newPw.length<6) { toast('Password must be at least 6 characters','err'); return; }
+  const issue = passwordIssue(newPw);
+  if (issue) { toast(issue,'err'); return; }
   if (newPw !== confirmPw) { toast('Passwords don\'t match','err'); return; }
   try{
     const {error} = await sb.auth.updateUser({password:newPw});
@@ -980,6 +988,7 @@ function updateAuthModeUI(){
   el('auth-submit-btn').textContent = isSignup ? 'Create account' : 'Sign in';
   el('auth-displayname-wrap').style.display = isSignup ? 'block' : 'none';
   el('auth-confirm-wrap').style.display = isSignup ? 'block' : 'none';
+  el('auth-password-hint').style.display = isSignup ? 'block' : 'none';
   el('auth-toggle-prompt').textContent = isSignup ? 'Already have an account?' : "Don't have an account?";
   el('auth-toggle-link').textContent = isSignup ? 'Sign in' : 'Sign up';
 }
@@ -987,8 +996,10 @@ async function submitAuth(){
   const email = el('auth-email').value.trim();
   const password = el('auth-password').value;
   if (!email || !password) { toast('Enter an email and password','err'); return; }
-  if (AUTH.mode==='signup' && password !== el('auth-confirm-password').value) {
-    toast('Passwords don\'t match','err'); return;
+  if (AUTH.mode==='signup') {
+    const issue = passwordIssue(password);
+    if (issue) { toast(issue,'err'); return; }
+    if (password !== el('auth-confirm-password').value) { toast('Passwords don\'t match','err'); return; }
   }
   try{
     if (AUTH.mode==='signup') {
