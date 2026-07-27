@@ -67,6 +67,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .land-auth-btn:hover{filter:brightness(1.1);}
 #land-auth-user .land-auth-btn{background:rgba(255,255,255,.06);border:1px solid var(--bd2);color:var(--tx);font-weight:600;padding:9px 20px;}
 #land-auth-user .land-auth-btn:hover{background:rgba(255,255,255,.12);filter:none;}
+.land-auth-gear{opacity:.6;margin-left:2px;}
 
 /* ══ FULLSCREEN CARD (setup/name/lobby) ══ */
 .fc-step{flex-direction:column;align-items:center;justify-content:center;padding:2rem;
@@ -475,8 +476,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       <button class="land-auth-btn" onclick="openAuth()">Sign in</button>
     </span>
     <span id="land-auth-user" style="display:none;">
-      <span class="land-auth-name">Hi, <b id="land-auth-name-txt"></b></span>
-      <button class="land-auth-btn" onclick="signOut()">Sign out</button>
+      <button class="land-auth-btn" onclick="openAccountScreen()">Hi, <b id="land-auth-name-txt"></b> <span class="land-auth-gear">⚙</span></button>
     </span>
   </div>
   <div class="land-pitch-motif"></div>
@@ -575,6 +575,39 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       </div>
       <button class="fc-btn fc-btn-primary" onclick="submitNewPassword()">Update password</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ STEP: ACCOUNT ══ -->
+<div class="step fc-step" id="step-account">
+  <div class="fc-card">
+    <div class="fc-eyebrow">Account</div>
+    <div class="fc-title">Your account</div>
+    <div class="fc-sub" id="account-email-sub">—</div>
+
+    <label class="fc-label">Display name</label>
+    <input class="fc-input" id="account-displayname" maxlength="20" placeholder="Shown on the leaderboard">
+    <button class="fc-btn fc-btn-primary" onclick="saveDisplayName()">Save name</button>
+
+    <div class="fc-divider"></div>
+    <div class="fc-divider-label">Change password</div>
+
+    <label class="fc-label">New password</label>
+    <div class="pw-wrap">
+      <input class="fc-input" id="account-newpass" type="password" placeholder="••••••••" autocomplete="new-password">
+      <button type="button" class="pw-toggle" onclick="togglePwVisibility(this,'account-newpass')">Show</button>
+    </div>
+    <p class="fc-hint" style="margin-top:-4px;">At least 8 characters, with a letter and a number.</p>
+    <label class="fc-label">Confirm new password</label>
+    <div class="pw-wrap">
+      <input class="fc-input" id="account-newpass-confirm" type="password" placeholder="••••••••" autocomplete="new-password">
+      <button type="button" class="pw-toggle" onclick="togglePwVisibility(this,'account-newpass-confirm')">Show</button>
+    </div>
+    <button class="fc-btn fc-btn-primary" onclick="changeAccountPassword()">Update password</button>
+
+    <div class="fc-divider"></div>
+    <button class="fc-btn fc-btn-ghost" onclick="doAccountSignOut()">Sign out</button>
+    <button class="fc-btn fc-btn-ghost" onclick="showStep('step-landing')">← Back</button>
   </div>
 </div>
 
@@ -944,6 +977,41 @@ function updateAuthUI(){
   } else {
     guest.style.display='inline-flex'; user.style.display='none';
   }
+}
+function openAccountScreen(){
+  if (!AUTH.user) return;
+  el('account-displayname').value = AUTH.profile?.display_name || '';
+  el('account-email-sub').textContent = AUTH.user.email || '';
+  el('account-newpass').value=''; el('account-newpass-confirm').value='';
+  showStep('step-account');
+}
+async function saveDisplayName(){
+  const name = el('account-displayname').value.trim();
+  if (!name) { toast('Enter a display name','err'); return; }
+  try{
+    const {data, error} = await sb.from('profiles').update({display_name:name}).eq('id', AUTH.user.id).select().single();
+    if (error) throw error;
+    AUTH.profile = data || {...(AUTH.profile||{}), display_name:name};
+    updateAuthUI();
+    toast('Display name updated','ok');
+  } catch(e){ toast('Error: '+e.message,'err'); }
+}
+async function changeAccountPassword(){
+  const newPw = el('account-newpass').value;
+  const confirmPw = el('account-newpass-confirm').value;
+  const issue = passwordIssue(newPw);
+  if (issue) { toast(issue,'err'); return; }
+  if (newPw !== confirmPw) { toast('Passwords don\'t match','err'); return; }
+  try{
+    const {error} = await sb.auth.updateUser({password:newPw});
+    if (error) throw error;
+    el('account-newpass').value=''; el('account-newpass-confirm').value='';
+    toast('Password updated','ok');
+  } catch(e){ toast('Error: '+e.message,'err'); }
+}
+async function doAccountSignOut(){
+  await signOut();
+  showStep('step-landing');
 }
 function onMultiplayerClick(){
   if (AUTH.user) { showStep('step-mp'); return; }
