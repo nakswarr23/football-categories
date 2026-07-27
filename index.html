@@ -2042,6 +2042,35 @@ function buildReview(){
 }
 
 // ══ SEASON SIM ══
+// Real Premier League points-vs-goal-difference anchors (approximate historical medians).
+// The relationship is convex, not linear -- teams good enough for 100 points aren't just
+// winning more often, they win by bigger margins too, so GD accelerates away from points
+// much faster at the top of the table than in mid-table. Interpolated + given realistic
+// scatter below, rather than treated as an exact lookup.
+const GD_ANCHORS = [[10,-58],[22,-50],[30,-40],[34,-30],[39,-20],[45,-8],[51,0],[59,8],[65,15],[75,28],[85,42],[92,55],[100,78],[110,90]];
+function realisticGD(points, rnd){
+  let gd;
+  if (points <= GD_ANCHORS[0][0]) gd = GD_ANCHORS[0][1];
+  else if (points >= GD_ANCHORS[GD_ANCHORS.length-1][0]) gd = GD_ANCHORS[GD_ANCHORS.length-1][1];
+  else {
+    for (let i=0;i<GD_ANCHORS.length-1;i++){
+      const p0=GD_ANCHORS[i][0], g0=GD_ANCHORS[i][1], p1=GD_ANCHORS[i+1][0], g1=GD_ANCHORS[i+1][1];
+      if (points>=p0 && points<=p1){ gd = g0 + (g1-g0)*(points-p0)/(p1-p0); break; }
+    }
+  }
+  return gd + (rnd()-0.5)*16; // realistic scatter around the trend line, roughly ±8
+}
+// Derives a consistent GF/GA pair from a target GD -- GF still scales with the actual W/D
+// record (attacking output should track results), GA fills in whatever's needed to hit the
+// target exactly, with floors on both sides so neither ever looks absurd (e.g. a top-heavy
+// GD never implies conceding a nonsensical single-digit number of goals).
+function gfGaFromGD(plW, plD, gdTarget, rnd){
+  let gf = Math.round(plW*1.9 + plD*1.0 + 18 + rnd()*8);
+  let ga = gf - gdTarget;
+  if (ga < 15) { ga = 15; gf = ga + gdTarget; }
+  if (gf < 15) { gf = 15; ga = gf - gdTarget; }
+  return { gf: Math.max(0, Math.round(gf)), ga: Math.max(0, Math.round(ga)) };
+}
 function doSim(){
   const filled=G.squad.filter(Boolean);
   const avg=filled.reduce((a,s)=>a+(s.player.rating||0),0)/filled.length;
@@ -2098,8 +2127,6 @@ function doSim(){
     plPts = plW * 3 + plD;
   }
 
-  const plGF = Math.round(plW * 2.4 + plD * 0.7 + 15 + useR() * 10);
-  const plGA = Math.round(clamp(72 - effectiveAvg * 0.6 - useR() * 10 + 5, 12, 60));
   const pos = plPts>=88?1:plPts>=78?2:plPts>=71?3:plPts>=64?4:plPts>=58?5:plPts>=53?6:plPts>=48?7:plPts>=43?8:plPts>=38?9:plPts>=34?10:plPts>=30?11:plPts>=27?12:plPts>=24?13:plPts>=21?14:plPts>=18?15:plPts>=15?16:plPts>=12?17:plPts>=9?18:plPts>=6?19:20;
 
   // ── TROPHY TIER SYSTEM ──
@@ -2234,6 +2261,11 @@ function doSim(){
   }
   const finalPosTreble = isTreble ? 1 : finalPos;
 
+  // GF/GA derived from the final points total, now that it's fully settled -- keeps GD
+  // realistic relative to points instead of drifting independently of it.
+  const gdTarget = realisticGD(plPts, useR);
+  const { gf: plGF, ga: plGA } = gfGaFromGD(plW, plD, gdTarget, useR);
+
   const fdots=(w,d,l)=>[...Array(Math.min(5,w)).fill('w'),...Array(Math.min(2,d)).fill('d'),...Array(Math.min(3,l)).fill('l')].map(x=>`<div class="fd ${x}"></div>`).join('');
 
   const isInvincible = plL===0, isCenturion = plPts>=100;
@@ -2263,7 +2295,7 @@ function doSim(){
 
   el('res-pos').textContent=finalPosTreble+suf(finalPosTreble)+' place';
   el('res-pts').textContent=plPts;
-  el('res-gd').textContent='+'+(Math.max(0,plGF-plGA));
+  { const gdV=plGF-plGA; const gdEl=el('res-gd'); gdEl.textContent=(gdV>=0?'+':'')+gdV; gdEl.style.color=gdV>0?'var(--gr)':gdV<0?'var(--re)':'var(--tx2)'; }
   el('res-sub').textContent=`Squad avg ${effectiveAvg.toFixed(1)}${rndCount?` (${rndCount} random player${rndCount>1?'s':''})`:''}. ${narrative}`;
 
   const gradeHtml = `<div class="tc-grade-badge">${grade}</div><div class="tc-grade-desc">${gradeDesc}</div>`;
@@ -2472,9 +2504,6 @@ async function hostComputeSharedSeason(){
       const scale=posCapPts/plPts;
       plW=clamp(Math.round(plW*scale),1,plW);plD=clamp(Math.round(plD*scale),0,plD);plL=clamp(38-plW-plD,0,36);plPts=plW*3+plD;
     }
-    const plGF=Math.round(plW*2.4+plD*0.7+15+r()*10);
-    const plGA=Math.round(clamp(72-effectiveAvg*0.6-r()*10+5,12,60));
-
     let cupWinChance=0,leagueWinBoost=0,uclWinChance=0;
     if(effectiveAvg>=89){cupWinChance=0.55;leagueWinBoost=10;uclWinChance=0.35;}
     else if(effectiveAvg>=88){cupWinChance=0.35;leagueWinBoost=5;uclWinChance=0.15;}
@@ -2545,7 +2574,7 @@ async function hostComputeSharedSeason(){
     }
     if(cAlive)cupR='Winners';
 
-    Object.assign(e,{avg,effectiveAvg,rndCount,plW,plD,plL,plPts,plGF,plGA,finalPos,
+    Object.assign(e,{avg,effectiveAvg,rndCount,plW,plD,plL,plPts,finalPos,
       cupWinChance,uclWinChance,cupR,cW,cL,uclR,uW,uD,uL,uclGamesPlayed,uclLeaguePos,uclMaxGames});
   });
 
@@ -2595,8 +2624,9 @@ async function hostComputeSharedSeason(){
     }
   }
   sorted.forEach(e=>{
-    e.plGF=Math.round(e.plW*2.4+e.plD*0.7+15+Math.random()*10);
-    e.plGA=Math.round(clamp(72-e.effectiveAvg*0.6-Math.random()*10+5,12,60));
+    const gdTarget=realisticGD(e.plPts, r);
+    const {gf,ga}=gfGaFromGD(e.plW, e.plD, gdTarget, r);
+    e.plGF=gf; e.plGA=ga;
   });
 
   // Arbitrate a single domestic cup winner and a single UCL champion across the whole lobby.
@@ -2710,7 +2740,7 @@ function renderResultsFromShared(result){
 
   el('res-pos').textContent=finalPosTreble+suf(finalPosTreble)+' place';
   el('res-pts').textContent=plPts;
-  el('res-gd').textContent='+'+(Math.max(0,plGF-plGA));
+  { const gdV=plGF-plGA; const gdEl=el('res-gd'); gdEl.textContent=(gdV>=0?'+':'')+gdV; gdEl.style.color=gdV>0?'var(--gr)':gdV<0?'var(--re)':'var(--tx2)'; }
   el('res-sub').textContent=`Squad avg ${effectiveAvg.toFixed(1)}${rndCount?` (${rndCount} random player${rndCount>1?'s':''})`:''}. ${narrative}`;
 
   const gradeHtml=`<div class="tc-grade-badge">${grade}</div><div class="tc-grade-desc">${gradeDesc}</div>`;
