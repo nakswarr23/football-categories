@@ -78,6 +78,9 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .pw-wrap .fc-input{padding-right:56px;}
 .pw-toggle{position:absolute;right:6px;top:0;bottom:8px;background:none;border:none;color:var(--tx3);cursor:pointer;font-size:12px;font-weight:600;padding:0 10px;}
 .pw-toggle:hover{color:var(--ac);}
+.lb-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.lb-tab{font-size:12px;font-weight:600;padding:7px 14px;border-radius:20px;border:1px solid var(--bd2);background:var(--s2);color:var(--tx2);cursor:pointer;}
+.lb-tab.on{background:var(--ac);color:#080c14;border-color:var(--ac);}
 .fc-eyebrow{font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--ac);margin-bottom:12px;}
 .fc-title{font-family:var(--fd);font-size:34px;letter-spacing:1px;margin-bottom:5px;}
 .fc-sub{font-size:13px;color:var(--tx2);line-height:1.65;margin-bottom:24px;}
@@ -622,10 +625,18 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   <div class="fc-card fc-card-wide">
     <div class="fc-eyebrow">Leaderboard</div>
     <div class="fc-title">Best seasons</div>
-    <div class="fc-sub">Ranked by final league position, across every completed season.</div>
+    <div class="fc-sub">Competitive runs use a locked 30s timer and standard settings, for a fair comparison.</div>
+    <div class="lb-tabs">
+      <span class="lb-tab on" data-scope="open" onclick="setLeaderboardScope(this)">Open</span>
+      <span class="lb-tab" data-scope="competitive" onclick="setLeaderboardScope(this)">🏆 Competitive</span>
+    </div>
+    <div class="lb-tabs">
+      <span class="lb-tab on" data-metric="grade" onclick="setLeaderboardMetric(this)">Best Grade</span>
+      <span class="lb-tab" data-metric="points" onclick="setLeaderboardMetric(this)">Total Points</span>
+    </div>
     <div class="camp-card" style="margin-top:4px;">
       <table class="camp-tbl">
-        <thead><tr><th>#</th><th>Player</th><th>Pos</th><th>Pts</th><th>Grade</th><th>Mode</th></tr></thead>
+        <thead id="leaderboard-head"><tr><th>#</th><th>Player</th><th>Pos</th><th>Pts</th><th>Grade</th><th>Mode</th></tr></thead>
         <tbody id="leaderboard-body"></tbody>
       </table>
     </div>
@@ -643,17 +654,21 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     <input class="fc-input" id="solo-name" placeholder="e.g. Nakul" maxlength="20" onkeydown="if(event.key==='Enter')launchGame()">
     <p class="fc-hint">Shown in results and activity log.</p>
     <div style="border-top:1px solid var(--bd);padding-top:16px;margin-bottom:14px;">
+      <div class="srow" style="background:var(--acd);margin:0 -2px 4px;padding:11px 12px;border-radius:8px;border-bottom:none;">
+        <div class="srow-info"><div class="srow-label">🏆 Competitive mode</div><div class="srow-desc">Locks timer/respins to the leaderboard standard. Formation is still your choice.</div></div>
+        <div class="tog" id="tog-competitive" onclick="toggleCompetitive(this)"></div>
+      </div>
       <div class="srow">
         <div class="srow-info"><div class="srow-label">Formation</div><div class="srow-desc" id="sv-formation-desc">The classic — balanced midfield three.</div></div>
         <select class="fc-input" id="sv-formation" style="width:auto;margin-bottom:0;" onchange="setSoloFormation(this.value)"></select>
       </div>
       <div class="srow">
         <div class="srow-info"><div class="srow-label">Timer</div><div class="srow-desc">Seconds per pick. 0 = off.</div></div>
-        <div class="stepper"><button class="step-btn" onclick="adj('timer',-15)">−</button><div class="step-val" id="sv-timer">0</div><button class="step-btn" onclick="adj('timer',15)">+</button></div>
+        <div class="stepper"><button class="step-btn" id="timer-minus-btn" onclick="adj('timer',-15)">−</button><div class="step-val" id="sv-timer">0</div><button class="step-btn" id="timer-plus-btn" onclick="adj('timer',15)">+</button></div>
       </div>
       <div class="srow">
         <div class="srow-info"><div class="srow-label">Respins</div><div class="srow-desc">Times you can re-spin the wheel.</div></div>
-        <div class="stepper"><button class="step-btn" onclick="adj('respins',-1)">−</button><div class="step-val" id="sv-respins">3</div><button class="step-btn" onclick="adj('respins',1)">+</button></div>
+        <div class="stepper"><button class="step-btn" id="respins-minus-btn" onclick="adj('respins',-1)">−</button><div class="step-val" id="sv-respins">3</div><button class="step-btn" id="respins-plus-btn" onclick="adj('respins',1)">+</button></div>
       </div>
       <div class="srow">
         <div class="srow-info"><div class="srow-label">Auto on timeout</div><div class="srow-desc">Assign random player when time runs out.</div></div>
@@ -934,9 +949,10 @@ const DB_URL = 'https://raw.githubusercontent.com/nakswarr23/football-categories
 let DB = [];
 
 // ══ APP STATE ══
-const APP = { mode:'solo', playerName:'Scout', lobbyId:null, lobbyPlayerId:null, isHost:false, usedPlayerIds:new Set() };
+const APP = { mode:'solo', playerName:'Scout', lobbyId:null, lobbyPlayerId:null, isHost:false, usedPlayerIds:new Set(), isCompetitive:false };
 let lobSub=null, plSub=null, mpSub=null, gameStarted=false;
-const CFG = { timer:0, respins:3, autoOnTimeout:true, excludedTypes:new Set(), formation:'f433', mpFormationMode:'host' };
+const CFG = { timer:0, respins:3, autoOnTimeout:true, excludedTypes:new Set(), formation:'f433', mpFormationMode:'host', competitive:false };
+const COMPETITIVE_TIMER=30, COMPETITIVE_RESPINS=3;
 
 // ══ STEP NAVIGATION ══
 function showStep(id) {
@@ -1057,34 +1073,62 @@ async function saveGameResult(r){
       league_points: r.leaguePoints,
       cup_result: r.cupResult,
       ucl_result: r.uclResult,
-      grade: r.grade
+      grade: r.grade,
+      timer_sec: r.timerSec,
+      respins: r.respins,
+      auto_on_timeout: r.autoOnTimeout,
+      is_competitive: !!r.isCompetitive
     });
   } catch(e){ /* saved history is a bonus, never worth blocking the results screen over */ }
 }
+const LB_GRADE_RANK = {'S++':12,'S+':11,'S':10,'A+':9,'A':8,'B+':7,'B':6,'C':5,'D':4,'F':3};
+const LB_STATE = {scope:'open', metric:'grade'};
 function openLeaderboard(){
   showStep('step-leaderboard');
   loadLeaderboard();
 }
+function setLeaderboardScope(elm){
+  document.querySelectorAll('.lb-tab[data-scope]').forEach(b=>b.classList.toggle('on', b===elm));
+  LB_STATE.scope = elm.dataset.scope;
+  loadLeaderboard();
+}
+function setLeaderboardMetric(elm){
+  document.querySelectorAll('.lb-tab[data-metric]').forEach(b=>b.classList.toggle('on', b===elm));
+  LB_STATE.metric = elm.dataset.metric;
+  loadLeaderboard();
+}
 async function loadLeaderboard(){
-  const body = el('leaderboard-body');
+  const head = el('leaderboard-head'), body = el('leaderboard-body');
   if (!body) return;
   body.innerHTML = '<tr><td colspan="6" style="color:var(--tx3);text-align:center;">Loading…</td></tr>';
   try{
-    const {data, error} = await sb.from('game_results')
-      .select('player_name,mode,league_position,league_points,grade')
-      .order('league_position', {ascending:true})
-      .order('league_points', {ascending:false})
-      .limit(50);
-    if (error) throw error;
-    if (!data || !data.length) { body.innerHTML = '<tr><td colspan="6" style="color:var(--tx3);text-align:center;">No results yet — be the first.</td></tr>'; return; }
-    body.innerHTML = data.map((r,i)=>`<tr>
-      <td>${i+1}</td>
-      <td>${r.player_name}</td>
-      <td>${r.league_position!=null?r.league_position+suf(r.league_position):'—'}</td>
-      <td>${r.league_points!=null?r.league_points:'—'}</td>
-      <td>${r.grade||'—'}</td>
-      <td>${r.mode==='multiplayer'?'MP':'Solo'}</td>
-    </tr>`).join('');
+    if (LB_STATE.metric==='points') {
+      head.innerHTML = '<tr><th>#</th><th>Player</th><th>Total Pts</th><th>Games</th></tr>';
+      const ptsCol = LB_STATE.scope==='competitive' ? 'competitive_total_points' : 'total_points';
+      const gamesCol = LB_STATE.scope==='competitive' ? 'competitive_games_played' : 'games_played';
+      const {data, error} = await sb.from('leaderboard_totals').select(`player_name,${ptsCol},${gamesCol}`).order(ptsCol,{ascending:false}).limit(50);
+      if (error) throw error;
+      const rows = (data||[]).filter(r=>r[ptsCol]!=null && r[gamesCol]>0);
+      if (!rows.length) { body.innerHTML = '<tr><td colspan="4" style="color:var(--tx3);text-align:center;">No results yet — be the first.</td></tr>'; return; }
+      body.innerHTML = rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r.player_name}</td><td>${r[ptsCol]}</td><td>${r[gamesCol]}</td></tr>`).join('');
+    } else {
+      head.innerHTML = '<tr><th>#</th><th>Player</th><th>Pos</th><th>Pts</th><th>Grade</th><th>Mode</th></tr>';
+      let query = sb.from('game_results').select('player_name,mode,league_position,league_points,grade').order('created_at',{ascending:false}).limit(200);
+      if (LB_STATE.scope==='competitive') query = query.eq('is_competitive', true);
+      const {data, error} = await query;
+      if (error) throw error;
+      if (!data || !data.length) { body.innerHTML = '<tr><td colspan="6" style="color:var(--tx3);text-align:center;">No results yet — be the first.</td></tr>'; return; }
+      const sorted = data.slice().sort((a,b)=>(LB_GRADE_RANK[b.grade]||0)-(LB_GRADE_RANK[a.grade]||0) || (b.league_points||0)-(a.league_points||0));
+      const top = sorted.slice(0,50);
+      body.innerHTML = top.map((r,i)=>`<tr>
+        <td>${i+1}</td>
+        <td>${r.player_name}</td>
+        <td>${r.league_position!=null?r.league_position+suf(r.league_position):'—'}</td>
+        <td>${r.league_points!=null?r.league_points:'—'}</td>
+        <td>${r.grade||'—'}</td>
+        <td>${r.mode==='multiplayer'?'MP':'Solo'}</td>
+      </tr>`).join('');
+    }
   } catch(e){ body.innerHTML = '<tr><td colspan="6" style="color:var(--re);text-align:center;">Couldn\'t load the leaderboard.</td></tr>'; }
 }
 async function loadMyStats(){
@@ -1259,6 +1303,7 @@ function setSoloFormation(id){
   const d=el('sv-formation-desc'); if(d)d.textContent=getFormation(id).desc;
 }
 function adj(key, d) {
+  if (CFG.competitive && (key==='timer'||key==='respins')) return;
   if (key==='timer') { CFG.timer=Math.max(0,Math.min(120,CFG.timer+d)); el('sv-timer').textContent=CFG.timer||'Off'; }
   if (key==='respins') { CFG.respins=Math.max(0,Math.min(10,CFG.respins+d)); el('sv-respins').textContent=CFG.respins; }
 }
@@ -1266,6 +1311,24 @@ function toggleType(pill) {
   const t=pill.dataset.t;
   if (CFG.excludedTypes.has(t)){CFG.excludedTypes.delete(t);pill.classList.remove('off');}
   else{CFG.excludedTypes.add(t);pill.classList.add('off');}
+}
+function toggleCompetitive(elm){
+  CFG.competitive = !CFG.competitive;
+  elm.classList.toggle('on', CFG.competitive);
+  if (CFG.competitive) {
+    CFG.timer = COMPETITIVE_TIMER;
+    CFG.respins = COMPETITIVE_RESPINS;
+    CFG.autoOnTimeout = true;
+    el('sv-timer').textContent = CFG.timer;
+    el('sv-respins').textContent = CFG.respins;
+    el('tog-auto').classList.add('on');
+  }
+  ['timer-minus-btn','timer-plus-btn','respins-minus-btn','respins-plus-btn'].forEach(id=>{
+    const b = el(id);
+    if (b) { b.disabled = CFG.competitive; b.style.opacity = CFG.competitive ? '.4' : '1'; b.style.cursor = CFG.competitive ? 'not-allowed' : 'pointer'; }
+  });
+  const autoTog = el('tog-auto');
+  if (autoTog) { autoTog.style.pointerEvents = CFG.competitive ? 'none' : 'auto'; autoTog.style.opacity = CFG.competitive ? '.5' : '1'; }
 }
 
 // ══ MULTIPLAYER ══
@@ -1687,6 +1750,8 @@ function newG(){return{name:'Scout',pick:0,squad:Array(11).fill(null),cats:Array
 function launchGame() {
   const nm=(el('solo-name')?.value||APP.playerName||'Scout').trim()||'Scout';
   APP.playerName=nm;
+  APP.isCompetitive = APP.mode==='solo' && CFG.competitive;
+  if (APP.isCompetitive) { CFG.timer=COMPETITIVE_TIMER; CFG.respins=COMPETITIVE_RESPINS; CFG.autoOnTimeout=true; }
   setFormation(CFG.formation);
   G=newG(); G.name=nm; G.respinsLeft=CFG.respins; G.timerSec=CFG.timer;
   pickedIds=new Set();
@@ -2183,9 +2248,10 @@ function doSim(){
 
   const fdots=(w,d,l)=>[...Array(Math.min(5,w)).fill('w'),...Array(Math.min(2,d)).fill('d'),...Array(Math.min(3,l)).fill('l')].map(x=>`<div class="fd ${x}"></div>`).join('');
 
-  const grade = isTreble?'S+':plPts>=88?'S+':plPts>=78?'S':plPts>=68?'A+':plPts>=58?'A':plPts>=47?'B+':plPts>=36?'B':plPts>=25?'C':plPts>=15?'D':'F';
-  const gradeColor = {'S+':'#f0c040','S':'#e8b820','A+':'#4caf50','A':'#66bb6a','B+':'#42a5f5','B':'#5c8fef','C':'#ff9800','D':'#f06060','F':'#cc3333'}[grade]||'#8b96a8';
-  const gradeDesc = {'S+':'Legendary','S':'Elite','A+':'Excellent','A':'Very good','B+':'Good','B':'Solid','C':'Below average','D':'Poor','F':'Disaster'}[grade]||'';
+  const isInvincible = plL===0, isCenturion = plPts>=100;
+  const grade = (isInvincible||isCenturion) ? 'S++' : isTreble?'S+':plPts>=88?'S+':plPts>=78?'S':plPts>=68?'A+':plPts>=58?'A':plPts>=47?'B+':plPts>=36?'B':plPts>=25?'C':plPts>=15?'D':'F';
+  const gradeColor = {'S++':'#ffffff','S+':'#f0c040','S':'#e8b820','A+':'#4caf50','A':'#66bb6a','B+':'#42a5f5','B':'#5c8fef','C':'#ff9800','D':'#f06060','F':'#cc3333'}[grade]||'#8b96a8';
+  const gradeDesc = {'S++':'Perfect','S+':'Legendary','S':'Elite','A+':'Excellent','A':'Very good','B+':'Good','B':'Solid','C':'Below average','D':'Poor','F':'Disaster'}[grade]||'';
 
   // Standout player + nationality mix, computed here so both the narrative below and the
   // Player of the Season card can use the same values.
@@ -2267,7 +2333,7 @@ function doSim(){
 
   const mpSec=el('mp-lobby-results'); if(mpSec)mpSec.style.display='none';
   window._simAnim = {finalPos:finalPosTreble, cupR, uclR, uclLeaguePos};
-  saveGameResult({mode:'solo', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade});
+  saveGameResult({mode:'solo', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade, timerSec:CFG.timer, respins:CFG.respins, autoOnTimeout:CFG.autoOnTimeout, isCompetitive:APP.isCompetitive});
   revealSimResults();
 }
 // doSim() above is solo-only. Multiplayer uses handleSimulateClick() -> mpReadyToSim() ->
@@ -2609,7 +2675,7 @@ async function hostComputeSharedSeason(){
 
   const gradeOf=pts=>pts>=88?'S+':pts>=78?'S':pts>=68?'A+':pts>=58?'A':pts>=47?'B+':pts>=36?'B':pts>=25?'C':pts>=15?'D':'F';
   for(const e of entries){
-    const grade=e.isTreble?'S+':gradeOf(e.plPts);
+    const grade=(e.plL===0||e.plPts>=100)?'S++':e.isTreble?'S+':gradeOf(e.plPts);
     const simResult={pts:e.plPts,pos:e.finalPos,grade,avg:Math.round(e.avg*10)/10,gf:e.plGF,ga:e.plGA,ucl:e.uclR,cup:e.cupR,treble:e.isTreble,done:true,
       effectiveAvg:Math.round(e.effectiveAvg*10)/10,plW:e.plW,plD:e.plD,plL:e.plL,uW:e.uW,uD:e.uD,uL:e.uL,uclGamesPlayed:e.uclGamesPlayed,uclLeaguePos:e.uclLeaguePos,cW:e.cW,cL:e.cL};
     await sb.from('lobby_players').update({categories:[simResult]}).eq('id',e.lobbyPlayerId);
@@ -2630,8 +2696,8 @@ function renderResultsFromShared(result){
 
   const fdots=(w,d,l)=>[...Array(Math.min(5,w)).fill('w'),...Array(Math.min(2,d)).fill('d'),...Array(Math.min(3,l)).fill('l')].map(x=>`<div class="fd ${x}"></div>`).join('');
   const grade=result.grade;
-  const gradeColor={'S+':'#f0c040','S':'#e8b820','A+':'#4caf50','A':'#66bb6a','B+':'#42a5f5','B':'#5c8fef','C':'#ff9800','D':'#f06060','F':'#cc3333'}[grade]||'#8b96a8';
-  const gradeDesc={'S+':'Legendary','S':'Elite','A+':'Excellent','A':'Very good','B+':'Good','B':'Solid','C':'Below average','D':'Poor','F':'Disaster'}[grade]||'';
+  const gradeColor={'S++':'#ffffff','S+':'#f0c040','S':'#e8b820','A+':'#4caf50','A':'#66bb6a','B+':'#42a5f5','B':'#5c8fef','C':'#ff9800','D':'#f06060','F':'#cc3333'}[grade]||'#8b96a8';
+  const gradeDesc={'S++':'Perfect','S+':'Legendary','S':'Elite','A+':'Excellent','A':'Very good','B+':'Good','B':'Solid','C':'Below average','D':'Poor','F':'Disaster'}[grade]||'';
 
   const natCounts={};
   G.squad.filter(Boolean).forEach(s=>{const n=s.player.nationality||'Unknown';natCounts[n]=(natCounts[n]||0)+1;});
@@ -2712,7 +2778,7 @@ function renderResultsFromShared(result){
 
   renderMpLobbyResultsInline();
   window._simAnim={finalPos:finalPosTreble,cupR,uclR,uclLeaguePos};
-  saveGameResult({mode:'multiplayer', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade});
+  saveGameResult({mode:'multiplayer', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade, timerSec:CFG.timer, respins:CFG.respins, autoOnTimeout:CFG.autoOnTimeout, isCompetitive:false});
 }
 
 
