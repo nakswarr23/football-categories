@@ -672,7 +672,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       </div>
       <div class="srow">
         <div class="srow-info"><div class="srow-label">Auto on timeout</div><div class="srow-desc">Assign random player when time runs out.</div></div>
-        <div class="tog on" id="tog-auto" onclick="this.classList.toggle('on');CFG.autoOnTimeout=this.classList.contains('on')"></div>
+        <div class="tog on" id="tog-auto" onclick="toggleAutoOnTimeout(this)"></div>
       </div>
       <div class="srow" style="flex-direction:column;align-items:flex-start;gap:10px;">
         <div class="srow-info"><div class="srow-label">Category types</div><div class="srow-desc">Tap to exclude from the wheel.</div></div>
@@ -1308,9 +1308,15 @@ function adj(key, d) {
   if (key==='respins') { CFG.respins=Math.max(0,Math.min(10,CFG.respins+d)); el('sv-respins').textContent=CFG.respins; }
 }
 function toggleType(pill) {
+  if (CFG.competitive) return;
   const t=pill.dataset.t;
   if (CFG.excludedTypes.has(t)){CFG.excludedTypes.delete(t);pill.classList.remove('off');}
   else{CFG.excludedTypes.add(t);pill.classList.add('off');}
+}
+function toggleAutoOnTimeout(elm){
+  if (CFG.competitive) return;
+  elm.classList.toggle('on');
+  CFG.autoOnTimeout = elm.classList.contains('on');
 }
 function toggleCompetitive(elm){
   CFG.competitive = !CFG.competitive;
@@ -1319,9 +1325,11 @@ function toggleCompetitive(elm){
     CFG.timer = COMPETITIVE_TIMER;
     CFG.respins = COMPETITIVE_RESPINS;
     CFG.autoOnTimeout = true;
+    CFG.excludedTypes.clear();
     el('sv-timer').textContent = CFG.timer;
     el('sv-respins').textContent = CFG.respins;
     el('tog-auto').classList.add('on');
+    document.querySelectorAll('#step-setup .cpills .cpill').forEach(p=>p.classList.remove('off'));
   }
   ['timer-minus-btn','timer-plus-btn','respins-minus-btn','respins-plus-btn'].forEach(id=>{
     const b = el(id);
@@ -1329,6 +1337,10 @@ function toggleCompetitive(elm){
   });
   const autoTog = el('tog-auto');
   if (autoTog) { autoTog.style.pointerEvents = CFG.competitive ? 'none' : 'auto'; autoTog.style.opacity = CFG.competitive ? '.5' : '1'; }
+  document.querySelectorAll('#step-setup .cpills .cpill').forEach(p=>{
+    p.style.pointerEvents = CFG.competitive ? 'none' : 'auto';
+    p.style.opacity = CFG.competitive ? '.5' : '1';
+  });
 }
 
 // ══ MULTIPLAYER ══
@@ -1751,7 +1763,7 @@ function launchGame() {
   const nm=(el('solo-name')?.value||APP.playerName||'Scout').trim()||'Scout';
   APP.playerName=nm;
   APP.isCompetitive = APP.mode==='solo' && CFG.competitive;
-  if (APP.isCompetitive) { CFG.timer=COMPETITIVE_TIMER; CFG.respins=COMPETITIVE_RESPINS; CFG.autoOnTimeout=true; }
+  if (APP.isCompetitive) { CFG.timer=COMPETITIVE_TIMER; CFG.respins=COMPETITIVE_RESPINS; CFG.autoOnTimeout=true; CFG.excludedTypes.clear(); }
   setFormation(CFG.formation);
   G=newG(); G.name=nm; G.respinsLeft=CFG.respins; G.timerSec=CFG.timer;
   pickedIds=new Set();
