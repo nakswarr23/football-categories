@@ -670,10 +670,6 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
         <div class="srow-info"><div class="srow-label">Respins</div><div class="srow-desc">Times you can re-spin the wheel.</div></div>
         <div class="stepper"><button class="step-btn" id="respins-minus-btn" onclick="adj('respins',-1)">−</button><div class="step-val" id="sv-respins">3</div><button class="step-btn" id="respins-plus-btn" onclick="adj('respins',1)">+</button></div>
       </div>
-      <div class="srow">
-        <div class="srow-info"><div class="srow-label">Auto on timeout</div><div class="srow-desc">Assign random player when time runs out.</div></div>
-        <div class="tog on" id="tog-auto" onclick="toggleAutoOnTimeout(this)"></div>
-      </div>
       <div class="srow" style="flex-direction:column;align-items:flex-start;gap:10px;">
         <div class="srow-info"><div class="srow-label">Category types</div><div class="srow-desc">Tap to exclude from the wheel.</div></div>
         <div class="cpills">
@@ -742,10 +738,6 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       <div class="srow">
         <div class="srow-info"><div class="srow-label">Respins</div><div class="srow-desc">Times you can re-spin the wheel.</div></div>
         <div class="stepper"><button class="step-btn" onclick="mpAdj('respins',-1)">−</button><div class="step-val" id="mp-sv-respins">3</div><button class="step-btn" onclick="mpAdj('respins',1)">+</button></div>
-      </div>
-      <div class="srow">
-        <div class="srow-info"><div class="srow-label">Auto on timeout</div><div class="srow-desc">Assign random player when time runs out.</div></div>
-        <div class="tog on" id="mp-tog-auto" onclick="mpToggleAuto(this)"></div>
       </div>
       <div class="srow" style="flex-direction:column;align-items:flex-start;gap:10px;">
         <div class="srow-info"><div class="srow-label">Category types</div><div class="srow-desc">Tap to exclude from the wheel.</div></div>
@@ -951,7 +943,7 @@ let DB = [];
 // ══ APP STATE ══
 const APP = { mode:'solo', playerName:'Scout', lobbyId:null, lobbyPlayerId:null, isHost:false, usedPlayerIds:new Set(), isCompetitive:false };
 let lobSub=null, plSub=null, mpSub=null, gameStarted=false;
-const CFG = { timer:0, respins:3, autoOnTimeout:true, excludedTypes:new Set(), formation:'f433', mpFormationMode:'host', competitive:false };
+const CFG = { timer:0, respins:3, excludedTypes:new Set(), formation:'f433', mpFormationMode:'host', competitive:false };
 const COMPETITIVE_TIMER=30, COMPETITIVE_RESPINS=0;
 
 // ══ STEP NAVIGATION ══
@@ -1076,7 +1068,6 @@ async function saveGameResult(r){
       grade: r.grade,
       timer_sec: r.timerSec,
       respins: r.respins,
-      auto_on_timeout: r.autoOnTimeout,
       is_competitive: !!r.isCompetitive
     });
   } catch(e){ /* saved history is a bonus, never worth blocking the results screen over */ }
@@ -1313,30 +1304,21 @@ function toggleType(pill) {
   if (CFG.excludedTypes.has(t)){CFG.excludedTypes.delete(t);pill.classList.remove('off');}
   else{CFG.excludedTypes.add(t);pill.classList.add('off');}
 }
-function toggleAutoOnTimeout(elm){
-  if (CFG.competitive) return;
-  elm.classList.toggle('on');
-  CFG.autoOnTimeout = elm.classList.contains('on');
-}
 function toggleCompetitive(elm){
   CFG.competitive = !CFG.competitive;
   elm.classList.toggle('on', CFG.competitive);
   if (CFG.competitive) {
     CFG.timer = COMPETITIVE_TIMER;
     CFG.respins = COMPETITIVE_RESPINS;
-    CFG.autoOnTimeout = true;
     CFG.excludedTypes.clear();
     el('sv-timer').textContent = CFG.timer;
     el('sv-respins').textContent = CFG.respins;
-    el('tog-auto').classList.add('on');
     document.querySelectorAll('#step-setup .cpills .cpill').forEach(p=>p.classList.remove('off'));
   }
   ['timer-minus-btn','timer-plus-btn','respins-minus-btn','respins-plus-btn'].forEach(id=>{
     const b = el(id);
     if (b) { b.disabled = CFG.competitive; b.style.opacity = CFG.competitive ? '.4' : '1'; b.style.cursor = CFG.competitive ? 'not-allowed' : 'pointer'; }
   });
-  const autoTog = el('tog-auto');
-  if (autoTog) { autoTog.style.pointerEvents = CFG.competitive ? 'none' : 'auto'; autoTog.style.opacity = CFG.competitive ? '.5' : '1'; }
   document.querySelectorAll('#step-setup .cpills .cpill').forEach(p=>{
     p.style.pointerEvents = CFG.competitive ? 'none' : 'auto';
     p.style.opacity = CFG.competitive ? '.5' : '1';
@@ -1349,7 +1331,7 @@ function genCode() {
   return 'FC-'+Array(4).fill(0).map(()=>c[Math.floor(Math.random()*c.length)]).join('');
 }
 function defaultMpSettings(){
-  return {timer:CFG.timer,respins:CFG.respins,autoOnTimeout:CFG.autoOnTimeout,excludedTypes:Array.from(CFG.excludedTypes),formation:CFG.formation,formationMode:CFG.mpFormationMode};
+  return {timer:CFG.timer,respins:CFG.respins,excludedTypes:Array.from(CFG.excludedTypes),formation:CFG.formation,formationMode:CFG.mpFormationMode};
 }
 async function createLobby() {
   const name=el('mp-name').value.trim();
@@ -1408,7 +1390,6 @@ function setupMpSettingsUI(){
 function updateMpSettingsUI(){
   const a=el('mp-sv-timer');if(a)a.textContent=CFG.timer||'Off';
   const b=el('mp-sv-respins');if(b)b.textContent=CFG.respins;
-  const c=el('mp-tog-auto');if(c)c.classList.toggle('on',CFG.autoOnTimeout);
   document.querySelectorAll('#mp-cpills .cpill').forEach(p=>p.classList.toggle('off',CFG.excludedTypes.has(p.dataset.t)));
   const modeTog=el('mp-tog-formation-mode'); if(modeTog)modeTog.classList.toggle('on',CFG.mpFormationMode==='own');
   // Formation select is a special case: host can always edit it, but so can a non-host
@@ -1428,12 +1409,6 @@ function mpAdj(key,delta){
   if(key==='timer')CFG.timer=Math.max(0,Math.min(120,CFG.timer+delta));
   else if(key==='respins')CFG.respins=Math.max(0,Math.min(6,CFG.respins+delta));
   updateMpSettingsUI();pushMpSettings();
-}
-function mpToggleAuto(elm){
-  if(!APP.isHost)return;
-  elm.classList.toggle('on');
-  CFG.autoOnTimeout=elm.classList.contains('on');
-  pushMpSettings();
 }
 function mpToggleType(elm){
   if(!APP.isHost)return;
@@ -1459,14 +1434,13 @@ function mpToggleFormationMode(elm){
 async function pushMpSettings(){
   if(!APP.isHost||!APP.lobbyId)return;
   try{
-    await sb.from('lobbies').update({settings:{timer:CFG.timer,respins:CFG.respins,autoOnTimeout:CFG.autoOnTimeout,excludedTypes:Array.from(CFG.excludedTypes),formation:CFG.formation,formationMode:CFG.mpFormationMode}}).eq('id',APP.lobbyId);
+    await sb.from('lobbies').update({settings:{timer:CFG.timer,respins:CFG.respins,excludedTypes:Array.from(CFG.excludedTypes),formation:CFG.formation,formationMode:CFG.mpFormationMode}}).eq('id',APP.lobbyId);
   }catch(e){/* settings column may not exist yet -- non-fatal, host's local CFG still applies */}
 }
 function applyMpSettings(s){
   if(!s)return;
   if(typeof s.timer==='number')CFG.timer=s.timer;
   if(typeof s.respins==='number')CFG.respins=s.respins;
-  if(typeof s.autoOnTimeout==='boolean')CFG.autoOnTimeout=s.autoOnTimeout;
   if(Array.isArray(s.excludedTypes))CFG.excludedTypes=new Set(s.excludedTypes);
   if(typeof s.formationMode==='string')CFG.mpFormationMode=s.formationMode;
   // Only force-sync the host's formation onto this client while formationMode is 'host'.
@@ -1763,7 +1737,7 @@ function launchGame() {
   const nm=(el('solo-name')?.value||APP.playerName||'Scout').trim()||'Scout';
   APP.playerName=nm;
   APP.isCompetitive = APP.mode==='solo' && CFG.competitive;
-  if (APP.isCompetitive) { CFG.timer=COMPETITIVE_TIMER; CFG.respins=COMPETITIVE_RESPINS; CFG.autoOnTimeout=true; CFG.excludedTypes.clear(); }
+  if (APP.isCompetitive) { CFG.timer=COMPETITIVE_TIMER; CFG.respins=COMPETITIVE_RESPINS; CFG.excludedTypes.clear(); }
   setFormation(CFG.formation);
   G=newG(); G.name=nm; G.respinsLeft=CFG.respins; G.timerSec=CFG.timer;
   pickedIds=new Set();
@@ -2012,7 +1986,7 @@ function updatePanel(){
 }
 
 // ══ TIMER ══
-function startTimer(){updateTimerUI();G.timerTick=setInterval(()=>{G.timerSec--;updateTimerUI();if(G.timerSec<=0){stopTimer();if(CFG.autoOnTimeout)doAuto();}},1000);}
+function startTimer(){updateTimerUI();G.timerTick=setInterval(()=>{G.timerSec--;updateTimerUI();if(G.timerSec<=0){stopTimer();doAuto();}},1000);}
 function stopTimer(){if(G.timerTick){clearInterval(G.timerTick);G.timerTick=null;}}
 function updateTimerUI(){
   el('tnum').textContent=G.timerSec;
@@ -2345,7 +2319,7 @@ function doSim(){
 
   const mpSec=el('mp-lobby-results'); if(mpSec)mpSec.style.display='none';
   window._simAnim = {finalPos:finalPosTreble, cupR, uclR, uclLeaguePos};
-  saveGameResult({mode:'solo', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade, timerSec:CFG.timer, respins:CFG.respins, autoOnTimeout:CFG.autoOnTimeout, isCompetitive:APP.isCompetitive});
+  saveGameResult({mode:'solo', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade, timerSec:CFG.timer, respins:CFG.respins, isCompetitive:APP.isCompetitive});
   revealSimResults();
 }
 // doSim() above is solo-only. Multiplayer uses handleSimulateClick() -> mpReadyToSim() ->
@@ -2790,7 +2764,7 @@ function renderResultsFromShared(result){
 
   renderMpLobbyResultsInline();
   window._simAnim={finalPos:finalPosTreble,cupR,uclR,uclLeaguePos};
-  saveGameResult({mode:'multiplayer', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade, timerSec:CFG.timer, respins:CFG.respins, autoOnTimeout:CFG.autoOnTimeout, isCompetitive:false});
+  saveGameResult({mode:'multiplayer', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade, timerSec:CFG.timer, respins:CFG.respins, isCompetitive:false});
 }
 
 
