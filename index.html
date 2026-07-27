@@ -34,7 +34,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     radial-gradient(ellipse 1100px 640px at 50% 112%,rgba(62,207,106,.08) 0%,transparent 55%),
     var(--bg);
   flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;
-  position:relative;overflow:hidden;
+  overflow:hidden;
 }
 .land-pitch-motif{position:absolute;left:0;right:0;bottom:-260px;height:520px;pointer-events:none;}
 .land-pitch-motif::before{content:'';position:absolute;top:0;left:6%;right:6%;height:1px;background:rgba(255,255,255,.06);}
@@ -61,10 +61,12 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .land-card-mp .land-card-cta{background:var(--gr);color:#071a0e;}
 .land-card-mp .land-card-cta:hover{filter:brightness(1.1);}
 .land-ver{font-size:11px;color:var(--tx3);margin-top:32px;position:relative;z-index:1;}
-.land-auth-bar{position:absolute;top:18px;right:24px;font-size:12px;color:var(--tx2);display:flex;align-items:center;gap:10px;z-index:2;}
-.land-auth-name{color:var(--tx2);}
-.land-auth-btn{background:rgba(255,255,255,.06);border:1px solid var(--bd2);color:var(--tx);font-size:12px;padding:6px 14px;border-radius:20px;cursor:pointer;}
-.land-auth-btn:hover{background:rgba(255,255,255,.12);}
+.land-auth-bar{position:absolute;top:24px;right:28px;font-size:13px;color:var(--tx2);display:flex;align-items:center;gap:12px;z-index:2;}
+.land-auth-name{color:var(--tx2);font-size:13px;}
+.land-auth-btn{background:var(--ac);border:1px solid var(--ac);color:#080c14;font-size:13px;font-weight:700;padding:11px 24px;border-radius:24px;cursor:pointer;transition:filter .15s;}
+.land-auth-btn:hover{filter:brightness(1.1);}
+#land-auth-user .land-auth-btn{background:rgba(255,255,255,.06);border:1px solid var(--bd2);color:var(--tx);font-weight:600;padding:9px 20px;}
+#land-auth-user .land-auth-btn:hover{background:rgba(255,255,255,.12);filter:none;}
 
 /* ══ FULLSCREEN CARD (setup/name/lobby) ══ */
 .fc-step{flex-direction:column;align-items:center;justify-content:center;padding:2rem;
@@ -450,7 +452,8 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   .land-pitch-motif{display:none;}
   .fc-card{padding:24px 20px;}
   .fc-card-wide{padding:24px 20px;}
-  .land-auth-bar{top:10px;right:12px;font-size:11px;gap:6px;}
+  .land-auth-bar{top:12px;right:14px;gap:8px;}
+  .land-auth-btn{font-size:12px;padding:8px 16px;}
   .land-auth-name{display:none;}
 
   /* Minimum 44px tap targets on primary controls */
