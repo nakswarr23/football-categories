@@ -476,6 +476,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       <button class="land-auth-btn" onclick="openAuth()">Sign in</button>
     </span>
     <span id="land-auth-user" style="display:none;">
+      <button class="land-auth-btn" onclick="openLeaderboard()">🏆 Leaderboard</button>
       <button class="land-auth-btn" onclick="openAccountScreen()">Hi, <b id="land-auth-name-txt"></b> <span class="land-auth-gear">⚙</span></button>
     </span>
   </div>
@@ -606,8 +607,29 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     <button class="fc-btn fc-btn-primary" onclick="changeAccountPassword()">Update password</button>
 
     <div class="fc-divider"></div>
+    <div class="fc-divider-label">My stats</div>
+    <div id="account-stats-body" style="max-height:220px;overflow-y:auto;margin-bottom:16px;"></div>
+    <button class="fc-btn fc-btn-ghost" onclick="openLeaderboard()">🏆 View leaderboard</button>
+
+    <div class="fc-divider"></div>
     <button class="fc-btn fc-btn-ghost" onclick="doAccountSignOut()">Sign out</button>
     <button class="fc-btn fc-btn-ghost" onclick="showStep('step-landing')">← Back</button>
+  </div>
+</div>
+
+<!-- ══ STEP: LEADERBOARD ══ -->
+<div class="step fc-step" id="step-leaderboard">
+  <div class="fc-card fc-card-wide">
+    <div class="fc-eyebrow">Leaderboard</div>
+    <div class="fc-title">Best seasons</div>
+    <div class="fc-sub">Ranked by final league position, across every completed season.</div>
+    <div class="camp-card" style="margin-top:4px;">
+      <table class="camp-tbl">
+        <thead><tr><th>#</th><th>Player</th><th>Pos</th><th>Pts</th><th>Grade</th><th>Mode</th></tr></thead>
+        <tbody id="leaderboard-body"></tbody>
+      </table>
+    </div>
+    <button class="fc-btn fc-btn-ghost" onclick="showStep('step-landing')" style="margin-top:16px;">← Back</button>
   </div>
 </div>
 
@@ -984,6 +1006,7 @@ function openAccountScreen(){
   el('account-email-sub').textContent = AUTH.user.email || '';
   el('account-newpass').value=''; el('account-newpass-confirm').value='';
   showStep('step-account');
+  loadMyStats();
 }
 async function saveDisplayName(){
   const name = el('account-displayname').value.trim();
@@ -1015,6 +1038,73 @@ async function changeAccountPassword(){
 async function doAccountSignOut(){
   await signOut();
   showStep('step-landing');
+}
+// Best-effort: saves a completed season to game_results for logged-in players only.
+// Guests still play normally, just without anything persisted. Never blocks or interrupts
+// showing the results screen if the save fails for any reason.
+async function saveGameResult(r){
+  if (!AUTH.user || G.resultSaved) return;
+  G.resultSaved = true;
+  try{
+    await sb.from('game_results').insert({
+      user_id: AUTH.user.id,
+      player_name: AUTH.profile?.display_name || APP.playerName || 'Player',
+      mode: r.mode,
+      formation: r.formation,
+      avg_rating: r.avgRating,
+      random_count: r.randomCount,
+      league_position: r.leaguePosition,
+      league_points: r.leaguePoints,
+      cup_result: r.cupResult,
+      ucl_result: r.uclResult,
+      grade: r.grade
+    });
+  } catch(e){ /* saved history is a bonus, never worth blocking the results screen over */ }
+}
+function openLeaderboard(){
+  showStep('step-leaderboard');
+  loadLeaderboard();
+}
+async function loadLeaderboard(){
+  const body = el('leaderboard-body');
+  if (!body) return;
+  body.innerHTML = '<tr><td colspan="6" style="color:var(--tx3);text-align:center;">Loading…</td></tr>';
+  try{
+    const {data, error} = await sb.from('game_results')
+      .select('player_name,mode,league_position,league_points,grade')
+      .order('league_position', {ascending:true})
+      .order('league_points', {ascending:false})
+      .limit(50);
+    if (error) throw error;
+    if (!data || !data.length) { body.innerHTML = '<tr><td colspan="6" style="color:var(--tx3);text-align:center;">No results yet — be the first.</td></tr>'; return; }
+    body.innerHTML = data.map((r,i)=>`<tr>
+      <td>${i+1}</td>
+      <td>${r.player_name}</td>
+      <td>${r.league_position!=null?r.league_position+suf(r.league_position):'—'}</td>
+      <td>${r.league_points!=null?r.league_points:'—'}</td>
+      <td>${r.grade||'—'}</td>
+      <td>${r.mode==='multiplayer'?'MP':'Solo'}</td>
+    </tr>`).join('');
+  } catch(e){ body.innerHTML = '<tr><td colspan="6" style="color:var(--re);text-align:center;">Couldn\'t load the leaderboard.</td></tr>'; }
+}
+async function loadMyStats(){
+  const body = el('account-stats-body');
+  if (!body || !AUTH.user) return;
+  body.innerHTML = '<div style="color:var(--tx3);font-size:12px;">Loading…</div>';
+  try{
+    const {data, error} = await sb.from('game_results')
+      .select('mode,league_position,league_points,grade,created_at')
+      .eq('user_id', AUTH.user.id)
+      .order('created_at', {ascending:false})
+      .limit(20);
+    if (error) throw error;
+    if (!data || !data.length) { body.innerHTML = '<div style="color:var(--tx3);font-size:12px;">No completed seasons yet.</div>'; return; }
+    body.innerHTML = data.map(r=>{
+      const d = new Date(r.created_at);
+      const dateStr = d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+      return `<div class="rev-srow"><span class="rev-sk">${dateStr} · ${r.mode==='multiplayer'?'MP':'Solo'}</span><span class="rev-sv">${r.league_position!=null?r.league_position+suf(r.league_position):'—'} · ${r.grade||'—'}</span></div>`;
+    }).join('');
+  } catch(e){ body.innerHTML = '<div style="color:var(--re);font-size:12px;">Couldn\'t load your stats.</div>'; }
 }
 function onMultiplayerClick(){
   if (AUTH.user) { showStep('step-mp'); return; }
@@ -1591,7 +1681,7 @@ const LEAGUES_SHOW=['Premier League','La Liga','Bundesliga','Serie A','Ligue 1',
 
 // ══ GAME STATE ══
 let G=newG(); let pickedIds=new Set();
-function newG(){return{name:'Scout',pick:0,squad:Array(11).fill(null),cats:Array(11).fill(null),usedCatIds:[],leagueCounts:{},respinsLeft:3,timerSec:0,timerTick:null,randomCount:0,log:[]};}
+function newG(){return{name:'Scout',pick:0,squad:Array(11).fill(null),cats:Array(11).fill(null),usedCatIds:[],leagueCounts:{},respinsLeft:3,timerSec:0,timerTick:null,randomCount:0,log:[],resultSaved:false};}
 
 // ══ LAUNCH GAME ══
 function launchGame() {
@@ -2177,6 +2267,7 @@ function doSim(){
 
   const mpSec=el('mp-lobby-results'); if(mpSec)mpSec.style.display='none';
   window._simAnim = {finalPos:finalPosTreble, cupR, uclR, uclLeaguePos};
+  saveGameResult({mode:'solo', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade});
   revealSimResults();
 }
 // doSim() above is solo-only. Multiplayer uses handleSimulateClick() -> mpReadyToSim() ->
@@ -2621,6 +2712,7 @@ function renderResultsFromShared(result){
 
   renderMpLobbyResultsInline();
   window._simAnim={finalPos:finalPosTreble,cupR,uclR,uclLeaguePos};
+  saveGameResult({mode:'multiplayer', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade});
 }
 
 
