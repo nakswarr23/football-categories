@@ -508,8 +508,8 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       <div class="fc-eyebrow">Account</div>
       <div class="fc-title" id="auth-title">Sign in</div>
       <div class="fc-sub" id="auth-sub">Sign in to join multiplayer and keep your stats.</div>
-      <label class="fc-label">Email</label>
-      <input class="fc-input" id="auth-email" type="email" placeholder="you@example.com" autocomplete="email">
+      <label class="fc-label" id="auth-email-label">Email</label>
+      <input class="fc-input" id="auth-email" type="text" placeholder="you@example.com" autocomplete="email">
       <label class="fc-label">Password</label>
       <div class="pw-wrap">
         <input class="fc-input" id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuth()">
@@ -990,7 +990,10 @@ async function saveDisplayName(){
   if (!name) { toast('Enter a display name','err'); return; }
   try{
     const {data, error} = await sb.from('profiles').update({display_name:name}).eq('id', AUTH.user.id).select().single();
-    if (error) throw error;
+    if (error) {
+      if (error.code==='23505') { toast('That username is already taken','err'); return; }
+      throw error;
+    }
     AUTH.profile = data || {...(AUTH.profile||{}), display_name:name};
     updateAuthUI();
     toast('Display name updated','ok');
@@ -1084,6 +1087,8 @@ function updateAuthModeUI(){
   el('auth-title').textContent = isSignup ? 'Create account' : 'Sign in';
   el('auth-sub').textContent = isSignup ? 'One quick step and you\'re in.' : 'Sign in to join multiplayer and keep your stats.';
   el('auth-submit-btn').textContent = isSignup ? 'Create account' : 'Sign in';
+  el('auth-email-label').textContent = isSignup ? 'Email' : 'Email or username';
+  el('auth-email').placeholder = isSignup ? 'you@example.com' : 'you@example.com or username';
   el('auth-displayname-wrap').style.display = isSignup ? 'block' : 'none';
   el('auth-confirm-wrap').style.display = isSignup ? 'block' : 'none';
   el('auth-password-hint').style.display = isSignup ? 'block' : 'none';
@@ -1091,27 +1096,41 @@ function updateAuthModeUI(){
   el('auth-toggle-link').textContent = isSignup ? 'Sign in' : 'Sign up';
 }
 async function submitAuth(){
-  const email = el('auth-email').value.trim();
+  const emailOrUser = el('auth-email').value.trim();
   const password = el('auth-password').value;
-  if (!email || !password) { toast('Enter an email and password','err'); return; }
+  if (!emailOrUser || !password) { toast('Enter an email and password','err'); return; }
   if (AUTH.mode==='signup') {
+    if (!emailOrUser.includes('@')) { toast('Enter a valid email to sign up','err'); return; }
     const issue = passwordIssue(password);
     if (issue) { toast(issue,'err'); return; }
     if (password !== el('auth-confirm-password').value) { toast('Passwords don\'t match','err'); return; }
   }
   try{
     if (AUTH.mode==='signup') {
+      const email = emailOrUser;
       const displayName = el('auth-displayname').value.trim() || email.split('@')[0];
+      const {data:existingName} = await sb.from('profiles').select('id').ilike('display_name', displayName).maybeSingle();
+      if (existingName) { toast('That username is already taken','err'); return; }
       const emailRedirectTo = window.location.href.split('#')[0].split('?')[0];
       const {data,error} = await sb.auth.signUp({email, password, options:{data:{full_name:displayName}, emailRedirectTo}});
       if (error) throw error;
+      if (data.user && data.user.identities && data.user.identities.length===0) {
+        toast('An account already exists with this email','err');
+        return;
+      }
       if (data.user && !data.session) {
         el('auth-check-email-msg').textContent = 'We sent a confirmation link to '+email+'. Click it, then come back and sign in.';
         showAuthPanel('checkEmail');
         return;
       }
     } else {
-      const {error} = await sb.auth.signInWithPassword({email, password});
+      let loginEmail = emailOrUser;
+      if (!emailOrUser.includes('@')) {
+        const {data:resolvedEmail, error:rpcErr} = await sb.rpc('get_email_for_username', {uname: emailOrUser});
+        if (rpcErr || !resolvedEmail) { toast('Invalid login credentials','err'); return; }
+        loginEmail = resolvedEmail;
+      }
+      const {error} = await sb.auth.signInWithPassword({email:loginEmail, password});
       if (error) throw error;
     }
   } catch(e){ toast('Error: '+e.message,'err'); }
