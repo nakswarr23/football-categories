@@ -128,7 +128,8 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .lobby-code{font-family:var(--fd);font-size:46px;color:var(--am);letter-spacing:6px;}
 .lobby-hint{font-size:11px;color:var(--tx3);margin-top:4px;}
 .copy-btn{background:none;border:none;color:var(--am);cursor:pointer;margin-left:6px;}
-.lobby-pl-lbl{font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
+.lobby-pl-lbl{font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.lobby-pl-lbl-note{font-size:10px;font-weight:500;color:var(--tx3);text-transform:none;letter-spacing:.2px;opacity:.75;}
 .lobby-pl-list{display:flex;flex-direction:column;gap:6px;margin-bottom:18px;min-height:60px;}
 .lobby-pl-row{display:flex;align-items:center;gap:10px;background:var(--s2);border-radius:6px;padding:9px 12px;}
 .lobby-pl-av{width:28px;height:28px;border-radius:6px;background:var(--acd);border:1px solid var(--acm);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ac);}
@@ -193,11 +194,10 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .p-cc{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:120px;height:120px;border:1px solid rgba(255,255,255,.09);border-radius:50%;pointer-events:none;}
 .p-tb{position:absolute;top:0;left:50%;transform:translateX(-50%);width:40%;height:17%;border:1px solid rgba(255,255,255,.09);border-top:none;pointer-events:none;}
 .p-bb{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:40%;height:17%;border:1px solid rgba(255,255,255,.09);border-bottom:none;pointer-events:none;}
-.formation-grid{position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px 36px;gap:clamp(18px,4vh,44px);}
-.formation-row{display:flex;justify-content:center;gap:20px;}
+.formation-grid{position:relative;flex:1;padding:20px 8px;}
 
 /* Player cards */
-.pslot{display:flex;flex-direction:column;align-items:center;cursor:pointer;width:132px;}
+.pslot{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;width:132px;}
 .pcard{width:132px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.055);transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,.25);}
 .pcard:hover:not(.empty){transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.35);}
 .pc-img{height:84px;position:relative;overflow:hidden;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;padding-top:8px;}
@@ -231,7 +231,8 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 /* Right panel */
 .game-panel{width:280px;flex-shrink:0;background:var(--s1);border-left:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;}
 .gp-sec{padding:14px 18px;border-bottom:1px solid var(--bd);}
-.gp-lbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:9px;}
+.gp-lbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:9px;display:flex;align-items:center;justify-content:space-between;}
+.gp-lbl-note{font-size:10px;letter-spacing:.2px;text-transform:none;font-weight:500;color:var(--tx3);opacity:.75;}
 .gp-row{display:flex;justify-content:space-between;font-size:13.5px;padding:5px 0;}
 .gp-k{color:var(--tx2);}
 .gp-v{font-weight:600;}
@@ -421,8 +422,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   .game-panel{width:100%;border-left:none;border-top:1px solid var(--bd);}
 
   /* Shrink formation cards so all 11 slots fit without horizontal scrolling */
-  .formation-grid{padding:10px 4px;gap:5px;}
-  .formation-row{gap:4px;}
+  .formation-grid{padding:10px 4px;}
   .pslot{width:58px;}
   .pcard{width:58px;border-radius:7px;}
   .pc-img{height:38px;padding-top:3px;}
@@ -729,7 +729,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     <div class="lobby-pl-lbl">Players in lobby</div>
     <div class="lobby-pl-list" id="lobby-pl-list"><div class="lobby-wait">Waiting for players...</div></div>
 
-    <div class="lobby-pl-lbl" style="margin-top:6px;">Game settings <span id="mp-settings-host-tag" style="font-weight:400;color:var(--tx3);text-transform:none;letter-spacing:0;font-size:10px;"></span></div>
+    <div class="lobby-pl-lbl" style="margin-top:6px;"><span>Game settings</span><span class="lobby-pl-lbl-note" id="mp-settings-host-tag"></span></div>
     <div id="mp-settings-wrap" style="border-top:1px solid var(--bd);padding-top:4px;margin-bottom:18px;">
       <div class="srow" id="mp-formation-mode-row">
         <div class="srow-info"><div class="srow-label">Let everyone pick their own formation</div><div class="srow-desc">Off: everyone follows the host's formation.</div></div>
@@ -817,12 +817,12 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       </div>
       <div class="gp-sec">
         <div class="gp-lbl">Progress</div>
-        <div class="gp-row"><span class="gp-k">Picks done</span><span class="gp-v gp-ok" id="picks-done">0 / 11</span></div>
+        <div class="gp-row"><span class="gp-k">Picks completed</span><span class="gp-v gp-ok" id="picks-done">0 / 11</span></div>
         <div class="gp-bar"><div class="gp-bar-f" id="pbar" style="width:0%;background:var(--ac)"></div></div>
         <div class="gp-row" style="margin-top:6px;"><span class="gp-k">Avg rating</span><span class="gp-v" id="avg-lbl" style="color:var(--am)">—</span></div>
       </div>
       <div class="gp-sec">
-        <div class="gp-lbl">League quota <span style="font-size:9px;letter-spacing:0;text-transform:none;color:var(--tx3);">max 3</span></div>
+        <div class="gp-lbl"><span>League quota</span><span class="gp-lbl-note">Max 3 per league</span></div>
         <div id="qgrid"></div>
       </div>
       <div class="gp-sec" id="rp-sec" style="display:none;">
@@ -1707,31 +1707,31 @@ const RW_SLOT={key:'RW',label:'Right Wing',dbPos:'Attacker',exact:'RW'};
 const FORMATIONS=[
   { id:'f433', label:'4-3-3', desc:'The classic — balanced midfield three.',
     slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CM_SLOT,CM_SLOT,CM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
-    rows:[[8,9,10],[5,6,7],[1,2,3,4],[0]] },
+    coords:[{x:50,y:93},{x:13,y:76},{x:36,y:80},{x:64,y:80},{x:87,y:76},{x:22,y:52},{x:50,y:58},{x:78,y:52},{x:15,y:16},{x:50,y:10},{x:85,y:16}] },
 
   { id:'f433a', label:'4-3-3 Attack', desc:'A CAM replaces one CM for more creativity.',
     slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CM_SLOT,CM_SLOT,CAM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
-    rows:[[8,9,10],[7],[5,6],[1,2,3,4],[0]] },
+    coords:[{x:50,y:93},{x:13,y:76},{x:36,y:80},{x:64,y:80},{x:87,y:76},{x:32,y:58},{x:68,y:58},{x:50,y:34},{x:15,y:16},{x:50,y:10},{x:85,y:16}] },
 
   { id:'f433d', label:'4-3-3 Defense', desc:'A CDM anchors the midfield three.',
     slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CDM_SLOT,CM_SLOT,CM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
-    rows:[[8,9,10],[6,7],[5],[1,2,3,4],[0]] },
+    coords:[{x:50,y:93},{x:13,y:76},{x:36,y:80},{x:64,y:80},{x:87,y:76},{x:50,y:64},{x:30,y:44},{x:70,y:44},{x:15,y:16},{x:50,y:10},{x:85,y:16}] },
 
   { id:'f442', label:'4-4-2', desc:'Two out-and-out strikers, flat midfield four.',
     slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,LM_SLOT,CM_SLOT,CM_SLOT,RM_SLOT,ST_SLOT,ST_SLOT],
-    rows:[[9,10],[5,6,7,8],[1,2,3,4],[0]] },
+    coords:[{x:50,y:93},{x:13,y:76},{x:36,y:80},{x:64,y:80},{x:87,y:76},{x:13,y:48},{x:38,y:52},{x:62,y:52},{x:87,y:48},{x:38,y:12},{x:62,y:12}] },
 
   { id:'f4231', label:'4-2-3-1', desc:'Double pivot behind a No.10 and wide forwards.',
     slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CDM_SLOT,CDM_SLOT,LW_SLOT,CAM_SLOT,RW_SLOT,ST_SLOT],
-    rows:[[10],[7,8,9],[5,6],[1,2,3,4],[0]] },
+    coords:[{x:50,y:93},{x:13,y:76},{x:36,y:80},{x:64,y:80},{x:87,y:76},{x:38,y:62},{x:62,y:62},{x:16,y:34},{x:50,y:30},{x:84,y:34},{x:50,y:10}] },
 
   { id:'f4141', label:'4-1-4-1', desc:'A lone pivot shields the back four, flat four ahead.',
     slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CDM_SLOT,LM_SLOT,CM_SLOT,CM_SLOT,RM_SLOT,ST_SLOT],
-    rows:[[10],[6,7,8,9],[5],[1,2,3,4],[0]] },
+    coords:[{x:50,y:93},{x:13,y:76},{x:36,y:80},{x:64,y:80},{x:87,y:76},{x:50,y:64},{x:13,y:44},{x:38,y:48},{x:62,y:48},{x:87,y:44},{x:50,y:10}] },
 
   { id:'f343', label:'3-4-3', desc:'Back three, wing-backs stretch the pitch.',
     slots:[GK_SLOT,CB_SLOT,CB_SLOT,CB_SLOT,LM_SLOT,CM_SLOT,CM_SLOT,RM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
-    rows:[[8,9,10],[4,5,6,7],[1,2,3],[0]] },
+    coords:[{x:50,y:93},{x:25,y:78},{x:50,y:82},{x:75,y:78},{x:10,y:50},{x:37,y:54},{x:63,y:54},{x:90,y:50},{x:15,y:16},{x:50,y:10},{x:85,y:16}] },
 ];
 function getFormation(id){return FORMATIONS.find(f=>f.id===id)||FORMATIONS[0];}
 function slotMatches(p,slot){
@@ -1739,10 +1739,10 @@ function slotMatches(p,slot){
   return p.position===slot.dbPos;
 }
 let SLOTS=FORMATIONS[0].slots;
-let FORMATION_ROWS=FORMATIONS[0].rows;
+let FORMATION_COORDS=FORMATIONS[0].coords;
 function setFormation(id){
   const f=getFormation(id);
-  SLOTS=f.slots; FORMATION_ROWS=f.rows;
+  SLOTS=f.slots; FORMATION_COORDS=f.coords;
 }
 populateFormationSelects();
 const MAX_LEAGUE=3;
@@ -1919,7 +1919,7 @@ function commit(player,cat,isRandom){
   stopTimer();
   pickedIds.add(player.id);
   G.squad[G.pick]={player,cat,isRandom};
-  G.leagueCounts[player.league]=(G.leagueCounts[player.league]||0)+1;
+  if(!isRandom)G.leagueCounts[player.league]=(G.leagueCounts[player.league]||0)+1;
   if(isRandom){G.randomCount++;showRPCard(player);}
   el('srch').value=''; el('ac-drop').classList.remove('open');
   addLog(isRandom
@@ -1943,13 +1943,13 @@ function showRPCard(p){
 function renderPitch(){
   const grid=el('pitch-grid');
   grid.innerHTML='';
-  FORMATION_ROWS.forEach(row=>{
-    const rowEl=document.createElement('div');
-    rowEl.className='formation-row';
-    row.forEach(i=>{
-      const s=SLOTS[i],entry=G.squad[i],isActive=i===G.pick,cat=G.cats[i];
+  SLOTS.forEach((s,i)=>{
+      const entry=G.squad[i],isActive=i===G.pick,cat=G.cats[i];
+      const coord=FORMATION_COORDS[i]||{x:50,y:50};
       const slot=document.createElement('div');
       slot.className='pslot';
+      slot.style.left=coord.x+'%';
+      slot.style.top=coord.y+'%';
       if(entry){
         const p=entry.player;
         const dn=(p.fullName||p.name).split(' ').slice(-1)[0];
@@ -1980,9 +1980,7 @@ function renderPitch(){
           <div class="pc-info"><div class="pc-pos">${s.key}</div><div class="pc-name">Empty</div></div>
         </div>`;
       }
-      rowEl.appendChild(slot);
-    });
-    grid.appendChild(rowEl);
+      grid.appendChild(slot);
   });
 }
 
