@@ -194,10 +194,10 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .p-cc{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:120px;height:120px;border:1px solid rgba(255,255,255,.09);border-radius:50%;pointer-events:none;}
 .p-tb{position:absolute;top:0;left:50%;transform:translateX(-50%);width:40%;height:17%;border:1px solid rgba(255,255,255,.09);border-top:none;pointer-events:none;}
 .p-bb{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:40%;height:17%;border:1px solid rgba(255,255,255,.09);border-bottom:none;pointer-events:none;}
-.formation-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:repeat(5,auto);width:100%;max-width:1200px;margin:0 auto;align-content:center;gap:24px 16px;padding:24px 10px;}
+.formation-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:repeat(6,auto);width:100%;max-width:1200px;margin:0 auto;align-content:center;gap:30px 16px;padding:14px 10px;}
 
 /* Player cards */
-.pslot{display:flex;align-items:center;justify-content:center;cursor:pointer;width:100%;max-width:clamp(80px,calc(20vh - 58px),150px);margin:0 auto;}
+.pslot{display:flex;align-items:center;justify-content:center;cursor:pointer;width:100%;max-width:clamp(70px,calc((100vh - 173px - (var(--n, 5) - 1) * 30px) / var(--n, 5)),150px);margin:0 auto;}
 .pcard{aspect-ratio:1;width:100%;height:auto;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.055);transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,.25);}
 .pcard:hover:not(.empty){transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.35);}
 .pc-img{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;}
@@ -1707,15 +1707,15 @@ const RW_SLOT={key:'RW',label:'Right Wing',dbPos:'Attacker',exact:'RW'};
 const FORMATIONS=[
   { id:'f433', label:'4-3-3', desc:'The classic — balanced midfield three.',
     slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CM_SLOT,CM_SLOT,CM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
-    layout:[{r:4,c:4},{r:3,c:1},{r:3,c:3},{r:3,c:5},{r:3,c:7},{r:2,c:2},{r:2,c:4},{r:2,c:6},{r:1,c:1},{r:1,c:4},{r:1,c:7}] },
+    layout:[{r:5,c:4},{r:4,c:1},{r:4,c:3},{r:4,c:5},{r:4,c:7},{r:3,c:2},{r:3,c:4},{r:3,c:6},{r:2,c:1},{r:1,c:4},{r:2,c:7}] },
 
   { id:'f433a', label:'4-3-3 Attack', desc:'A CAM replaces one CM for more creativity.',
     slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CM_SLOT,CM_SLOT,CAM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
-    layout:[{r:5,c:4},{r:4,c:1},{r:4,c:3},{r:4,c:5},{r:4,c:7},{r:3,c:2},{r:3,c:6},{r:2,c:4},{r:1,c:1},{r:1,c:4},{r:1,c:7}] },
+    layout:[{r:6,c:4},{r:5,c:1},{r:5,c:3},{r:5,c:5},{r:5,c:7},{r:4,c:2},{r:4,c:6},{r:3,c:4},{r:2,c:1},{r:1,c:4},{r:2,c:7}] },
 
   { id:'f433d', label:'4-3-3 Defense', desc:'A CDM anchors the midfield three.',
     slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,CDM_SLOT,CM_SLOT,CM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
-    layout:[{r:5,c:4},{r:4,c:1},{r:4,c:3},{r:4,c:5},{r:4,c:7},{r:3,c:4},{r:2,c:2},{r:2,c:6},{r:1,c:1},{r:1,c:4},{r:1,c:7}] },
+    layout:[{r:6,c:4},{r:5,c:1},{r:5,c:3},{r:5,c:5},{r:5,c:7},{r:4,c:4},{r:3,c:2},{r:3,c:6},{r:2,c:1},{r:1,c:4},{r:2,c:7}] },
 
   { id:'f442', label:'4-4-2', desc:'Two out-and-out strikers, flat midfield four.',
     slots:[GK_SLOT,LB_SLOT,CB_SLOT,CB_SLOT,RB_SLOT,LM_SLOT,CM_SLOT,CM_SLOT,RM_SLOT,ST_SLOT,ST_SLOT],
@@ -1731,7 +1731,7 @@ const FORMATIONS=[
 
   { id:'f343', label:'3-4-3', desc:'Back three, wing-backs stretch the pitch.',
     slots:[GK_SLOT,CB_SLOT,CB_SLOT,CB_SLOT,LM_SLOT,CM_SLOT,CM_SLOT,RM_SLOT,LW_SLOT,ST_SLOT,RW_SLOT],
-    layout:[{r:4,c:4},{r:3,c:2},{r:3,c:4},{r:3,c:6},{r:2,c:1},{r:2,c:3},{r:2,c:5},{r:2,c:7},{r:1,c:1},{r:1,c:4},{r:1,c:7}] },
+    layout:[{r:5,c:4},{r:4,c:2},{r:4,c:4},{r:4,c:6},{r:3,c:1},{r:3,c:3},{r:3,c:5},{r:3,c:7},{r:2,c:1},{r:1,c:4},{r:2,c:7}] },
 ];
 function getFormation(id){return FORMATIONS.find(f=>f.id===id)||FORMATIONS[0];}
 function slotMatches(p,slot){
@@ -1943,6 +1943,9 @@ function showRPCard(p){
 function renderPitch(){
   const grid=el('pitch-grid');
   grid.innerHTML='';
+  const maxRow=Math.max(...FORMATION_LAYOUT.map(p=>p.r));
+  grid.style.setProperty('--n',maxRow);
+  grid.style.gridTemplateRows=`repeat(${maxRow},auto)`;
   SLOTS.forEach((s,i)=>{
       const entry=G.squad[i],isActive=i===G.pick,cat=G.cats[i];
       const pos=FORMATION_LAYOUT[i]||{r:1,c:4};
