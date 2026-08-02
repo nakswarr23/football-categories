@@ -199,10 +199,10 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 /* Player cards */
 .pslot{display:flex;align-items:center;justify-content:center;cursor:pointer;width:100%;max-width:clamp(40px,calc((100vh - 162px - var(--n, 5) * 22px) / var(--n, 5)),150px);margin:0 auto;}
 .pslot.gk-slot{margin-top:22px;}
-.pcard{--tc:#5b6a86;aspect-ratio:1;width:100%;height:auto;display:flex;flex-direction:column;border-radius:12cqw;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.055);transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,.25);container-type:inline-size;}
+.pcard{aspect-ratio:1;width:100%;height:auto;display:flex;flex-direction:column;border-radius:12cqw;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.055);transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,.25);container-type:inline-size;}
 .pcard:hover:not(.empty){transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.35);}
-.pc-img{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);}
-.pc-img img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block;}
+.pc-img{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;}
+.pc-img img{width:56cqw;aspect-ratio:1;height:auto;border-radius:50%;object-fit:cover;object-position:top center;display:block;border:1.5px solid rgba(255,255,255,.14);}
 .pc-ph{font-family:var(--fd);font-size:22cqw;color:rgba(255,255,255,.14);letter-spacing:1px;}
 .pc-rb{position:absolute;top:5cqw;right:5cqw;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.14);border-radius:4.5cqw;font-family:var(--fd);font-size:13cqw;line-height:1;padding:1.5cqw 4.5cqw;color:var(--am);}
 .pc-info{flex:0 0 auto;padding:6cqw 9cqw 8cqw;background:rgba(0,0,0,.32);}
@@ -212,33 +212,18 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 /* States */
 .pcard.empty{opacity:.42;border-style:dashed;border-color:rgba(255,255,255,.08);}
 .pcard.empty .pc-img,.pcard.empty .pc-info{background:transparent;}
-.pcard.active{--tc:var(--am);border-color:var(--am);background:rgba(240,168,48,.04);animation:glow 2s ease-in-out infinite;}
+.pcard.active{border-color:var(--am);background:rgba(240,168,48,.04);animation:glow 2s ease-in-out infinite;}
 @keyframes glow{0%,100%{box-shadow:0 0 0 2px rgba(240,168,48,.15),0 4px 18px rgba(240,168,48,.08);}50%{box-shadow:0 0 0 3px rgba(240,168,48,.25),0 4px 24px rgba(240,168,48,.15);}}
 .pcard.active .pc-pos{color:var(--am);}
 .pcard.active .pc-name{color:var(--am);}
+.pcard.active .pc-img{background:rgba(240,168,48,.06);}
 .pcard.active .pc-rb{color:var(--am);}
 .pcard.active .pc-info{background:rgba(240,168,48,.06);}
 .pcard.picked .pc-info{background:rgba(62,207,106,.05);}
 .pcard.picked .pc-pos{color:rgba(62,207,106,.7);}
 .pcard.picked .pc-rb{color:var(--gr);}
 .pcard.picked{border-color:rgba(62,207,106,.3);}
-.pcard.tier-special{--tc:#c084fc;border-color:rgba(192,132,252,.5);}
-.pcard.tier-special .pc-pos{color:#c084fc;}
-.pcard.tier-special .pc-rb{color:#c084fc;border-color:rgba(192,132,252,.35);}
-.pcard.tier-special .pc-info{background:rgba(192,132,252,.07);}
-.pcard.tier-gold{--tc:#ffd166;border-color:rgba(255,209,102,.5);}
-.pcard.tier-gold .pc-pos{color:#ffd166;}
-.pcard.tier-gold .pc-rb{color:#ffd166;border-color:rgba(255,209,102,.35);}
-.pcard.tier-gold .pc-info{background:rgba(255,209,102,.07);}
-.pcard.tier-silver{--tc:#7ec8e3;border-color:rgba(126,200,227,.45);}
-.pcard.tier-silver .pc-pos{color:#7ec8e3;}
-.pcard.tier-silver .pc-rb{color:#7ec8e3;border-color:rgba(126,200,227,.35);}
-.pcard.tier-silver .pc-info{background:rgba(126,200,227,.06);}
-.pcard.tier-bronze{--tc:#d99666;border-color:rgba(217,150,102,.5);}
-.pcard.tier-bronze .pc-pos{color:#d99666;}
-.pcard.tier-bronze .pc-rb{color:#d99666;border-color:rgba(217,150,102,.35);}
-.pcard.tier-bronze .pc-info{background:rgba(217,150,102,.07);}
-.pcard.random-pick{--tc:var(--or);border-color:rgba(249,115,22,.3);}
+.pcard.random-pick{border-color:rgba(249,115,22,.3);}
 .pcard.random-pick .pc-pos{color:rgba(249,115,22,.7);}
 .pcard.random-pick .pc-name{color:rgba(249,115,22,.9);}
 .pcard.random-pick .pc-rb{color:var(--or);}
@@ -1949,12 +1934,6 @@ function showRPCard(p){
 
 // ══ PITCH RENDER ══
 function toSub(v){return Math.round(v*2-1);}
-function ratingTier(r){
-  if(r>=90)return 'tier-special';
-  if(r>=85)return 'tier-gold';
-  if(r>=80)return 'tier-silver';
-  return 'tier-bronze';
-}
 function renderPitch(){
   const grid=el('pitch-grid');
   grid.innerHTML='';
@@ -1972,8 +1951,7 @@ function renderPitch(){
         const p=entry.player;
         const dn=(p.fullName||p.name).split(' ').slice(-1)[0];
         const cc=entry.isRandom?'random-pick':'picked';
-        const tc=p.rating?ratingTier(p.rating):'';
-        slot.innerHTML=`<div class="pcard ${cc} ${tc}">
+        slot.innerHTML=`<div class="pcard ${cc}">
           <div class="pc-img">
             <img src="${p.photo||''}" onerror="this.style.display='none'">
             <div class="pc-rb">${p.rating||'—'}</div>
