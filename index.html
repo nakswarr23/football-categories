@@ -223,6 +223,22 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .pcard.picked .pc-pos{color:rgba(62,207,106,.7);}
 .pcard.picked .pc-rb{color:var(--gr);}
 .pcard.picked{border-color:rgba(62,207,106,.3);}
+.pcard.tier-special{border-color:rgba(192,132,252,.5);}
+.pcard.tier-special .pc-pos{color:#c084fc;}
+.pcard.tier-special .pc-rb{color:#c084fc;border-color:rgba(192,132,252,.35);}
+.pcard.tier-special .pc-info{background:rgba(192,132,252,.07);}
+.pcard.tier-gold{border-color:rgba(255,209,102,.5);}
+.pcard.tier-gold .pc-pos{color:#ffd166;}
+.pcard.tier-gold .pc-rb{color:#ffd166;border-color:rgba(255,209,102,.35);}
+.pcard.tier-gold .pc-info{background:rgba(255,209,102,.07);}
+.pcard.tier-silver{border-color:rgba(126,200,227,.45);}
+.pcard.tier-silver .pc-pos{color:#7ec8e3;}
+.pcard.tier-silver .pc-rb{color:#7ec8e3;border-color:rgba(126,200,227,.35);}
+.pcard.tier-silver .pc-info{background:rgba(126,200,227,.06);}
+.pcard.tier-bronze{border-color:rgba(217,150,102,.5);}
+.pcard.tier-bronze .pc-pos{color:#d99666;}
+.pcard.tier-bronze .pc-rb{color:#d99666;border-color:rgba(217,150,102,.35);}
+.pcard.tier-bronze .pc-info{background:rgba(217,150,102,.07);}
 .pcard.random-pick{border-color:rgba(249,115,22,.3);}
 .pcard.random-pick .pc-pos{color:rgba(249,115,22,.7);}
 .pcard.random-pick .pc-name{color:rgba(249,115,22,.9);}
@@ -1941,6 +1957,12 @@ function showRPCard(p){
 
 // ══ PITCH RENDER ══
 function toSub(v){return Math.round(v*2-1);}
+function ratingTier(r){
+  if(r>=90)return 'tier-special';
+  if(r>=85)return 'tier-gold';
+  if(r>=80)return 'tier-silver';
+  return 'tier-bronze';
+}
 function renderPitch(){
   const grid=el('pitch-grid');
   grid.innerHTML='';
@@ -1958,7 +1980,8 @@ function renderPitch(){
         const p=entry.player;
         const dn=(p.fullName||p.name).split(' ').slice(-1)[0];
         const cc=entry.isRandom?'random-pick':'picked';
-        slot.innerHTML=`<div class="pcard ${cc}">
+        const tc=p.rating?ratingTier(p.rating):'';
+        slot.innerHTML=`<div class="pcard ${cc} ${tc}">
           <div class="pc-img">
             <img src="${p.photo||''}" onerror="this.style.display='none'">
             <div class="pc-rb">${p.rating||'—'}</div>
