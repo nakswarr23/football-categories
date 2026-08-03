@@ -6,7 +6,7 @@
 <title>Football Categories</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --bg:#0b0f17;--s1:#111827;--s2:#171f2e;--s3:#1e2a3a;
@@ -18,7 +18,7 @@
   --re:#f05060;--red:rgba(240,80,96,.10);
   --or:#f97316;--ord:rgba(249,115,22,.10);
   --fd:'Bebas Neue',Impact,sans-serif;
-  --fb:'Inter',-apple-system,sans-serif;
+  --fb:'Space Grotesk',-apple-system,sans-serif;
   --r:8px;--rl:14px;
 }
 html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb);font-size:14px;-webkit-font-smoothing:antialiased;}
@@ -402,6 +402,26 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .sim-anim-ms-val{font-family:var(--fd);font-size:18px;color:var(--am);letter-spacing:.5px;}
 .sim-anim-skip{padding:11px 24px;background:transparent;border:1px solid var(--bd2);border-radius:var(--r);color:var(--tx2);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--fb);}
 .sim-anim-skip:hover{background:var(--s2);}
+
+/* ══ RESULT STORY STAGES ══ */
+.result-stage-overlay{position:fixed;inset:0;background:radial-gradient(ellipse at 50% -10%,#1e3a5f 0%,var(--bg) 65%);z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center;cursor:pointer;}
+.rs-skip{position:absolute;top:20px;right:20px;padding:10px 20px;background:rgba(255,255,255,.08);border:1px solid var(--bd2);border-radius:var(--r);color:var(--tx);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--fb);z-index:2;}
+.rs-skip:hover{background:var(--s2);}
+.rs-always-skip{position:absolute;bottom:22px;right:22px;font-size:12px;color:var(--tx3);cursor:pointer;text-decoration:underline;z-index:2;}
+.rs-always-skip:hover{color:var(--tx2);}
+.rs-content{max-width:600px;width:100%;}
+.rs-eyebrow{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:16px;}
+.rs-hero-pos{font-family:var(--fd);font-size:clamp(48px,9vw,84px);line-height:1;letter-spacing:1px;}
+.rs-hero-grade{font-family:var(--fd);font-size:48px;letter-spacing:1px;margin-top:16px;}
+.rs-hero-sub{font-size:14px;color:var(--tx2);margin-top:16px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.5;}
+.rs-card{text-align:left;}
+.rs-dots{display:flex;gap:8px;margin-top:32px;justify-content:center;}
+.rs-dot{width:34px;height:4px;border-radius:2px;background:rgba(255,255,255,.15);transition:background .3s;}
+.rs-dot.active{background:var(--am);}
+.res-section-nav{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;gap:8px;padding:10px 20px;background:rgba(11,15,23,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--bd);}
+.res-section-nav-spacer{height:48px;}
+.res-section-nav-btn{padding:8px 16px;background:transparent;border:1px solid var(--bd2);border-radius:20px;color:var(--tx2);font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--fb);white-space:nowrap;}
+.res-section-nav-btn:hover{background:var(--s2);color:var(--tx);}
 
 /* ══ MOBILE (390px min target) ══ */
 @media (max-width:600px){
@@ -2626,6 +2646,8 @@ function renderResultsDOM(data){
   }
 
   window._simAnim={finalPos:finalPosTreble, cupR, uclR, uclLeaguePos, fixtures};
+  window._resultsData={finalPosTreble, plPts, plGF, plGA, grade, gradeColor, gradeDesc, narrativeText,
+    cupR, uclR, uclLeaguePos, potsIdx, standoutName, fixtures, isTreble, effectiveAvg, rndCount};
   renderSaveCTA();
 }
 // doSim() above is solo-only. Multiplayer uses handleSimulateClick() -> mpReadyToSim() ->
@@ -2998,9 +3020,11 @@ function realTrajectory(plFixtures, finalPos, steps){
   return arr;
 }
 function msFixtureLine(f){ return `${f.res==='W'?'Beat':'Lost to'} ${f.opp} ${f.gf}–${f.ga}`; }
+function skipAnimationsEnabled(){ return localStorage.getItem('fc_skip_reveal')==='1'; }
+function setSkipAnimations(on){ if(on) localStorage.setItem('fc_skip_reveal','1'); else localStorage.removeItem('fc_skip_reveal'); }
 function showSeasonReplay(){
   const d=window._simAnim;
-  if(!d){showStep('step-results');return;}
+  if(!d || skipAnimationsEnabled()){ showStep('step-results'); showResultStages(window._resultsData); return; }
   const steps=12;
   const traj=(d.fixtures&&d.fixtures.pl&&d.fixtures.pl.length)?realTrajectory(d.fixtures.pl,d.finalPos,steps):(()=>{const arr=[];let cur=10+(Math.random()-0.5)*6;for(let i=1;i<=steps;i++){const t=i/steps;const pull=0.3+t*0.4;cur=cur+(d.finalPos-cur)*pull+(Math.random()-0.5)*(5*(1-t));cur=Math.max(1,Math.min(20,cur));arr.push(Math.round(cur));}arr[arr.length-1]=d.finalPos;return arr;})();
   const cupCheckpoint=Math.round(steps*0.55);
@@ -3027,6 +3051,7 @@ function showSeasonReplay(){
     const ov=document.getElementById('sim-anim-overlay');
     if(ov)ov.remove();
     showStep('step-results');
+    showResultStages(window._resultsData);
   }
   el('sa-skip').onclick=finish;
 
@@ -3068,6 +3093,104 @@ function showSeasonReplay(){
       setTimeout(finish,1200);
     }
   },700);
+}
+
+// ══ RESULT STORY STAGES ══
+// Runs once the season-replay animation above finishes (or is skipped) and the real results
+// page is already fully rendered underneath. Consumes window._resultsData directly (stashed at
+// the end of renderResultsDOM) rather than re-parsing any rendered HTML, and is called from the
+// one shared spot both solo (doSim) and multiplayer (pollForOwnResult) already funnel through.
+const STAGE_DWELL_MS=[4000,3500,3500];
+let _stageTimer=null, _stageIdx=0, _stageData=null;
+function stageHeroHtml(d){
+  const bits=[
+    d.finalPosTreble===1?'League champions':`P${d.finalPosTreble} in the league`,
+    d.cupR==='Winners'?'Cup winners':d.cupR==='Finalists'?'Cup finalists':null,
+    d.uclR==='Champions'?'Champions of Europe':d.uclR==='Final'?'UCL finalists':null
+  ].filter(Boolean).join(' · ');
+  return `<div class="rs-eyebrow">Season 2025/26 complete</div>
+    <div class="rs-hero-pos" style="color:${d.finalPosTreble===1?'var(--am)':'var(--tx)'}">${d.finalPosTreble}${suf(d.finalPosTreble)} place</div>
+    <div style="font-size:15px;color:var(--tx2);margin-top:8px;">${bits}</div>
+    <div class="rs-hero-grade" style="color:${d.gradeColor}">${d.grade}</div>
+    <div style="font-size:12px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-top:-10px;">${d.gradeDesc}</div>
+    <div class="rs-hero-sub">${d.narrativeText}</div>`;
+}
+function stageHtml(idx, d){
+  if(idx===0) return stageHeroHtml(d);
+  if(idx===1){
+    const journeyEl=document.getElementById('res-journey');
+    return `<div class="rs-eyebrow">Season journey</div><div class="rs-card">${journeyEl?journeyEl.innerHTML:''}</div>`;
+  }
+  const potsCard=document.getElementById('pots-img-wrap')?.closest('.pots-card');
+  return `<div class="rs-eyebrow">Player of the season</div><div class="rs-card">${potsCard?potsCard.outerHTML:''}</div>`;
+}
+function renderStage(idx){
+  _stageIdx=idx;
+  const content=el('rs-content');
+  if(content) content.innerHTML=stageHtml(idx,_stageData);
+  const dotsEl=el('rs-dots');
+  if(dotsEl) dotsEl.innerHTML=STAGE_DWELL_MS.map((_,i)=>`<div class="rs-dot${i===idx?' active':''}"></div>`).join('');
+  clearTimeout(_stageTimer);
+  _stageTimer=setTimeout(()=>advanceStage(false), STAGE_DWELL_MS[idx]);
+}
+function advanceStage(){
+  clearTimeout(_stageTimer);
+  const next=_stageIdx+1;
+  if(next>=STAGE_DWELL_MS.length){ finishStages(); return; }
+  renderStage(next);
+}
+function showResultStages(data){
+  if(!data || skipAnimationsEnabled()){ finishStages(); return; }
+  _stageData=data;
+  const existing=document.getElementById('result-stage-overlay');
+  if(existing)existing.remove();
+  document.body.insertAdjacentHTML('beforeend',`<div class="result-stage-overlay" id="result-stage-overlay">
+    <button class="rs-skip" id="rs-skip">Skip to results →</button>
+    <a href="javascript:void(0)" class="rs-always-skip" id="rs-always-skip">Always skip this animation</a>
+    <div class="rs-content" id="rs-content"></div>
+    <div class="rs-dots" id="rs-dots"></div>
+  </div>`);
+  el('rs-skip').onclick=(e)=>{ e.stopPropagation(); finishStages(); };
+  el('rs-always-skip').onclick=(e)=>{ e.stopPropagation(); setSkipAnimations(true); finishStages(); };
+  el('result-stage-overlay').onclick=()=>advanceStage();
+  renderStage(0);
+}
+function finishStages(){
+  clearTimeout(_stageTimer);
+  const ov=document.getElementById('result-stage-overlay');
+  if(ov)ov.remove();
+  buildResultsSectionNav();
+}
+
+// Sticky in-page nav so players can jump straight to a section after the reveal, without
+// re-scrolling or replaying anything -- these are plain scroll-to-anchor shortcuts into the
+// same full results page that's always there, not a second routing mechanism.
+function scrollToResultsSection(id){
+  const target=document.getElementById(id);
+  if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function buildResultsSectionNav(){
+  const page=el('step-results');
+  if(!page) return;
+  let nav=document.getElementById('res-section-nav');
+  if(nav) nav.remove();
+  let spacer=document.getElementById('res-section-nav-spacer');
+  if(spacer) spacer.remove();
+  const isMp=APP.mode==='multiplayer';
+  nav=document.createElement('div');
+  nav.className='res-section-nav';
+  nav.id='res-section-nav';
+  nav.innerHTML=`
+    <button class="res-section-nav-btn" onclick="scrollToResultsSection('res-pos')">Overview</button>
+    <button class="res-section-nav-btn" onclick="scrollToResultsSection('res-journey-card')">Journey</button>
+    <button class="res-section-nav-btn" onclick="scrollToResultsSection('pots-img-wrap')">Player of the season</button>
+    ${isMp?'<button class="res-section-nav-btn" onclick="scrollToResultsSection(\'mp-lobby-results\')">Lobby standings</button>':''}
+  `;
+  spacer=document.createElement('div');
+  spacer.className='res-section-nav-spacer';
+  spacer.id='res-section-nav-spacer';
+  page.insertBefore(spacer, page.firstChild);
+  page.insertBefore(nav, page.firstChild);
 }
 </script>
 </body>
