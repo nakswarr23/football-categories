@@ -2561,7 +2561,7 @@ function renderResultsDOM(data){
       if(!s) return `<tr style="opacity:.3;"><td>${SLOTS[i].key}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
       const st=playerStats[i];
       const dn=(s.player.fullName||s.player.name).split(' ').slice(-1)[0];
-      const score=perfScoreFor(s.player.position, st, seasonW);
+      const score=Math.round(perfScoreFor(s.player.position, st, seasonW));
       const isPots=i===potsIdx;
       return `<tr${isPots?' style="border-left:2px solid var(--am);background:rgba(240,168,48,.05);"':''}>
         <td style="font-weight:${isPots?'700':'500'};">${dn}</td>
