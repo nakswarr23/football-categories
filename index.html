@@ -529,8 +529,8 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
         </div>
       </div>
       <div id="auth-displayname-wrap" style="display:none;">
-        <label class="fc-label">Display name</label>
-        <input class="fc-input" id="auth-displayname" placeholder="Shown on the leaderboard" maxlength="20">
+        <label class="fc-label">Team name</label>
+        <input class="fc-input" id="auth-displayname" placeholder="e.g. Emirates FC" maxlength="20">
       </div>
       <p class="fc-hint" id="auth-forgot-wrap" style="text-align:right;margin-top:-4px;">
         <a href="javascript:void(0)" onclick="openForgotPassword()" style="color:var(--tx2);">Forgot password?</a>
@@ -590,8 +590,8 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     <div class="fc-title">Your account</div>
     <div class="fc-sub" id="account-email-sub">—</div>
 
-    <label class="fc-label">Display name</label>
-    <input class="fc-input" id="account-displayname" maxlength="20" placeholder="Shown on the leaderboard">
+    <label class="fc-label">Team name</label>
+    <input class="fc-input" id="account-displayname" maxlength="20" placeholder="e.g. Emirates FC">
     <button class="fc-btn fc-btn-primary" onclick="saveDisplayName()">Save name</button>
 
     <div class="fc-divider"></div>
@@ -637,7 +637,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     </div>
     <div class="camp-card" style="margin-top:4px;">
       <table class="camp-tbl">
-        <thead id="leaderboard-head"><tr><th>#</th><th>Player</th><th>Pos</th><th>Pts</th><th>Grade</th><th>Mode</th></tr></thead>
+        <thead id="leaderboard-head"><tr><th>#</th><th>Team</th><th>Pos</th><th>Pts</th><th>Grade</th><th>Mode</th></tr></thead>
         <tbody id="leaderboard-body"></tbody>
       </table>
     </div>
@@ -651,7 +651,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     <div class="fc-eyebrow">Solo mode</div>
     <div class="fc-title">Set up your game</div>
     <div class="fc-sub">Name your squad and configure how you want to play.</div>
-    <label class="fc-label">Your name</label>
+    <label class="fc-label">Manager name</label>
     <input class="fc-input" id="solo-name" placeholder="e.g. Nakul" maxlength="20" onkeydown="if(event.key==='Enter')launchGame()">
     <p class="fc-hint">Shown in results and activity log.</p>
     <div style="border-top:1px solid var(--bd);padding-top:16px;margin-bottom:14px;">
@@ -700,8 +700,8 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     <div class="fc-eyebrow">Multiplayer</div>
     <div class="fc-title">Join or create</div>
     <div class="fc-sub">Create a lobby and share the code, or join a friend's game.</div>
-    <label class="fc-label">Your name</label>
-    <input class="fc-input" id="mp-name" placeholder="Enter your name..." maxlength="20">
+    <label class="fc-label">Team name</label>
+    <input class="fc-input" id="mp-name" placeholder="e.g. Emirates FC" maxlength="20">
     <button class="fc-btn fc-btn-green" onclick="createLobby()">Create lobby</button>
     <div class="fc-divider"></div>
     <div class="fc-divider-label">or join existing</div>
@@ -934,7 +934,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       <!-- Multiplayer only: everyone else's placement, at a glance -->
       <div class="camp-card" id="mp-lobby-results" style="display:none;margin-top:0;">
         <div class="camp-hd">Lobby results</div>
-        <table class="camp-tbl"><thead><tr><th>Player</th><th>League</th><th>Domestic Cup</th><th>UCL</th></tr></thead>
+        <table class="camp-tbl"><thead><tr><th>Team</th><th>League</th><th>Domestic Cup</th><th>UCL</th></tr></thead>
         <tbody id="mp-lobby-results-body"></tbody></table>
       </div>
       <button class="res-newgame" onclick="showStep('step-landing')">← Play again</button>
@@ -1140,7 +1140,7 @@ async function loadLeaderboard(){
   body.innerHTML = '<tr><td colspan="6" style="color:var(--tx3);text-align:center;">Loading…</td></tr>';
   try{
     if (LB_STATE.metric==='points') {
-      head.innerHTML = '<tr><th>#</th><th>Player</th><th>Total Pts</th><th>Games</th></tr>';
+      head.innerHTML = '<tr><th>#</th><th>Team</th><th>Total Pts</th><th>Games</th></tr>';
       const ptsCol = LB_STATE.scope==='competitive' ? 'competitive_total_points' : 'total_points';
       const gamesCol = LB_STATE.scope==='competitive' ? 'competitive_games_played' : 'games_played';
       const {data, error} = await sb.from('leaderboard_totals').select(`player_name,${ptsCol},${gamesCol}`).order(ptsCol,{ascending:false}).limit(50);
@@ -1149,7 +1149,7 @@ async function loadLeaderboard(){
       if (!rows.length) { body.innerHTML = '<tr><td colspan="4" style="color:var(--tx3);text-align:center;">No results yet — be the first.</td></tr>'; return; }
       body.innerHTML = rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r.player_name}</td><td>${r[ptsCol]}</td><td>${r[gamesCol]}</td></tr>`).join('');
     } else {
-      head.innerHTML = '<tr><th>#</th><th>Player</th><th>Pos</th><th>Pts</th><th>Grade</th><th>Mode</th></tr>';
+      head.innerHTML = '<tr><th>#</th><th>Team</th><th>Pos</th><th>Pts</th><th>Grade</th><th>Mode</th></tr>';
       let query = sb.from('game_results').select('player_name,mode,league_position,league_points,grade').order('created_at',{ascending:false}).limit(200);
       if (LB_STATE.scope==='competitive') query = query.eq('is_competitive', true);
       const {data, error} = await query;
@@ -2304,9 +2304,12 @@ function getClubPool(leagues){
   return _clubPoolCache[key];
 }
 function genScoreline(outcome, dominance, rnd){
-  const winMargins=[[1,0],[2,0],[2,1],[3,1],[1,0],[2,0],[3,0]];
-  const loseMargins=[[0,1],[0,2],[1,2],[1,3],[0,1],[0,2],[0,3]];
-  const drawScores=[[0,0],[1,1],[2,2],[0,0],[1,1]];
+  // ~40% of wins are clean sheets (real Premier League rate for a good defense), not the
+  // ~70% an earlier, unordered table produced -- that was massively over-crediting defenders
+  // and goalkeepers with clean sheets regardless of how the season actually looked.
+  const winMargins=[[1,0],[2,1],[2,1],[2,0],[3,1],[3,2],[3,0],[4,1],[3,1],[4,0]];
+  const loseMargins=[[0,1],[0,2],[1,2],[0,1],[1,3],[0,2],[1,2],[0,3],[1,2],[0,1]];
+  const drawScores=[[1,1],[1,1],[0,0],[1,1],[2,2]];
   const bias=Math.round(dominance*2);
   if(outcome==='D'){ const [a,b]=drawScores[clampIdx(Math.floor(rnd()*drawScores.length),drawScores.length)]; return {gf:a,ga:b}; }
   if(outcome==='W'){ const [a,b]=winMargins[clampIdx(Math.floor(rnd()*winMargins.length)+bias,winMargins.length)]; return {gf:a,ga:b}; }
@@ -2389,18 +2392,52 @@ function attributeMatchEvents(squad, allFixtures, rnd){
   });
   return stats;
 }
-function perfScoreFor(pos, st){
-  const goalMul=(pos==='Defender'||pos==='Goalkeeper')?6:pos==='Midfielder'?5:4;
-  const csMul=(pos==='Goalkeeper'||pos==='Defender')?4:pos==='Midfielder'?1:0;
-  return st.apps*2 + st.goals*goalMul + st.assists*3 + st.cleanSheets*csMul;
+// How much of this season's success actually came from attack vs defense, relative to a
+// rough Premier League average (~55 goals for/against per team per season). A team that
+// scored heavily gets a high attackShare; a team that leaked very little gets a high
+// defenseShare -- used to shift Player of the Season toward whichever half of the pitch
+// actually won the games, rather than fixed per-position point values (Opta's own player
+// ratings work the same way: weightings shift per position/context instead of flat scoring).
+function seasonWeights(plGF, plGA){
+  // How many goals better than a rough Premier League average (~55 for/against per team
+  // per season) this squad's attack and defense each were. Using a DIFFERENCE against the
+  // same baseline (not a ratio) keeps the two symmetric -- a ratio-based comparison lets a
+  // stingy defense's index spiral upward as GA approaches zero while a high-scoring attack's
+  // index stays comparatively bounded, which would make defense win almost every good season
+  // regardless of how the goals actually broke down.
+  const leagueAvg=55;
+  const attackOver=Math.max(0, plGF-leagueAvg);
+  const defenseOver=Math.max(0, leagueAvg-plGA);
+  const total=attackOver+defenseOver;
+  if(total<=0) return {attackShare:0.5, defenseShare:0.5};
+  const attackShare=attackOver/total;
+  return {attackShare, defenseShare:1-attackShare};
 }
-function pickPlayerOfSeason(squad, playerStats){
+function perfScoreFor(pos, st, weights){
+  const w=weights||{attackShare:0.5,defenseShare:0.5};
+  // Base multipliers already favor rarer contributions for the position (a defender's goal
+  // or a keeper's clean sheet is worth more than an attacker's, mirroring how Opta doesn't
+  // expect defenders to match attackers' attacking output) -- then scaled by how much this
+  // particular season's success actually came from scoring vs not conceding.
+  const baseGoalMul=pos==='Goalkeeper'?8:pos==='Defender'?7:pos==='Midfielder'?5:4;
+  const baseAssistMul=pos==='Midfielder'?4:pos==='Defender'?4:pos==='Goalkeeper'?3:2.5;
+  // Goalkeeper and Defender get the *same* clean-sheet credit per match (both are marked
+  // whenever a match finishes 0 GA), so an equal multiplier here is what actually lets
+  // defenders edge out the keeper via their (much more likely) extra goal/assist contributions,
+  // instead of the keeper mechanically topping every defense-driven season by default.
+  const baseCsMul=pos==='Goalkeeper'?7:pos==='Defender'?7:pos==='Midfielder'?2:0;
+  const goalMul=baseGoalMul*(0.6+0.8*w.attackShare);
+  const assistMul=baseAssistMul*(0.6+0.8*w.attackShare);
+  const csMul=baseCsMul*(0.6+0.8*w.defenseShare);
+  return st.apps*2 + st.goals*goalMul + st.assists*assistMul + st.cleanSheets*csMul;
+}
+function pickPlayerOfSeason(squad, playerStats, weights){
   let bi=-1;
   squad.forEach((s,i)=>{
     if(!s) return;
     if(bi===-1){ bi=i; return; }
-    const cur=perfScoreFor(s.player.position, playerStats[i]);
-    const bestSc=perfScoreFor(squad[bi].player.position, playerStats[bi]);
+    const cur=perfScoreFor(s.player.position, playerStats[i], weights);
+    const bestSc=perfScoreFor(squad[bi].player.position, playerStats[bi], weights);
     if(cur>bestSc || (cur===bestSc && (s.player.rating||0)>(squad[bi].player.rating||0))) bi=i;
   });
   return bi;
@@ -2441,7 +2478,8 @@ function renderResultsDOM(data){
   const {plW, plD, plL, plPts, plGF, plGA, finalPosTreble, cupR, cW, cL, uclR, uW, uD, uL, uclGamesPlayed, uclLeaguePos,
     isTreble, avg, effectiveAvg, rndCount, uclWcWinners, natCounts, fixtures, playerStats} = data;
 
-  const potsIdx=fixtures&&playerStats?pickPlayerOfSeason(G.squad, playerStats):G.squad.reduce((bi,s,i)=>s&&(!G.squad[bi]||(s.player.rating||0)>(G.squad[bi]?.player?.rating||0))?i:bi,0);
+  const seasonW=seasonWeights(plGF, plGA);
+  const potsIdx=fixtures&&playerStats?pickPlayerOfSeason(G.squad, playerStats, seasonW):G.squad.reduce((bi,s,i)=>s&&(!G.squad[bi]||(s.player.rating||0)>(G.squad[bi]?.player?.rating||0))?i:bi,0);
   const pots=G.squad[potsIdx];
   const standoutName=pots?(pots.player.name||pots.player.fullName||pots.player.lastname||'').split(' ').slice(-1)[0]:'the squad';
   const natEntry=natCounts?Object.entries(natCounts).sort((a,b)=>b[1]-a[1])[0]:null;
@@ -2523,7 +2561,7 @@ function renderResultsDOM(data){
       if(!s) return `<tr style="opacity:.3;"><td>${SLOTS[i].key}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
       const st=playerStats[i];
       const dn=(s.player.fullName||s.player.name).split(' ').slice(-1)[0];
-      const score=perfScoreFor(s.player.position, st);
+      const score=perfScoreFor(s.player.position, st, seasonW);
       const isPots=i===potsIdx;
       return `<tr${isPots?' style="border-left:2px solid var(--am);background:rgba(240,168,48,.05);"':''}>
         <td style="font-weight:${isPots?'700':'500'};">${dn}</td>
