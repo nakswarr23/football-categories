@@ -202,13 +202,13 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .pcard{aspect-ratio:1;width:100%;height:auto;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.055);transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,.25);container-type:inline-size;}
 .pcard:hover:not(.empty){transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.35);}
 .pc-img{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;}
-.pc-img img{width:56cqw;aspect-ratio:1;height:auto;border-radius:50%;object-fit:cover;object-position:top center;display:block;border:1.5px solid rgba(255,255,255,.14);}
+.pc-img img{width:48cqw;aspect-ratio:1;height:auto;border-radius:50%;object-fit:cover;object-position:top center;display:block;border:1.5px solid rgba(255,255,255,.14);}
 .pc-ph{font-family:var(--fd);font-size:22cqw;color:rgba(255,255,255,.14);letter-spacing:1px;}
 .pc-rb{position:absolute;top:5cqw;right:5cqw;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.14);border-radius:4.5cqw;font-family:var(--fd);font-size:13cqw;line-height:1;padding:1.5cqw 4.5cqw;color:var(--am);}
-.pc-info{flex:0 0 auto;padding:6cqw 9cqw 8cqw;background:rgba(0,0,0,.32);}
-.pc-pos{font-size:8.6cqw;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);margin-bottom:1.8cqw;}
-.pc-name{font-size:11.5cqw;font-weight:600;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pc-cat{font-size:8.2cqw;color:rgba(255,255,255,.32);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1cqw;}
+.pc-info{flex:0 0 auto;padding:4cqw 9cqw 5cqw;background:rgba(0,0,0,.32);}
+.pc-pos{font-size:8.6cqw;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);line-height:1.15;margin-bottom:1.2cqw;}
+.pc-name{font-size:11.5cqw;font-weight:600;color:white;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-cat{font-size:8.2cqw;color:rgba(255,255,255,.32);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:0.8cqw;}
 /* States */
 .pcard.empty{opacity:.42;border-style:dashed;border-color:rgba(255,255,255,.08);}
 .pcard.empty .pc-img,.pcard.empty .pc-info{background:transparent;}
