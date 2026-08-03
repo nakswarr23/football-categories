@@ -902,16 +902,34 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   </div>
   <div class="res-body">
     <div>
+      <div class="camp-card" id="res-save-cta" style="display:none;background:rgba(108,142,247,.06);border-color:rgba(108,142,247,.3);padding:16px 20px;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:2px;">Playing as guest</div>
+          <div style="font-size:12.5px;color:var(--tx2);">Sign in to save this result to your profile and the leaderboard.</div>
+        </div>
+        <button onclick="onSaveResultClick()" style="padding:10px 18px;background:var(--ac);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Sign in to save</button>
+      </div>
       <div class="trophy-cards" id="trophy-cards"></div>
       <div class="camp-card">
         <div class="camp-hd">Full campaign stats</div>
         <table class="camp-tbl"><thead><tr><th>Competition</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Pts</th></tr></thead>
         <tbody id="camp-tbl"></tbody></table>
       </div>
+      <!-- Season journey: real fixtures/opponents per competition -->
+      <div class="camp-card" id="res-journey-card" style="margin-top:0;">
+        <div class="camp-hd">Season journey</div>
+        <div id="res-journey" style="padding:16px 20px;"></div>
+      </div>
       <!-- Squad overview -->
       <div class="camp-card" style="margin-top:0;">
         <div class="camp-hd">Your XI this season</div>
         <div id="res-squad-grid" style="display:grid;grid-template-columns:repeat(11,1fr);gap:9px;padding:18px 16px;"></div>
+      </div>
+      <!-- Per-player season stats, tied to simulated match events -->
+      <div class="camp-card" style="margin-top:0;">
+        <div class="camp-hd">Season stats</div>
+        <table class="camp-tbl" style="table-layout:fixed;"><thead><tr><th style="width:34%;">Player</th><th style="width:14%;">Pos</th><th style="width:13%;">G</th><th style="width:13%;">A</th><th style="width:13%;">CS</th><th style="width:13%;">Score</th></tr></thead>
+        <tbody id="res-playerstats-tbl"></tbody></table>
       </div>
       <!-- Multiplayer only: everyone else's placement, at a glance -->
       <div class="camp-card" id="mp-lobby-results" style="display:none;margin-top:0;">
@@ -1007,6 +1025,9 @@ async function onAuthReady(user){
     APP.playerName = AUTH.profile?.display_name || APP.playerName;
     showStep('step-mp');
     const nameField = el('mp-name'); if (nameField) nameField.value = APP.playerName;
+  } else if (pending==='save-result') {
+    if (document.querySelector('.step.active')?.id==='step-auth') showStep('step-results');
+    if (G.pendingResult) { await saveGameResult(G.pendingResult); toast('Result saved','ok'); }
   } else if (document.querySelector('.step.active')?.id==='step-auth') {
     showStep('step-landing');
   }
@@ -1061,11 +1082,14 @@ async function doAccountSignOut(){
   showStep('step-landing');
 }
 // Best-effort: saves a completed season to game_results for logged-in players only.
-// Guests still play normally, just without anything persisted. Never blocks or interrupts
-// showing the results screen if the save fails for any reason.
+// Guests get a sign-in-to-save CTA on the results page instead of losing the result outright --
+// the result is cached on G.pendingResult and re-saved once they sign in (see onAuthReady).
+// Never blocks or interrupts showing the results screen if the save fails for any reason.
 async function saveGameResult(r){
-  if (!AUTH.user || G.resultSaved) return;
+  if (G.resultSaved) return;
+  if (!AUTH.user) { G.pendingResult = r; renderSaveCTA(); return; }
   G.resultSaved = true;
+  G.pendingResult = null;
   try{
     await sb.from('game_results').insert({
       user_id: AUTH.user.id,
@@ -1084,6 +1108,15 @@ async function saveGameResult(r){
       is_competitive: !!r.isCompetitive
     });
   } catch(e){ /* saved history is a bonus, never worth blocking the results screen over */ }
+}
+function renderSaveCTA(){
+  const cta=el('res-save-cta');
+  if(!cta)return;
+  cta.style.display=(!AUTH.user && !G.resultSaved && G.pendingResult) ? 'flex' : 'none';
+}
+function onSaveResultClick(){
+  AUTH.pendingAction='save-result';
+  openAuth();
 }
 const LB_GRADE_RANK = {'S++':12,'S+':11,'S':10,'A+':9,'A':8,'B+':7,'B':6,'C':5,'D':4,'F':3};
 const LB_STATE = {scope:'open', metric:'grade'};
@@ -1743,7 +1776,7 @@ const LEAGUES_SHOW=['Premier League','La Liga','Bundesliga','Serie A','Ligue 1',
 
 // ══ GAME STATE ══
 let G=newG(); let pickedIds=new Set();
-function newG(){return{name:'Scout',pick:0,squad:Array(11).fill(null),cats:Array(11).fill(null),usedCatIds:[],leagueCounts:{},respinsLeft:3,timerSec:0,timerTick:null,randomCount:0,log:[],resultSaved:false};}
+function newG(){return{name:'Scout',pick:0,squad:Array(11).fill(null),cats:Array(11).fill(null),usedCatIds:[],leagueCounts:{},respinsLeft:3,timerSec:0,timerTick:null,randomCount:0,log:[],resultSaved:false,pendingResult:null};}
 
 // ══ LAUNCH GAME ══
 function launchGame() {
@@ -2081,287 +2114,394 @@ function buildReview(){
 }
 
 // ══ SEASON SIM ══
-// Real Premier League points-vs-goal-difference anchors (approximate historical medians).
-// The relationship is convex, not linear -- teams good enough for 100 points aren't just
-// winning more often, they win by bigger margins too, so GD accelerates away from points
-// much faster at the top of the table than in mid-table. Interpolated + given realistic
-// scatter below, rather than treated as an exact lookup.
-const GD_ANCHORS = [[10,-58],[22,-50],[30,-40],[34,-30],[39,-20],[45,-8],[51,0],[59,8],[65,15],[75,28],[85,42],[92,55],[100,78],[110,90]];
-function realisticGD(points, rnd){
-  let gd;
-  if (points <= GD_ANCHORS[0][0]) gd = GD_ANCHORS[0][1];
-  else if (points >= GD_ANCHORS[GD_ANCHORS.length-1][0]) gd = GD_ANCHORS[GD_ANCHORS.length-1][1];
-  else {
-    for (let i=0;i<GD_ANCHORS.length-1;i++){
-      const p0=GD_ANCHORS[i][0], g0=GD_ANCHORS[i][1], p1=GD_ANCHORS[i+1][0], g1=GD_ANCHORS[i+1][1];
-      if (points>=p0 && points<=p1){ gd = g0 + (g1-g0)*(points-p0)/(p1-p0); break; }
-    }
-  }
-  return gd + (rnd()-0.5)*16; // realistic scatter around the trend line, roughly ±8
-}
-// Derives a consistent GF/GA pair from a target GD -- GF still scales with the actual W/D
-// record (attacking output should track results), GA fills in whatever's needed to hit the
-// target exactly, with floors on both sides so neither ever looks absurd (e.g. a top-heavy
-// GD never implies conceding a nonsensical single-digit number of goals).
-function gfGaFromGD(plW, plD, gdTarget, rnd){
-  let gf = Math.round(plW*1.9 + plD*1.0 + 18 + rnd()*8);
-  let ga = gf - gdTarget;
-  if (ga < 15) { ga = 15; gf = ga + gdTarget; }
-  if (gf < 15) { gf = 15; ga = gf - gdTarget; }
-  return { gf: Math.max(0, Math.round(gf)), ga: Math.max(0, Math.round(ga)) };
-}
-function doSim(){
-  const filled=G.squad.filter(Boolean);
+function shuffleArr(arr, rnd){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function clampIdx(i,len){ return Math.max(0, Math.min(len-1, i)); }
+
+// Pure aggregate season simulator shared by solo (doSim) and multiplayer (hostComputeSharedSeason).
+// Returns natural W/D/L/position/cup/UCL numbers before any trophy-tier override is applied.
+function simulateSeasonAggregate(squad, rnd){
+  const filled=squad.filter(Boolean);
   const avg=filled.reduce((a,s)=>a+(s.player.rating||0),0)/filled.length;
-  const r=()=>Math.random();
   const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
-  let seed = (APP.playerName||'x').split('').reduce((a,c)=>a+c.charCodeAt(0),0) + Date.now() % 10000;
-  const sr = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-  const useR = APP.mode === 'multiplayer' ? sr : r;
-  const rndCount = G.squad.filter(s=>s&&s.isRandom).length;
-  const rndPenalty = rndCount * 1.8;
+  const rndCount=squad.filter(s=>s&&s.isRandom).length;
+  const rndPenalty=rndCount*1.8;
 
-  // ── SQUAD COMPOSITION FACTORS ──
-  // Make results reflect the actual players picked, not just the average. Combined max swing ~±3.
-  let compBonus = 0;
-  const natCounts = {};
+  let compBonus=0;
+  const natCounts={};
   filled.forEach(s=>{const n=s.player.nationality||'Unknown'; natCounts[n]=(natCounts[n]||0)+1;});
-  const maxNatCount = Math.max(0,...Object.values(natCounts));
-  if (maxNatCount >= 4) compBonus += Math.min(0.5 + (maxNatCount-4)*0.25, 1);
+  const maxNatCount=Math.max(0,...Object.values(natCounts));
+  if(maxNatCount>=4) compBonus+=Math.min(0.5+(maxNatCount-4)*0.25,1);
 
-  const uclWcWinners = filled.filter(s=>(s.player.trophies||[]).some(t=>t.place==='Winner' && (t.league==='UEFA Champions League'||t.league==='FIFA World Cup'||t.league==='World Cup'))).length;
-  compBonus += Math.min(uclWcWinners * 0.2, 2.0);
+  const uclWcWinners=filled.filter(s=>(s.player.trophies||[]).some(t=>t.place==='Winner'&&(t.league==='UEFA Champions League'||t.league==='FIFA World Cup'||t.league==='World Cup'))).length;
+  compBonus+=Math.min(uclWcWinners*0.2,2.0);
 
-  const ages = filled.map(s=>s.player.age||25);
-  const vets = ages.filter(a=>a>=30).length, young = ages.filter(a=>a<24).length, peak = ages.filter(a=>a>=24&&a<30).length;
-  if (ages.every(a=>a>=35) || ages.every(a=>a<=19)) compBonus -= 0.5;
-  else if (vets>=2 && young>=2 && peak>=filled.length/2) compBonus += 0.5;
+  const ages=filled.map(s=>s.player.age||25);
+  const vets=ages.filter(a=>a>=30).length, young=ages.filter(a=>a<24).length, peak=ages.filter(a=>a>=24&&a<30).length;
+  if(ages.every(a=>a>=35)||ages.every(a=>a<=19)) compBonus-=0.5;
+  else if(vets>=2&&young>=2&&peak>=filled.length/2) compBonus+=0.5;
 
-  const leagueSet = new Set(filled.map(s=>s.player.league));
-  if (leagueSet.size === 1 && filled.length===11) compBonus -= 0.5;
+  const leagueSet=new Set(filled.map(s=>s.player.league));
+  if(leagueSet.size===1&&filled.length===11) compBonus-=0.5;
 
-  compBonus = Math.max(-3, Math.min(3, compBonus));
+  compBonus=Math.max(-3,Math.min(3,compBonus));
+  const effectiveAvg=avg-rndPenalty+compBonus;
 
-  const effectiveAvg = avg - rndPenalty + compBonus;
+  const base=((effectiveAvg-68)/26)*30;
+  const variance=(rnd()-0.5)*18;
+  let plW=clamp(Math.round(base+variance),3,34);
+  let plD=clamp(Math.round(8-plW*0.12+rnd()*5),2,14);
+  let plL=clamp(38-plW-plD,0,33);
+  let plPts=plW*3+plD;
 
-  // ── LEAGUE: wide spread, with a hard relegation floor below 80 avg ──
-  const base = ((effectiveAvg - 68) / 26) * 30;
-  const variance = (useR() - 0.5) * 18;
-  let plW = clamp(Math.round(base + variance), 3, 34);
-  let plD = clamp(Math.round(8 - plW * 0.12 + useR() * 5), 2, 14);
-  let plL = clamp(38 - plW - plD, 0, 33);
-  let plPts = plW * 3 + plD;
-
-  // Hard relegation rule: squads averaging under 80 are capped in the bottom third of the table.
-  // The worse the squad, the harder the cap — guarantees real danger for weak/randomized squads.
-  let posCapPts = null;
-  if (effectiveAvg < 65) posCapPts = 22;       // 19th-20th guaranteed
-  else if (effectiveAvg < 72) posCapPts = 30;  // 17th-19th
-  else if (effectiveAvg < 80) posCapPts = 40;  // 13th-17th
-  if (posCapPts !== null && plPts > posCapPts) {
-    const scale = posCapPts / plPts;
-    plW = clamp(Math.round(plW * scale), 1, plW);
-    plD = clamp(Math.round(plD * scale), 0, plD);
-    plL = clamp(38 - plW - plD, 0, 36);
-    plPts = plW * 3 + plD;
+  let posCapPts=null;
+  if(effectiveAvg<65) posCapPts=22;
+  else if(effectiveAvg<72) posCapPts=30;
+  else if(effectiveAvg<80) posCapPts=40;
+  if(posCapPts!==null&&plPts>posCapPts){
+    const scale=posCapPts/plPts;
+    plW=clamp(Math.round(plW*scale),1,plW);
+    plD=clamp(Math.round(plD*scale),0,plD);
+    plL=clamp(38-plW-plD,0,36);
+    plPts=plW*3+plD;
   }
 
-  const pos = plPts>=88?1:plPts>=78?2:plPts>=71?3:plPts>=64?4:plPts>=58?5:plPts>=53?6:plPts>=48?7:plPts>=43?8:plPts>=38?9:plPts>=34?10:plPts>=30?11:plPts>=27?12:plPts>=24?13:plPts>=21?14:plPts>=18?15:plPts>=15?16:plPts>=12?17:plPts>=9?18:plPts>=6?19:20;
+  let cupWinChance=0, leagueWinBoost=0, uclWinChance=0, trebleRoll=false;
+  if(effectiveAvg>=89){ trebleRoll=rnd()<0.28; cupWinChance=0.55; leagueWinBoost=10; uclWinChance=0.35; }
+  else if(effectiveAvg>=88){ cupWinChance=0.35; leagueWinBoost=5; uclWinChance=0.15; }
+  else if(effectiveAvg>=87){ cupWinChance=0.20; leagueWinBoost=2; uclWinChance=0.05; }
+  else if(effectiveAvg>=84){ cupWinChance=0.06; uclWinChance=0.01; }
+  if(leagueWinBoost){ plPts=clamp(plPts+Math.round(leagueWinBoost*rnd()),plPts,95); }
 
-  // ── TROPHY TIER SYSTEM ──
-  // <87: no major trophy. 87-87.9: small shot at domestic cup only.
-  // 88-88.9: real shot at league title or UCL (not both). 89-90+: treble contention, very high odds.
-  let cupWinChance = 0, leagueWinBoost = 0, uclWinChance = 0, trebleRoll = false;
-  if (effectiveAvg >= 89) {
-    trebleRoll = useR() < 0.28; // a genuine treble is still rare, even for 89-90+ squads
-    cupWinChance = 0.55; leagueWinBoost = 10; uclWinChance = 0.35;
-  } else if (effectiveAvg >= 88) {
-    cupWinChance = 0.35; leagueWinBoost = 5; uclWinChance = 0.15;
-  } else if (effectiveAvg >= 87) {
-    cupWinChance = 0.20; leagueWinBoost = 2; uclWinChance = 0.05;
-  } else if (effectiveAvg >= 84) {
-    cupWinChance = 0.06; uclWinChance = 0.01;
-  }
-  // Nudge points up for high tiers so position reflects trophy push
-  if (leagueWinBoost) { plPts = clamp(plPts + Math.round(leagueWinBoost * useR()), plPts, 95); }
-  const posF = plPts>=88?1:plPts>=78?2:plPts>=71?3:plPts>=64?4:plPts>=58?5:plPts>=53?6:plPts>=48?7:plPts>=43?8:plPts>=38?9:plPts>=34?10:plPts>=30?11:plPts>=27?12:plPts>=24?13:plPts>=21?14:plPts>=18?15:plPts>=15?16:plPts>=12?17:plPts>=9?18:plPts>=6?19:20;
-  // Floor calibrated per-bracket so the three sub-80 tiers actually produce distinct outcome
-  // ranges (19-20th / 17-19th / 13-17th) instead of collapsing everything under 80 into 18-20th.
-  // Sampled per-run (not fixed) so weak squads still get real run-to-run variety instead of
-  // landing on the exact same position every single time.
-  let posFloor = null;
-  if (effectiveAvg < 65) posFloor = 19 + Math.round(useR());            // 19-20
-  else if (effectiveAvg < 72) posFloor = 17 + Math.round(useR() * 2);   // 17-19
-  else if (effectiveAvg < 80) posFloor = 13 + Math.round(useR() * 4);   // 13-17
-  const finalPos = posFloor !== null ? Math.max(posF, posFloor) : posF;
+  const posOf=pts=>pts>=88?1:pts>=78?2:pts>=71?3:pts>=64?4:pts>=58?5:pts>=53?6:pts>=48?7:pts>=43?8:pts>=38?9:pts>=34?10:pts>=30?11:pts>=27?12:pts>=24?13:pts>=21?14:pts>=18?15:pts>=15?16:pts>=12?17:pts>=9?18:pts>=6?19:20;
+  const posF=posOf(plPts);
+  let posFloor=null;
+  if(effectiveAvg<65) posFloor=19+Math.round(rnd());
+  else if(effectiveAvg<72) posFloor=17+Math.round(rnd()*2);
+  else if(effectiveAvg<80) posFloor=13+Math.round(rnd()*4);
+  const finalPos=posFloor!==null?Math.max(posF,posFloor):posF;
 
-  // ── UCL: real Swiss-model format (2024/25+ Champions League) ──
-  // League phase: 8 games in one combined 36-team table. 1st-8th go straight to the Round of
-  // 16. 9th-24th play a 2-legged Knockout Playoff for the remaining 8 R16 spots. 25th-36th are
-  // eliminated after the league phase. R16/QF/SF are 2-legged ties; the Final is a single match.
   let uclR, uW=0, uD=0, uL=0, uclGamesPlayed=0, uclLeaguePos=0;
-  const leagueW = clamp(Math.round((effectiveAvg-72)*0.22 + useR()*2.5), 0, 8);
-  const leagueD = clamp(Math.round(useR()*2.5), 0, 4);
-  const leagueL = clamp(8 - leagueW - leagueD, 0, 8);
-  uclGamesPlayed = 8; uW = leagueW; uD = leagueD; uL = leagueL;
-  const leagueOnlyW = leagueW, leagueOnlyD = leagueD, leagueOnlyL = leagueL;
-  const leaguePts = leagueW*3 + leagueD;
-  uclLeaguePos = clamp(Math.round(36 - (leaguePts/24)*35 - (useR()-0.5)*6), 1, 36);
+  const leagueW=clamp(Math.round((effectiveAvg-72)*0.22+rnd()*2.5),0,8);
+  const leagueD=clamp(Math.round(rnd()*2.5),0,4);
+  const leagueL=clamp(8-leagueW-leagueD,0,8);
+  uclGamesPlayed=8; uW=leagueW; uD=leagueD; uL=leagueL;
+  const leagueOnlyW=leagueW, leagueOnlyD=leagueD, leagueOnlyL=leagueL;
+  const leaguePts=leagueW*3+leagueD;
+  uclLeaguePos=clamp(Math.round(36-(leaguePts/24)*35-(rnd()-0.5)*6),1,36);
 
   function uclTwoLegTie(){
-    const tieStrength = clamp((effectiveAvg - 78) * 0.032 + (useR()-0.5)*0.5, -0.45, 0.4);
-    // Leg results: realistic tie outcomes — win+win, win+draw, win+loss, draw+draw, loss+loss are the only sane combos
-    const legOutcomeRoll = useR() + tieStrength;
+    const tieStrength=clamp((effectiveAvg-78)*0.032+(rnd()-0.5)*0.5,-0.45,0.4);
+    const legOutcomeRoll=rnd()+tieStrength;
     let leg1, leg2;
-    if (legOutcomeRoll > 0.68) { leg1='w'; leg2 = useR()<0.65?'w':'d'; }
-    else if (legOutcomeRoll > 0.48) { leg1='w'; leg2='l'; } // win one, lose one — survives on aggregate sometimes
-    else if (legOutcomeRoll > 0.32) { leg1='d'; leg2='d'; }
-    else if (legOutcomeRoll > 0.16) { leg1='l'; leg2='w'; }
-    else { leg1='l'; leg2 = useR()<0.7?'l':'d'; }
-    [leg1, leg2].forEach(o => { if(o==='w') uW++; else if(o==='d') uD++; else uL++; });
-    uclGamesPlayed += 2;
-    const twoLosses = leg1==='l' && leg2==='l';
-    return !twoLosses && (leg1==='w'||leg2==='w'||useR()<0.4);
+    if(legOutcomeRoll>0.68){ leg1='w'; leg2=rnd()<0.65?'w':'d'; }
+    else if(legOutcomeRoll>0.48){ leg1='w'; leg2='l'; }
+    else if(legOutcomeRoll>0.32){ leg1='d'; leg2='d'; }
+    else if(legOutcomeRoll>0.16){ leg1='l'; leg2='w'; }
+    else{ leg1='l'; leg2=rnd()<0.7?'l':'d'; }
+    [leg1,leg2].forEach(o=>{ if(o==='w')uW++; else if(o==='d')uD++; else uL++; });
+    uclGamesPlayed+=2;
+    const twoLosses=leg1==='l'&&leg2==='l';
+    return !twoLosses&&(leg1==='w'||leg2==='w'||rnd()<0.4);
   }
   function uclFinal(){
-    // Single match at a neutral venue — no second leg. Draws go to ET/penalties (coin flip).
-    const tieStrength = clamp((effectiveAvg - 78) * 0.032 + (useR()-0.5)*0.5, -0.45, 0.4);
-    const rl = useR() + tieStrength;
+    const tieStrength=clamp((effectiveAvg-78)*0.032+(rnd()-0.5)*0.5,-0.45,0.4);
+    const rl=rnd()+tieStrength;
     let won;
-    if (rl > 0.62) { uW++; won = true; }
-    else if (rl > 0.35) { uD++; won = useR() < 0.45; }
-    else { uL++; won = false; }
-    uclGamesPlayed += 1;
+    if(rl>0.62){ uW++; won=true; }
+    else if(rl>0.35){ uD++; won=rnd()<0.45; }
+    else{ uL++; won=false; }
+    uclGamesPlayed+=1;
     return won;
   }
 
-  if (uclLeaguePos > 24) {
-    uclR = 'League phase';
-  } else if (uclLeaguePos >= 9) {
-    if (!uclTwoLegTie()) uclR = 'Knockout Playoff';
-    else if (!uclTwoLegTie()) uclR = 'Round of 16';
-    else if (!uclTwoLegTie()) uclR = 'Quarter-finals';
-    else if (!uclTwoLegTie()) uclR = 'Semi-finals';
-    else if (!uclFinal()) uclR = 'Final';
-    else uclR = 'Champions';
+  if(uclLeaguePos>24){ uclR='League phase'; }
+  else if(uclLeaguePos>=9){
+    if(!uclTwoLegTie()) uclR='Knockout Playoff';
+    else if(!uclTwoLegTie()) uclR='Round of 16';
+    else if(!uclTwoLegTie()) uclR='Quarter-finals';
+    else if(!uclTwoLegTie()) uclR='Semi-finals';
+    else if(!uclFinal()) uclR='Final';
+    else uclR='Champions';
   } else {
-    if (!uclTwoLegTie()) uclR = 'Round of 16';
-    else if (!uclTwoLegTie()) uclR = 'Quarter-finals';
-    else if (!uclTwoLegTie()) uclR = 'Semi-finals';
-    else if (!uclFinal()) uclR = 'Final';
-    else uclR = 'Champions';
+    if(!uclTwoLegTie()) uclR='Round of 16';
+    else if(!uclTwoLegTie()) uclR='Quarter-finals';
+    else if(!uclTwoLegTie()) uclR='Semi-finals';
+    else if(!uclFinal()) uclR='Final';
+    else uclR='Champions';
   }
-  const uclTookPlayoffPath = uclLeaguePos >= 9 && uclLeaguePos <= 24;
-  const uclMaxGames = uclTookPlayoffPath ? 17 : 15;
+  const uclTookPlayoffPath=uclLeaguePos>=9&&uclLeaguePos<=24;
+  const uclMaxGames=uclTookPlayoffPath?17:15;
 
-  // Trophy tier override: guarantee deep runs for elite squads, guarantee early exits for weak ones.
-  // Whenever this forces a different result than the natural sim produced, resynthesize
-  // uclGamesPlayed/uW/uD/uL so the stats table always matches the displayed result exactly.
-  if (effectiveAvg >= 89 && useR() < uclWinChance && uclR !== 'Champions') {
-    uclR = 'Champions';
-    let legsNeeded = uclMaxGames - uclGamesPlayed;
-    while (legsNeeded-- > 0) { const rl=useR(); if(rl<0.75) uW++; else if(rl<0.9) uD++; else uL++; }
-    uclGamesPlayed = uclMaxGames;
-  } else if (effectiveAvg < 80 && uclR !== 'League phase' && useR() < 0.6) {
-    uclR = 'League phase';
-    uW = leagueOnlyW; uD = leagueOnlyD; uL = leagueOnlyL; uclGamesPlayed = 8;
-  }
-
-  // ── Domestic Cup: real cup names only (FA Cup/Copa del Rey/DFB-Pokal/Coppa Italia/Coupe de France style — never Super Cup) ──
   let cupR, cW=0, cL=0;
-  const cupRounds = ['Round 3','Round 4','Quarter-finals','Semi-finals','Final'];
+  const cupRounds=['Round 3','Round 4','Quarter-finals','Semi-finals','Final'];
   let cIdx=0, cAlive=true;
-  while (cAlive && cIdx < cupRounds.length) {
-    const winRoll = useR() + (effectiveAvg-77)*0.014;
-    if (winRoll > 0.46) { cW++; cIdx++; if(cIdx>=cupRounds.length){cupR='Winners';cAlive=false;} }
-    else { cL++; cupR = cupRounds[cIdx]==='Final'?'Finalists':cupRounds[cIdx]; cAlive=false; }
+  while(cAlive&&cIdx<cupRounds.length){
+    const winRoll=rnd()+(effectiveAvg-77)*0.014;
+    if(winRoll>0.46){ cW++; cIdx++; if(cIdx>=cupRounds.length){cupR='Winners';cAlive=false;} }
+    else{ cL++; cupR=cupRounds[cIdx]==='Final'?'Finalists':cupRounds[cIdx]; cAlive=false; }
   }
-  if (cAlive) cupR='Winners';
-  // Same consistency rule as UCL: if an override changes the result, resync games played to match.
-  if (useR() < cupWinChance && cupR !== 'Winners') { cupR = 'Winners'; cW = 5; cL = 0; }
-  else if (effectiveAvg < 80 && useR() < 0.5) {
-    const idx = clamp(Math.round(useR()*2),0,2);
-    cupR = cupRounds[idx]; cW = idx; cL = 1;
+  if(cAlive) cupR='Winners';
+
+  return {avg, effectiveAvg, rndCount, compBonus, natCounts, uclWcWinners,
+    plW, plD, plL, plPts, finalPos,
+    cupWinChance, leagueWinBoost, uclWinChance, trebleRoll,
+    uclR, uW, uD, uL, uclGamesPlayed, uclLeaguePos, uclMaxGames, uclTookPlayoffPath,
+    leagueOnlyW, leagueOnlyD, leagueOnlyL,
+    cupR, cW, cL, cupRounds};
+}
+
+// Solo-only: guarantee-deep-run / guarantee-early-exit overrides + treble, layered on top of the
+// natural aggregate above. Multiplayer uses cross-player arbitration instead (see hostComputeSharedSeason).
+function applySoloTierOverrides(agg, rnd){
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  let {uclR, uW, uD, uL, uclGamesPlayed, uclMaxGames, cupR, cW, cL, cupRounds, plPts, effectiveAvg, uclWinChance, cupWinChance, trebleRoll, leagueOnlyW, leagueOnlyD, leagueOnlyL}=agg;
+
+  if(effectiveAvg>=89 && rnd()<uclWinChance && uclR!=='Champions'){
+    uclR='Champions';
+    let legsNeeded=uclMaxGames-uclGamesPlayed;
+    while(legsNeeded-->0){ const rl=rnd(); if(rl<0.75) uW++; else if(rl<0.9) uD++; else uL++; }
+    uclGamesPlayed=uclMaxGames;
+  } else if(effectiveAvg<80 && uclR!=='League phase' && rnd()<0.6){
+    uclR='League phase';
+    uW=leagueOnlyW; uD=leagueOnlyD; uL=leagueOnlyL; uclGamesPlayed=8;
   }
 
-  // ── Treble override ──
-  let isTreble = false;
-  if (trebleRoll) {
-    if (cupR !== 'Winners') { cW = 5; cL = 0; }
-    cupR = 'Winners';
-    if (uclR !== 'Champions') {
-      let legsNeeded = uclMaxGames - uclGamesPlayed;
-      while (legsNeeded-- > 0) { const rl=useR(); if(rl<0.75) uW++; else if(rl<0.9) uD++; else uL++; }
-      uclGamesPlayed = uclMaxGames;
+  if(rnd()<cupWinChance && cupR!=='Winners'){ cupR='Winners'; cW=5; cL=0; }
+  else if(effectiveAvg<80 && rnd()<0.5){
+    const idx=clamp(Math.round(rnd()*2),0,2);
+    cupR=cupRounds[idx]; cW=idx; cL=1;
+  }
+
+  let isTreble=false;
+  if(trebleRoll){
+    if(cupR!=='Winners'){ cW=5; cL=0; }
+    cupR='Winners';
+    if(uclR!=='Champions'){
+      let legsNeeded=uclMaxGames-uclGamesPlayed;
+      while(legsNeeded-->0){ const rl=rnd(); if(rl<0.75) uW++; else if(rl<0.9) uD++; else uL++; }
+      uclGamesPlayed=uclMaxGames;
     }
-    uclR = 'Champions';
-    plPts = Math.max(plPts, 88);
-    isTreble = true;
+    uclR='Champions';
+    plPts=Math.max(plPts,88);
+    isTreble=true;
   }
-  const finalPosTreble = isTreble ? 1 : finalPos;
+  const finalPosTreble=isTreble?1:agg.finalPos;
 
-  // GF/GA derived from the final points total, now that it's fully settled -- keeps GD
-  // realistic relative to points instead of drifting independently of it.
-  const gdTarget = realisticGD(plPts, useR);
-  const { gf: plGF, ga: plGA } = gfGaFromGD(plW, plD, gdTarget, useR);
+  return {...agg, uclR, uW, uD, uL, uclGamesPlayed, cupR, cW, cL, plPts, isTreble, finalPosTreble};
+}
+
+// ── Fixture/opponent generation ──
+let _clubPoolCache={};
+function getClubPool(leagues){
+  const key=leagues.join('|');
+  if(_clubPoolCache[key]) return _clubPoolCache[key];
+  const pool=[...new Set((DB||[]).filter(p=>leagues.includes(p.league)).map(p=>p.team).filter(Boolean))];
+  _clubPoolCache[key]=pool.length?pool:['Athletic FC'];
+  return _clubPoolCache[key];
+}
+function genScoreline(outcome, dominance, rnd){
+  const winMargins=[[1,0],[2,0],[2,1],[3,1],[1,0],[2,0],[3,0]];
+  const loseMargins=[[0,1],[0,2],[1,2],[1,3],[0,1],[0,2],[0,3]];
+  const drawScores=[[0,0],[1,1],[2,2],[0,0],[1,1]];
+  const bias=Math.round(dominance*2);
+  if(outcome==='D'){ const [a,b]=drawScores[clampIdx(Math.floor(rnd()*drawScores.length),drawScores.length)]; return {gf:a,ga:b}; }
+  if(outcome==='W'){ const [a,b]=winMargins[clampIdx(Math.floor(rnd()*winMargins.length)+bias,winMargins.length)]; return {gf:a,ga:b}; }
+  const [a,b]=loseMargins[clampIdx(Math.floor(rnd()*loseMargins.length)-bias,loseMargins.length)]; return {gf:a,ga:b};
+}
+function genLeagueFixtures(plW, plD, plL, effectiveAvg, pool, rnd){
+  const dominance=Math.max(-1,Math.min(1,(effectiveAvg-77)/20));
+  const outcomes=shuffleArr([...Array(plW).fill('W'),...Array(plD).fill('D'),...Array(plL).fill('L')], rnd);
+  const oppPool=shuffleArr(pool, rnd);
+  return outcomes.map((res,i)=>{ const {gf,ga}=genScoreline(res,dominance,rnd); return {mw:i+1, opp:oppPool[i%oppPool.length], home:i%2===0, res, gf, ga}; });
+}
+function genCupFixtures(cW, cL, cupR, cupRounds, effectiveAvg, pool, rnd){
+  const dominance=Math.max(-1,Math.min(1,(effectiveAvg-77)/20));
+  const oppPool=shuffleArr(pool, rnd);
+  const roundsPlayed=cW+cL;
+  const fixtures=[];
+  for(let i=0;i<roundsPlayed;i++){
+    const label=cupRounds[i]||cupRounds[cupRounds.length-1];
+    const isLastPlayed=i===roundsPlayed-1;
+    const won=cupR==='Winners'?true:!isLastPlayed;
+    const {gf,ga}=genScoreline(won?'W':'L', dominance, rnd);
+    fixtures.push({round:label, opp:oppPool[i%oppPool.length], res:won?'W':'L', gf, ga});
+  }
+  return fixtures;
+}
+function genUclFixtures(agg, pool, rnd){
+  const {uclLeaguePos, uW, uD, uL, uclR, leagueOnlyW, leagueOnlyD, leagueOnlyL, effectiveAvg}=agg;
+  const dominance=Math.max(-1,Math.min(1,(effectiveAvg-77)/20));
+  const oppPool=shuffleArr(pool, rnd);
+  let poolIdx=0; const nextOpp=()=>oppPool[(poolIdx++)%oppPool.length];
+
+  const leagueOutcomes=shuffleArr([...Array(leagueOnlyW).fill('W'),...Array(leagueOnlyD).fill('D'),...Array(leagueOnlyL).fill('L')], rnd);
+  const league=leagueOutcomes.map((res,i)=>{ const {gf,ga}=genScoreline(res,dominance,rnd); return {mw:i+1, opp:nextOpp(), home:i%2===0, res, gf, ga}; });
+
+  const uclTookPlayoffPath=uclLeaguePos>=9&&uclLeaguePos<=24;
+  const roundsSeq=uclTookPlayoffPath
+    ? ['Knockout Playoff','Round of 16','Quarter-finals','Semi-finals','Final']
+    : ['Round of 16','Quarter-finals','Semi-finals','Final'];
+  let reachedIdx;
+  if(uclR==='League phase') reachedIdx=-1;
+  else if(uclR==='Champions') reachedIdx=roundsSeq.length-1;
+  else reachedIdx=roundsSeq.indexOf(uclR);
+  const playedRounds=reachedIdx>=0?roundsSeq.slice(0,reachedIdx+1):[];
+
+  const koW=Math.max(0,uW-leagueOnlyW), koD=Math.max(0,uD-leagueOnlyD), koL=Math.max(0,uL-leagueOnlyL);
+  const koOutcomes=shuffleArr([...Array(koW).fill('W'),...Array(koD).fill('D'),...Array(koL).fill('L')], rnd);
+  let koIdx=0;
+  const knockout=playedRounds.map((roundName,i)=>{
+    const isFinal=roundName==='Final';
+    const won=uclR==='Champions'?true:i<reachedIdx;
+    const legCount=isFinal?1:2;
+    const legs=[];
+    for(let l=0;l<legCount;l++){ const res=koOutcomes.length?koOutcomes[koIdx%koOutcomes.length]:(won?'W':'L'); koIdx++; const {gf,ga}=genScoreline(res,dominance,rnd); legs.push({res,gf,ga}); }
+    return {round:roundName, opp:nextOpp(), won, legs};
+  });
+
+  return {league, knockout, uclTookPlayoffPath};
+}
+
+// ── Per-player event attribution + performance score (rating-independent) ──
+function attributeMatchEvents(squad, allFixtures, rnd){
+  const posWeight={Attacker:5, Midfielder:2.5, Defender:0.6, Goalkeeper:0.02};
+  const assistWeight={Attacker:2.5, Midfielder:5, Defender:1, Goalkeeper:0};
+  const stats=squad.map(s=>s?{goals:0,assists:0,cleanSheets:0,apps:allFixtures.length}:null);
+  function weightedPick(weightMap){
+    const entries=[];
+    squad.forEach((s,i)=>{ if(!s)return; const pos=s.player.position||'Midfielder'; const base=weightMap[pos]!==undefined?weightMap[pos]:1; const w=base*((s.player.rating||70)/70); entries.push([i,w]); });
+    const total=entries.reduce((a,[,w])=>a+w,0);
+    let roll=rnd()*total;
+    for(const [i,w] of entries){ roll-=w; if(roll<=0) return i; }
+    return entries[entries.length-1][0];
+  }
+  allFixtures.forEach(f=>{
+    for(let g=0; g<f.gf; g++){
+      const scorer=weightedPick(posWeight);
+      stats[scorer].goals++;
+      if(rnd()<0.55+rnd()*0.3){ const assister=weightedPick(assistWeight); if(assister!==scorer) stats[assister].assists++; }
+    }
+    if(f.ga===0){ squad.forEach((s,i)=>{ if(s&&(s.player.position==='Goalkeeper'||s.player.position==='Defender')) stats[i].cleanSheets++; }); }
+  });
+  return stats;
+}
+function perfScoreFor(pos, st){
+  const goalMul=(pos==='Defender'||pos==='Goalkeeper')?6:pos==='Midfielder'?5:4;
+  const csMul=(pos==='Goalkeeper'||pos==='Defender')?4:pos==='Midfielder'?1:0;
+  return st.apps*2 + st.goals*goalMul + st.assists*3 + st.cleanSheets*csMul;
+}
+function pickPlayerOfSeason(squad, playerStats){
+  let bi=-1;
+  squad.forEach((s,i)=>{
+    if(!s) return;
+    if(bi===-1){ bi=i; return; }
+    const cur=perfScoreFor(s.player.position, playerStats[i]);
+    const bestSc=perfScoreFor(squad[bi].player.position, playerStats[bi]);
+    if(cur>bestSc || (cur===bestSc && (s.player.rating||0)>(squad[bi].player.rating||0))) bi=i;
+  });
+  return bi;
+}
+
+// Builds the fixture log + player stats for a finalized (post-override/post-arbitration) squad
+// result. Called once per squad, after all trophy overrides/arbitration are settled.
+function buildSeasonNarrative(squad, agg, rnd){
+  const plPool=getClubPool(['Premier League']);
+  const uclPool=getClubPool(TOP5.concat(['Primeira Liga','Eredivisie']));
+  const pl=genLeagueFixtures(agg.plW, agg.plD, agg.plL, agg.effectiveAvg, plPool, rnd);
+  const cup=genCupFixtures(agg.cW, agg.cL, agg.cupR, agg.cupRounds, agg.effectiveAvg, plPool, rnd);
+  const ucl=genUclFixtures(agg, uclPool, rnd);
+  const plGF=pl.reduce((s,f)=>s+f.gf,0), plGA=pl.reduce((s,f)=>s+f.ga,0);
+  const uclAllGames=[...ucl.league, ...ucl.knockout.flatMap(k=>k.legs)];
+  const uclGF=uclAllGames.reduce((s,f)=>s+f.gf,0), uclGA=uclAllGames.reduce((s,f)=>s+f.ga,0);
+  const cupGF=cup.reduce((s,f)=>s+f.gf,0), cupGA=cup.reduce((s,f)=>s+f.ga,0);
+  const allFixturesForStats=[...pl, ...cup, ...ucl.league, ...ucl.knockout.flatMap(k=>k.legs)];
+  const playerStats=attributeMatchEvents(squad, allFixturesForStats, rnd);
+  return {fixtures:{pl, cup, ucl}, playerStats, plGF, plGA, uclGF, uclGA, cupGF, cupGA};
+}
+
+function doSim(){
+  const r=()=>Math.random();
+  const agg=simulateSeasonAggregate(G.squad, r);
+  const solved=applySoloTierOverrides(agg, r);
+  const narrative=buildSeasonNarrative(G.squad, solved, r);
+  const data={...solved, plGF:narrative.plGF, plGA:narrative.plGA, uclGF:narrative.uclGF, uclGA:narrative.uclGA, cupGF:narrative.cupGF, cupGA:narrative.cupGA, fixtures:narrative.fixtures, playerStats:narrative.playerStats};
+  renderResultsDOM(data);
+  const mpSec=el('mp-lobby-results'); if(mpSec)mpSec.style.display='none';
+  saveGameResult({mode:'solo', formation:CFG.formation, avgRating:Math.round(data.avg*10)/10, randomCount:data.rndCount, leaguePosition:data.finalPosTreble, leaguePoints:data.plPts, cupResult:data.cupR, uclResult:data.uclR, grade:data.grade, timerSec:CFG.timer, respins:CFG.respins, isCompetitive:APP.isCompetitive});
+  revealSimResults();
+}
+
+// Shared DOM-writing tail for both solo (doSim) and multiplayer (renderResultsFromShared).
+// `data` carries the fully-resolved season result plus the fixture log and per-player stats.
+function renderResultsDOM(data){
+  const {plW, plD, plL, plPts, plGF, plGA, finalPosTreble, cupR, cW, cL, uclR, uW, uD, uL, uclGamesPlayed, uclLeaguePos,
+    isTreble, avg, effectiveAvg, rndCount, uclWcWinners, natCounts, fixtures, playerStats} = data;
+
+  const potsIdx=fixtures&&playerStats?pickPlayerOfSeason(G.squad, playerStats):G.squad.reduce((bi,s,i)=>s&&(!G.squad[bi]||(s.player.rating||0)>(G.squad[bi]?.player?.rating||0))?i:bi,0);
+  const pots=G.squad[potsIdx];
+  const standoutName=pots?(pots.player.name||pots.player.fullName||pots.player.lastname||'').split(' ').slice(-1)[0]:'the squad';
+  const natEntry=natCounts?Object.entries(natCounts).sort((a,b)=>b[1]-a[1])[0]:null;
+  const natHeavy=natEntry&&natEntry[1]>=4?natEntry[0]:null;
+  const trophyNote=uclWcWinners>=2?`${uclWcWinners} proven winners in the ranks`:null;
 
   const fdots=(w,d,l)=>[...Array(Math.min(5,w)).fill('w'),...Array(Math.min(2,d)).fill('d'),...Array(Math.min(3,l)).fill('l')].map(x=>`<div class="fd ${x}"></div>`).join('');
+  const isInvincible=plL===0, isCenturion=plPts>=100;
+  const grade=data.grade||((isInvincible||isCenturion)?'S++':isTreble?'S+':plPts>=88?'S+':plPts>=78?'S':plPts>=68?'A+':plPts>=58?'A':plPts>=47?'B+':plPts>=36?'B':plPts>=25?'C':plPts>=15?'D':'F');
+  data.grade=grade;
+  const gradeColor={'S++':'#ffffff','S+':'#f0c040','S':'#e8b820','A+':'#4caf50','A':'#66bb6a','B+':'#42a5f5','B':'#5c8fef','C':'#ff9800','D':'#f06060','F':'#cc3333'}[grade]||'#8b96a8';
+  const gradeDesc={'S++':'Perfect','S+':'Legendary','S':'Elite','A+':'Excellent','A':'Very good','B+':'Good','B':'Solid','C':'Below average','D':'Poor','F':'Disaster'}[grade]||'';
 
-  const isInvincible = plL===0, isCenturion = plPts>=100;
-  const grade = (isInvincible||isCenturion) ? 'S++' : isTreble?'S+':plPts>=88?'S+':plPts>=78?'S':plPts>=68?'A+':plPts>=58?'A':plPts>=47?'B+':plPts>=36?'B':plPts>=25?'C':plPts>=15?'D':'F';
-  const gradeColor = {'S++':'#ffffff','S+':'#f0c040','S':'#e8b820','A+':'#4caf50','A':'#66bb6a','B+':'#42a5f5','B':'#5c8fef','C':'#ff9800','D':'#f06060','F':'#cc3333'}[grade]||'#8b96a8';
-  const gradeDesc = {'S++':'Perfect','S+':'Legendary','S':'Elite','A+':'Excellent','A':'Very good','B+':'Good','B':'Solid','C':'Below average','D':'Poor','F':'Disaster'}[grade]||'';
-
-  // Standout player + nationality mix, computed here so both the narrative below and the
-  // Player of the Season card can use the same values.
-  const bi=G.squad.reduce((bi,s,i)=>s&&(!G.squad[bi]||(s.player.rating||0)>(G.squad[bi]?.player?.rating||0))?i:bi,0);
-  const best=G.squad[bi];
-  const standoutName = best ? (best.player.name||best.player.fullName||best.player.lastname||'').split(' ').slice(-1)[0] : 'the squad';
-  const natEntry = Object.entries(natCounts).sort((a,b)=>b[1]-a[1])[0];
-  const natHeavy = natEntry && natEntry[1]>=4 ? natEntry[0] : null;
-  const trophyNote = uclWcWinners>=2 ? `${uclWcWinners} proven winners in the ranks` : null;
-
-  let narrative;
-  if (isTreble) narrative = `${natHeavy?`Your ${natHeavy}-heavy squad`:'Your squad'}, led by ${standoutName}, swept every competition — the treble, an immortal season.`;
-  else if (finalPosTreble===1) narrative = `${natHeavy?`A ${natHeavy}-heavy core`:'A squad built for the top'}, spearheaded by ${standoutName}, stormed to the title.`;
-  else if (finalPosTreble<=2) narrative = `${standoutName} inspired a title charge that fell just short — runners-up.`;
-  else if (finalPosTreble<=4) narrative = `${standoutName} led the line as the squad secured Champions League football.`;
-  else if (finalPosTreble<=6) narrative = `A steady campaign built around ${standoutName} lands Europa League football next season.`;
-  else if (finalPosTreble<=10) narrative = `${natHeavy?`Your ${natHeavy}-heavy squad`:'The squad'} settled into a solid mid-table finish, with ${standoutName} the standout performer.`;
-  else if (finalPosTreble<=14) narrative = `A difficult campaign${trophyNote?`, despite ${trophyNote}`:''} — ${standoutName} couldn't drag the squad higher.`;
-  else if (finalPosTreble<=17) narrative = `A relegation battle survived on the back of ${standoutName}'s performances.`;
-  else narrative = `Relegated — even ${standoutName} couldn't prevent the drop.`;
+  let narrativeText;
+  if(isTreble) narrativeText=`${natHeavy?`Your ${natHeavy}-heavy squad`:'Your squad'}, led by ${standoutName}, swept every competition — the treble, an immortal season.`;
+  else if(finalPosTreble===1) narrativeText=`${natHeavy?`A ${natHeavy}-heavy core`:'A squad built for the top'}, spearheaded by ${standoutName}, stormed to the title.`;
+  else if(finalPosTreble<=2) narrativeText=`${standoutName} inspired a title charge that fell just short — runners-up.`;
+  else if(finalPosTreble<=4) narrativeText=`${standoutName} led the line as the squad secured Champions League football.`;
+  else if(finalPosTreble<=6) narrativeText=`A steady campaign built around ${standoutName} lands Europa League football next season.`;
+  else if(finalPosTreble<=10) narrativeText=`${natHeavy?`Your ${natHeavy}-heavy squad`:'The squad'} settled into a solid mid-table finish, with ${standoutName} the standout performer.`;
+  else if(finalPosTreble<=14) narrativeText=`A difficult campaign${trophyNote?`, despite ${trophyNote}`:''} — ${standoutName} couldn't drag the squad higher.`;
+  else if(finalPosTreble<=17) narrativeText=`A relegation battle survived on the back of ${standoutName}'s performances.`;
+  else narrativeText=`Relegated — even ${standoutName} couldn't prevent the drop.`;
 
   el('res-pos').textContent=finalPosTreble+suf(finalPosTreble)+' place';
   el('res-pts').textContent=plPts;
   { const gdV=plGF-plGA; const gdEl=el('res-gd'); gdEl.textContent=(gdV>=0?'+':'')+gdV; gdEl.style.color=gdV>0?'var(--gr)':gdV<0?'var(--re)':'var(--tx2)'; }
-  el('res-sub').textContent=`Squad avg ${effectiveAvg.toFixed(1)}${rndCount?` (${rndCount} random player${rndCount>1?'s':''})`:''}. ${narrative}`;
+  el('res-sub').textContent=`Squad avg ${effectiveAvg.toFixed(1)}${rndCount?` (${rndCount} random player${rndCount>1?'s':''})`:''}. ${narrativeText}`;
 
-  const gradeHtml = `<div class="tc-grade-badge">${grade}</div><div class="tc-grade-desc">${gradeDesc}</div>`;
+  const gradeHtml=`<div class="tc-grade-badge">${grade}</div><div class="tc-grade-desc">${gradeDesc}</div>`;
   el('trophy-cards').innerHTML=`
     <div class="tc ${finalPosTreble===1?'won':''}"><div class="tc-comp">League</div><div class="tc-result ${finalPosTreble===1?'gold':finalPosTreble<=4?'silver':'dim'}">${finalPosTreble===1?'Champions':finalPosTreble<=4?'Top '+finalPosTreble:'P'+finalPosTreble}</div><div class="form-dots">${fdots(plW,plD,plL)}</div><div class="tc-det">${plW}W ${plD}D ${plL}L · ${plPts} pts</div></div>
     <div class="tc ${cupR==='Winners'?'won':''}"><div class="tc-comp">Domestic Cup</div><div class="tc-result ${cupR==='Winners'?'gold':cupR==='Finalists'?'silver':'dim'}">${cupR}</div><div class="form-dots">${fdots(cW,0,cL)}</div><div class="tc-det">${cW} wins</div></div>
     <div class="tc ${uclR==='Champions'?'won':''}"><div class="tc-comp">UCL</div><div class="tc-result ${uclR==='Champions'?'gold':uclR==='Final'?'silver':'dim'}">${uclR==='League phase'?'Eliminated':uclR}</div><div class="form-dots">${fdots(uW,uD,uL)}</div><div class="tc-det">${uclLeaguePos}${suf(uclLeaguePos)} in League Phase · ${uW}W ${uD}D ${uL}L</div></div>
     <div class="tc tc-grade" style="--gc:${gradeColor}">${gradeHtml}<div class="tc-grade-sub">${avg.toFixed(1)} avg rating</div></div>`;
 
+  const uclGF=data.uclGF!=null?data.uclGF:Math.round(uW*2.1+uD*1.1);
+  const uclGA=data.uclGA!=null?data.uclGA:Math.round(uL*1.3+uD*.6);
+  const cupGF=data.cupGF!=null?data.cupGF:cW*2;
+  const cupGA=data.cupGA!=null?data.cupGA:Math.max(1,cL*1.4)|0;
   el('camp-tbl').innerHTML=`
     <tr><td>Premier League</td><td>38</td><td>${plW}</td><td>${plD}</td><td>${plL}</td><td>${plGF}</td><td>${plGA}</td><td>${plPts}</td></tr>
-    <tr><td>UCL</td><td>${uclGamesPlayed}</td><td>${uW}</td><td>${uD}</td><td>${uL}</td><td>${Math.round(uW*2.1+uD*1.1)}</td><td>${Math.round(uL*1.3+uD*.6)}</td><td>—</td></tr>
-    <tr><td>Domestic Cup</td><td>${cW+cL}</td><td>${cW}</td><td>0</td><td>${cL}</td><td>${cW*2}</td><td>${Math.max(1,cL*1.4)|0}</td><td>—</td></tr>`;
+    <tr><td>UCL</td><td>${uclGamesPlayed}</td><td>${uW}</td><td>${uD}</td><td>${uL}</td><td>${uclGF}</td><td>${uclGA}</td><td>—</td></tr>
+    <tr><td>Domestic Cup</td><td>${cW+cL}</td><td>${cW}</td><td>0</td><td>${cL}</td><td>${cupGF}</td><td>${cupGA}</td><td>—</td></tr>`;
 
-  if(best){
-    el('pots-img').src=best.player.photo||'';
-    el('pots-name').textContent=(best.player.fullName||best.player.name).toUpperCase();
-    el('pots-role').textContent=(best.player.nationality||'—')+' · '+best.player.position;
-    el('pots-rat').textContent=best.player.rating;
-    el('pots-cat').textContent=best.cat.label;
-    el('pots-pos').textContent=SLOTS[bi].key;
+  if(pots){
+    const st=playerStats?playerStats[potsIdx]:null;
+    el('pots-img').src=pots.player.photo||'';
+    el('pots-name').textContent=(pots.player.fullName||pots.player.name).toUpperCase();
+    el('pots-role').textContent=(pots.player.nationality||'—')+' · '+pots.player.position;
+    if(st){
+      const headline = st.goals>=st.assists&&st.goals>=st.cleanSheets ? {k:'Goals',v:st.goals} : st.assists>=st.cleanSheets ? {k:'Assists',v:st.assists} : {k:'Clean sheets',v:st.cleanSheets};
+      el('pots-rat').textContent=headline.v;
+      el('pots-rat').previousElementSibling.textContent=headline.k;
+    } else {
+      el('pots-rat').textContent=pots.player.rating;
+    }
+    el('pots-cat').textContent=pots.cat.label;
+    el('pots-pos').textContent=SLOTS[potsIdx].key;
   }
 
-  // Build squad mini-cards for results page
-  const squadGrid = el('res-squad-grid');
+  const squadGrid=el('res-squad-grid');
   if(squadGrid){
-    squadGrid.innerHTML = G.squad.map((s,i)=>{
+    squadGrid.innerHTML=G.squad.map((s,i)=>{
       if(!s)return`<div style="text-align:center;opacity:.3"><div style="width:100%;aspect-ratio:1;border-radius:50%;background:var(--s3);margin:0 auto 5px;max-width:46px;"></div><div style="font-size:9.5px;color:var(--tx3)">${SLOTS[i].key}</div></div>`;
       const p=s.player;
       const dn=(p.fullName||p.name).split(' ').slice(-1)[0];
@@ -2373,14 +2513,67 @@ function doSim(){
     }).join('');
   }
 
-  // Squad stats sidebar
-  const statsBod = el('res-stats-body');
+  const psTbl=el('res-playerstats-tbl');
+  if(psTbl && playerStats){
+    psTbl.innerHTML=G.squad.map((s,i)=>{
+      if(!s) return `<tr style="opacity:.3;"><td>${SLOTS[i].key}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
+      const st=playerStats[i];
+      const dn=(s.player.fullName||s.player.name).split(' ').slice(-1)[0];
+      const score=perfScoreFor(s.player.position, st);
+      const isPots=i===potsIdx;
+      return `<tr${isPots?' style="border-left:2px solid var(--am);background:rgba(240,168,48,.05);"':''}>
+        <td style="font-weight:${isPots?'700':'500'};">${dn}</td>
+        <td style="color:var(--tx3);">${SLOTS[i].key}</td>
+        <td>${st.goals}</td><td>${st.assists}</td><td>${st.cleanSheets||'—'}</td>
+        <td style="color:${isPots?'var(--am)':'var(--tx)'};font-weight:700;">${score}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  const journeyEl=el('res-journey');
+  if(journeyEl && fixtures){
+    const bestWin=fixtures.pl.filter(f=>f.res==='W').sort((a,b)=>(b.gf-b.ga)-(a.gf-a.ga))[0];
+    const worstLoss=fixtures.pl.filter(f=>f.res==='L').sort((a,b)=>(b.ga-b.gf)-(a.ga-a.gf))[0];
+    const chips=[bestWin,worstLoss].filter(Boolean).map(f=>{
+      const win=f.res==='W';
+      return `<div style="background:${win?'rgba(62,207,106,.08)':'rgba(229,72,77,.08)'};border:1px solid ${win?'rgba(62,207,106,.25)':'rgba(229,72,77,.25)'};border-radius:6px;padding:6px 10px;font-size:12px;">${win?'Beat':'Lost to'} ${f.opp} <span style="color:${win?'var(--gr)':'var(--re)'};font-weight:700;">${f.gf}–${f.ga}</span> <span style="color:var(--tx3);">· MW${f.mw}</span></div>`;
+    }).join('');
+    const dotsHtml=fixtures.pl.map(f=>`<div class="fd ${f.res==='W'?'w':f.res==='D'?'d':'l'}"></div>`).join('');
+
+    const cupSteps=fixtures.cup.map(f=>`<div${f.res==='L'?' style="color:var(--re);"':''}>${f.round} <span style="color:var(--tx3);">${f.res==='W'?'beat':'lost to'}</span> ${f.opp} <span style="color:${f.res==='W'?'var(--gr)':'var(--re)'};">${f.gf}–${f.ga}</span></div>`).join('') || `<div style="color:var(--tx3);">Did not enter</div>`;
+
+    const uclLeagueLine=`<div>League phase <span style="color:var(--tx3);">${uclLeaguePos}${suf(uclLeaguePos)}, ${fixtures.ucl.league.length} games</span></div>`;
+    const uclKoSteps=fixtures.ucl.knockout.map(k=>{
+      const aggGf=k.legs.reduce((s,l)=>s+l.gf,0), aggGa=k.legs.reduce((s,l)=>s+l.ga,0);
+      return `<div${!k.won?' style="color:var(--re);"':''}>${k.round} <span style="color:var(--tx3);">${k.won?'beat':'lost to'}</span> ${k.opp} <span style="color:${k.won?'var(--gr)':'var(--re)'};">agg ${aggGf}–${aggGa}</span></div>`;
+    }).join('');
+    const championsLine=uclR==='Champions'?`<div style="color:var(--am);font-weight:700;">Champions of Europe</div>`:'';
+
+    journeyEl.innerHTML=`
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);margin-bottom:10px;">Premier League</div>
+        <div style="display:flex;gap:3px;margin-bottom:10px;flex-wrap:wrap;">${dotsHtml}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${chips}</div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);margin-bottom:10px;">Domestic cup</div>
+          <div style="font-size:12.5px;line-height:2;">${cupSteps}</div>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:${uclR==='Champions'?'var(--am)':'var(--tx3)'};margin-bottom:10px;">Champions League</div>
+          <div style="font-size:12.5px;line-height:2;">${uclLeagueLine}${uclKoSteps}${championsLine}</div>
+        </div>
+      </div>`;
+  }
+
+  const statsBod=el('res-stats-body');
   if(statsBod){
-    const filled = G.squad.filter(Boolean);
-    const lgs = {};filled.forEach(s=>{lgs[s.player.league]=(lgs[s.player.league]||0)+1;});
-    const nats = {};filled.forEach(s=>{nats[s.player.nationality||'?']=(nats[s.player.nationality||'?']||0)+1;});
-    const topLg = Object.entries(lgs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([l,c])=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);"><span style="color:var(--tx2)">${l}</span><span style="font-weight:700">${c}</span></div>`).join('');
-    const topNat = Object.entries(nats).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([n,c])=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);"><span style="color:var(--tx2)">${n}</span><span style="font-weight:700">${c}</span></div>`).join('');
+    const filled=G.squad.filter(Boolean);
+    const lgs={};filled.forEach(s=>{lgs[s.player.league]=(lgs[s.player.league]||0)+1;});
+    const nats={};filled.forEach(s=>{nats[s.player.nationality||'?']=(nats[s.player.nationality||'?']||0)+1;});
+    const topLg=Object.entries(lgs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([l,c])=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);"><span style="color:var(--tx2)">${l}</span><span style="font-weight:700">${c}</span></div>`).join('');
+    const topNat=Object.entries(nats).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([n,c])=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);"><span style="color:var(--tx2)">${n}</span><span style="font-weight:700">${c}</span></div>`).join('');
     statsBod.innerHTML=`
       <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Top leagues</div>
       ${topLg}
@@ -2390,10 +2583,8 @@ function doSim(){
       <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;"><span style="color:var(--tx2)">Avg rating</span><span style="font-weight:700;color:var(--am)">${avg.toFixed(1)}</span></div>`;
   }
 
-  const mpSec=el('mp-lobby-results'); if(mpSec)mpSec.style.display='none';
-  window._simAnim = {finalPos:finalPosTreble, cupR, uclR, uclLeaguePos};
-  saveGameResult({mode:'solo', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade, timerSec:CFG.timer, respins:CFG.respins, isCompetitive:APP.isCompetitive});
-  revealSimResults();
+  window._simAnim={finalPos:finalPosTreble, cupR, uclR, uclLeaguePos, fixtures};
+  renderSaveCTA();
 }
 // doSim() above is solo-only. Multiplayer uses handleSimulateClick() -> mpReadyToSim() ->
 // hostComputeSharedSeason() (one shared season across the whole lobby) -> renderResultsFromShared().
@@ -2507,114 +2698,11 @@ async function hostComputeSharedSeason(){
   }).filter(e=>e.squad.length===11);
   if(!entries.length)return;
 
-  // Per-entry natural simulation -- mirrors doSim()'s core formulas so a shared game feels
-  // like the same engine as solo, just without any single-player trophy overrides yet.
+  // Per-entry natural simulation -- shares simulateSeasonAggregate() with solo doSim() so a
+  // shared game feels like the same engine, just without any single-player trophy overrides yet
+  // (cross-player arbitration below plays that role for multiplayer instead).
   entries.forEach(e=>{
-    const filled=e.squad;
-    const avg=filled.reduce((a,s)=>a+(s.player.rating||0),0)/filled.length;
-    const rndCount=filled.filter(s=>s.isRandom).length;
-    const rndPenalty=rndCount*1.8;
-
-    let compBonus=0;
-    const natCounts={};
-    filled.forEach(s=>{const n=s.player.nationality||'Unknown';natCounts[n]=(natCounts[n]||0)+1;});
-    const maxNatCount=Math.max(0,...Object.values(natCounts));
-    if(maxNatCount>=4)compBonus+=Math.min(0.5+(maxNatCount-4)*0.25,1);
-    const uclWcWinners=filled.filter(s=>(s.player.trophies||[]).some(t=>t.place==='Winner'&&(t.league==='UEFA Champions League'||t.league==='FIFA World Cup'||t.league==='World Cup'))).length;
-    compBonus+=Math.min(uclWcWinners*0.2,2.0);
-    const ages=filled.map(s=>s.player.age||25);
-    const vets=ages.filter(a=>a>=30).length,young=ages.filter(a=>a<24).length,peak=ages.filter(a=>a>=24&&a<30).length;
-    if(ages.every(a=>a>=35)||ages.every(a=>a<=19))compBonus-=0.5;
-    else if(vets>=2&&young>=2&&peak>=filled.length/2)compBonus+=0.5;
-    const leagueSet=new Set(filled.map(s=>s.player.league));
-    if(leagueSet.size===1&&filled.length===11)compBonus-=0.5;
-    compBonus=Math.max(-3,Math.min(3,compBonus));
-    const effectiveAvg=avg-rndPenalty+compBonus;
-
-    const base=((effectiveAvg-68)/26)*30;
-    const variance=(r()-0.5)*18;
-    let plW=clamp(Math.round(base+variance),3,34);
-    let plD=clamp(Math.round(8-plW*0.12+r()*5),2,14);
-    let plL=clamp(38-plW-plD,0,33);
-    let plPts=plW*3+plD;
-    let posCapPts=null;
-    if(effectiveAvg<65)posCapPts=22;else if(effectiveAvg<72)posCapPts=30;else if(effectiveAvg<80)posCapPts=40;
-    if(posCapPts!==null&&plPts>posCapPts){
-      const scale=posCapPts/plPts;
-      plW=clamp(Math.round(plW*scale),1,plW);plD=clamp(Math.round(plD*scale),0,plD);plL=clamp(38-plW-plD,0,36);plPts=plW*3+plD;
-    }
-    let cupWinChance=0,leagueWinBoost=0,uclWinChance=0;
-    if(effectiveAvg>=89){cupWinChance=0.55;leagueWinBoost=10;uclWinChance=0.35;}
-    else if(effectiveAvg>=88){cupWinChance=0.35;leagueWinBoost=5;uclWinChance=0.15;}
-    else if(effectiveAvg>=87){cupWinChance=0.20;leagueWinBoost=2;uclWinChance=0.05;}
-    else if(effectiveAvg>=84){cupWinChance=0.06;uclWinChance=0.01;}
-    if(leagueWinBoost)plPts=clamp(plPts+Math.round(leagueWinBoost*r()),plPts,95);
-
-    const posOf=pts=>pts>=88?1:pts>=78?2:pts>=71?3:pts>=64?4:pts>=58?5:pts>=53?6:pts>=48?7:pts>=43?8:pts>=38?9:pts>=34?10:pts>=30?11:pts>=27?12:pts>=24?13:pts>=21?14:pts>=18?15:pts>=15?16:pts>=12?17:pts>=9?18:pts>=6?19:20;
-    const posF=posOf(plPts);
-    let posFloor=null;
-    if(effectiveAvg<65)posFloor=19+Math.round(r());
-    else if(effectiveAvg<72)posFloor=17+Math.round(r()*2);
-    else if(effectiveAvg<80)posFloor=13+Math.round(r()*4);
-    const finalPos=posFloor!==null?Math.max(posF,posFloor):posF;
-
-    let uclR,uW=0,uD=0,uL=0,uclGamesPlayed=0;
-    const leagueW=clamp(Math.round((effectiveAvg-72)*0.22+r()*2.5),0,8);
-    const leagueD=clamp(Math.round(r()*2.5),0,4);
-    const leagueL=clamp(8-leagueW-leagueD,0,8);
-    uclGamesPlayed=8;uW=leagueW;uD=leagueD;uL=leagueL;
-    const leaguePts=leagueW*3+leagueD;
-    const uclLeaguePos=clamp(Math.round(36-(leaguePts/24)*35-(r()-0.5)*6),1,36);
-    function uclTwoLegTie(){
-      const tieStrength=clamp((effectiveAvg-78)*0.032+(r()-0.5)*0.5,-0.45,0.4);
-      const legOutcomeRoll=r()+tieStrength;
-      let leg1,leg2;
-      if(legOutcomeRoll>0.68){leg1='w';leg2=r()<0.65?'w':'d';}
-      else if(legOutcomeRoll>0.48){leg1='w';leg2='l';}
-      else if(legOutcomeRoll>0.32){leg1='d';leg2='d';}
-      else if(legOutcomeRoll>0.16){leg1='l';leg2='w';}
-      else{leg1='l';leg2=r()<0.7?'l':'d';}
-      [leg1,leg2].forEach(o=>{if(o==='w')uW++;else if(o==='d')uD++;else uL++;});
-      uclGamesPlayed+=2;
-      const twoLosses=leg1==='l'&&leg2==='l';
-      return !twoLosses&&(leg1==='w'||leg2==='w'||r()<0.4);
-    }
-    function uclFinalMatch(){
-      const tieStrength=clamp((effectiveAvg-78)*0.032+(r()-0.5)*0.5,-0.45,0.4);
-      const rl=r()+tieStrength;
-      let won;
-      if(rl>0.62){uW++;won=true;}else if(rl>0.35){uD++;won=r()<0.45;}else{uL++;won=false;}
-      uclGamesPlayed+=1;
-      return won;
-    }
-    if(uclLeaguePos>24)uclR='League phase';
-    else if(uclLeaguePos>=9){
-      if(!uclTwoLegTie())uclR='Knockout Playoff';
-      else if(!uclTwoLegTie())uclR='Round of 16';
-      else if(!uclTwoLegTie())uclR='Quarter-finals';
-      else if(!uclTwoLegTie())uclR='Semi-finals';
-      else if(!uclFinalMatch())uclR='Final';else uclR='Champions';
-    }else{
-      if(!uclTwoLegTie())uclR='Round of 16';
-      else if(!uclTwoLegTie())uclR='Quarter-finals';
-      else if(!uclTwoLegTie())uclR='Semi-finals';
-      else if(!uclFinalMatch())uclR='Final';else uclR='Champions';
-    }
-    const uclTookPlayoffPath=uclLeaguePos>=9&&uclLeaguePos<=24;
-    const uclMaxGames=uclTookPlayoffPath?17:15;
-
-    let cupR,cW=0,cL=0;
-    const cupRounds=['Round 3','Round 4','Quarter-finals','Semi-finals','Final'];
-    let cIdx=0,cAlive=true;
-    while(cAlive&&cIdx<cupRounds.length){
-      const winRoll=r()+(effectiveAvg-77)*0.014;
-      if(winRoll>0.46){cW++;cIdx++;if(cIdx>=cupRounds.length){cupR='Winners';cAlive=false;}}
-      else{cL++;cupR=cupRounds[cIdx]==='Final'?'Finalists':cupRounds[cIdx];cAlive=false;}
-    }
-    if(cAlive)cupR='Winners';
-
-    Object.assign(e,{avg,effectiveAvg,rndCount,plW,plD,plL,plPts,finalPos,
-      cupWinChance,uclWinChance,cupR,cW,cL,uclR,uW,uD,uL,uclGamesPlayed,uclLeaguePos,uclMaxGames});
+    Object.assign(e, simulateSeasonAggregate(e.squad, r));
   });
 
   // Resolve league position collisions: rank by points (ties broken by effectiveAvg), then
@@ -2662,12 +2750,6 @@ async function hostComputeSharedSeason(){
       sorted[i].plW--; sorted[i].plL++; sorted[i].plPts=sorted[i].plW*3+sorted[i].plD;
     }
   }
-  sorted.forEach(e=>{
-    const gdTarget=realisticGD(e.plPts, r);
-    const {gf,ga}=gfGaFromGD(e.plW, e.plD, gdTarget, r);
-    e.plGF=gf; e.plGA=ga;
-  });
-
   // Arbitrate a single domestic cup winner and a single UCL champion across the whole lobby.
   // Weighted by each entry's own trophy chance -- a dominant squad is far more likely to win,
   // and if even the strongest squad's chance-roll fails, nobody in the lobby wins it at all
@@ -2731,111 +2813,36 @@ async function hostComputeSharedSeason(){
   entries.forEach(e=>{ e.isTreble=e.finalPos===1&&e.cupR==='Winners'&&e.uclR==='Champions'; });
 
   const gradeOf=pts=>pts>=88?'S+':pts>=78?'S':pts>=68?'A+':pts>=58?'A':pts>=47?'B+':pts>=36?'B':pts>=25?'C':pts>=15?'D':'F';
+  // Fixture/event generation runs last, after every override and arbitration above has settled
+  // each entry's true W/D/L/cup/UCL numbers -- so fixture scorelines always match the trophy cards.
   for(const e of entries){
     const grade=(e.plL===0||e.plPts>=100)?'S++':e.isTreble?'S+':gradeOf(e.plPts);
-    const simResult={pts:e.plPts,pos:e.finalPos,grade,avg:Math.round(e.avg*10)/10,gf:e.plGF,ga:e.plGA,ucl:e.uclR,cup:e.cupR,treble:e.isTreble,done:true,
-      effectiveAvg:Math.round(e.effectiveAvg*10)/10,plW:e.plW,plD:e.plD,plL:e.plL,uW:e.uW,uD:e.uD,uL:e.uL,uclGamesPlayed:e.uclGamesPlayed,uclLeaguePos:e.uclLeaguePos,cW:e.cW,cL:e.cL};
+    const narrative=buildSeasonNarrative(e.squad, e, r);
+    const simResult={pts:e.plPts,pos:e.finalPos,grade,avg:Math.round(e.avg*10)/10,gf:narrative.plGF,ga:narrative.plGA,ucl:e.uclR,cup:e.cupR,treble:e.isTreble,done:true,
+      effectiveAvg:Math.round(e.effectiveAvg*10)/10,plW:e.plW,plD:e.plD,plL:e.plL,uW:e.uW,uD:e.uD,uL:e.uL,uclGamesPlayed:e.uclGamesPlayed,uclLeaguePos:e.uclLeaguePos,cW:e.cW,cL:e.cL,
+      uclGf:narrative.uclGF,uclGa:narrative.uclGA,cupGf:narrative.cupGF,cupGa:narrative.cupGA,
+      fixtures:narrative.fixtures,playerStats:narrative.playerStats,rndCount:e.rndCount,natCounts:e.natCounts,uclWcWinners:e.uclWcWinners};
     await sb.from('lobby_players').update({categories:[simResult]}).eq('id',e.lobbyPlayerId);
   }
 }
 
 // Populates the results DOM from a host-computed shared result instead of a freshly-run local
-// simulation. Mirrors doSim()'s DOM-writing tail exactly, just sourcing values from `result`.
+// simulation, via the same renderResultsDOM() solo uses.
 function renderResultsFromShared(result){
-  const plW=result.plW||0,plD=result.plD||0,plL=result.plL||0,plPts=result.pts,plGF=result.gf,plGA=result.ga;
-  const finalPosTreble=result.pos;
-  const cupR=result.cup,cW=result.cW||0,cL=result.cL||0;
-  const uclR=result.ucl,uW=result.uW||0,uD=result.uD||0,uL=result.uL||0,uclGamesPlayed=result.uclGamesPlayed||0,uclLeaguePos=result.uclLeaguePos||0;
-  const isTreble=!!result.treble;
-  const avg=result.avg;
-  const effectiveAvg=result.effectiveAvg!=null?result.effectiveAvg:avg;
-  const rndCount=G.squad.filter(s=>s&&s.isRandom).length;
-
-  const fdots=(w,d,l)=>[...Array(Math.min(5,w)).fill('w'),...Array(Math.min(2,d)).fill('d'),...Array(Math.min(3,l)).fill('l')].map(x=>`<div class="fd ${x}"></div>`).join('');
-  const grade=result.grade;
-  const gradeColor={'S++':'#ffffff','S+':'#f0c040','S':'#e8b820','A+':'#4caf50','A':'#66bb6a','B+':'#42a5f5','B':'#5c8fef','C':'#ff9800','D':'#f06060','F':'#cc3333'}[grade]||'#8b96a8';
-  const gradeDesc={'S++':'Perfect','S+':'Legendary','S':'Elite','A+':'Excellent','A':'Very good','B+':'Good','B':'Solid','C':'Below average','D':'Poor','F':'Disaster'}[grade]||'';
-
-  const natCounts={};
-  G.squad.filter(Boolean).forEach(s=>{const n=s.player.nationality||'Unknown';natCounts[n]=(natCounts[n]||0)+1;});
-  const uclWcWinners=G.squad.filter(Boolean).filter(s=>(s.player.trophies||[]).some(t=>t.place==='Winner'&&(t.league==='UEFA Champions League'||t.league==='FIFA World Cup'||t.league==='World Cup'))).length;
-  const bi=G.squad.reduce((bi,s,i)=>s&&(!G.squad[bi]||(s.player.rating||0)>(G.squad[bi]?.player?.rating||0))?i:bi,0);
-  const best=G.squad[bi];
-  const standoutName=best?(best.player.name||best.player.fullName||best.player.lastname||'').split(' ').slice(-1)[0]:'the squad';
-  const natEntry=Object.entries(natCounts).sort((a,b)=>b[1]-a[1])[0];
-  const natHeavy=natEntry&&natEntry[1]>=4?natEntry[0]:null;
-  const trophyNote=uclWcWinners>=2?`${uclWcWinners} proven winners in the ranks`:null;
-
-  let narrative;
-  if(isTreble)narrative=`${natHeavy?`Your ${natHeavy}-heavy squad`:'Your squad'}, led by ${standoutName}, swept every competition — the treble, an immortal season.`;
-  else if(finalPosTreble===1)narrative=`${natHeavy?`A ${natHeavy}-heavy core`:'A squad built for the top'}, spearheaded by ${standoutName}, stormed to the title.`;
-  else if(finalPosTreble<=2)narrative=`${standoutName} inspired a title charge that fell just short — runners-up.`;
-  else if(finalPosTreble<=4)narrative=`${standoutName} led the line as the squad secured Champions League football.`;
-  else if(finalPosTreble<=6)narrative=`A steady campaign built around ${standoutName} lands Europa League football next season.`;
-  else if(finalPosTreble<=10)narrative=`${natHeavy?`Your ${natHeavy}-heavy squad`:'The squad'} settled into a solid mid-table finish, with ${standoutName} the standout performer.`;
-  else if(finalPosTreble<=14)narrative=`A difficult campaign${trophyNote?`, despite ${trophyNote}`:''} — ${standoutName} couldn't drag the squad higher.`;
-  else if(finalPosTreble<=17)narrative=`A relegation battle survived on the back of ${standoutName}'s performances.`;
-  else narrative=`Relegated — even ${standoutName} couldn't prevent the drop.`;
-
-  el('res-pos').textContent=finalPosTreble+suf(finalPosTreble)+' place';
-  el('res-pts').textContent=plPts;
-  { const gdV=plGF-plGA; const gdEl=el('res-gd'); gdEl.textContent=(gdV>=0?'+':'')+gdV; gdEl.style.color=gdV>0?'var(--gr)':gdV<0?'var(--re)':'var(--tx2)'; }
-  el('res-sub').textContent=`Squad avg ${effectiveAvg.toFixed(1)}${rndCount?` (${rndCount} random player${rndCount>1?'s':''})`:''}. ${narrative}`;
-
-  const gradeHtml=`<div class="tc-grade-badge">${grade}</div><div class="tc-grade-desc">${gradeDesc}</div>`;
-  el('trophy-cards').innerHTML=`
-    <div class="tc ${finalPosTreble===1?'won':''}"><div class="tc-comp">League</div><div class="tc-result ${finalPosTreble===1?'gold':finalPosTreble<=4?'silver':'dim'}">${finalPosTreble===1?'Champions':finalPosTreble<=4?'Top '+finalPosTreble:'P'+finalPosTreble}</div><div class="form-dots">${fdots(plW,plD,plL)}</div><div class="tc-det">${plW}W ${plD}D ${plL}L · ${plPts} pts</div></div>
-    <div class="tc ${cupR==='Winners'?'won':''}"><div class="tc-comp">Domestic Cup</div><div class="tc-result ${cupR==='Winners'?'gold':cupR==='Finalists'?'silver':'dim'}">${cupR}</div><div class="form-dots">${fdots(cW,0,cL)}</div><div class="tc-det">${cW} wins</div></div>
-    <div class="tc ${uclR==='Champions'?'won':''}"><div class="tc-comp">UCL</div><div class="tc-result ${uclR==='Champions'?'gold':uclR==='Final'?'silver':'dim'}">${uclR==='League phase'?'Eliminated':uclR}</div><div class="form-dots">${fdots(uW,uD,uL)}</div><div class="tc-det">${uclLeaguePos}${suf(uclLeaguePos)} in League Phase · ${uW}W ${uD}D ${uL}L</div></div>
-    <div class="tc tc-grade" style="--gc:${gradeColor}">${gradeHtml}<div class="tc-grade-sub">${avg.toFixed(1)} avg rating</div></div>`;
-
-  el('camp-tbl').innerHTML=`
-    <tr><td>Premier League</td><td>38</td><td>${plW}</td><td>${plD}</td><td>${plL}</td><td>${plGF}</td><td>${plGA}</td><td>${plPts}</td></tr>
-    <tr><td>UCL</td><td>${uclGamesPlayed}</td><td>${uW}</td><td>${uD}</td><td>${uL}</td><td>${Math.round(uW*2.1+uD*1.1)}</td><td>${Math.round(uL*1.3+uD*.6)}</td><td>—</td></tr>
-    <tr><td>Domestic Cup</td><td>${cW+cL}</td><td>${cW}</td><td>0</td><td>${cL}</td><td>${cW*2}</td><td>${Math.max(1,cL*1.4)|0}</td><td>—</td></tr>`;
-
-  if(best){
-    el('pots-img').src=best.player.photo||'';
-    el('pots-name').textContent=(best.player.fullName||best.player.name).toUpperCase();
-    el('pots-role').textContent=(best.player.nationality||'—')+' · '+best.player.position;
-    el('pots-rat').textContent=best.player.rating;
-    el('pots-cat').textContent=best.cat.label;
-    el('pots-pos').textContent=SLOTS[bi].key;
-  }
-
-  const squadGrid=el('res-squad-grid');
-  if(squadGrid){
-    squadGrid.innerHTML=G.squad.map((s,i)=>{
-      if(!s)return`<div style="text-align:center;opacity:.3"><div style="width:100%;aspect-ratio:1;border-radius:50%;background:var(--s3);margin:0 auto 5px;max-width:46px;"></div><div style="font-size:9.5px;color:var(--tx3)">${SLOTS[i].key}</div></div>`;
-      const p=s.player;
-      const dn=(p.fullName||p.name).split(' ').slice(-1)[0];
-      return`<div style="text-align:center;cursor:pointer" title="${p.fullName||p.name} · ${p.rating}">
-        <img src="${p.photo||''}" style="width:100%;max-width:46px;aspect-ratio:1;border-radius:50%;object-fit:cover;object-position:top;border:2px solid ${s.isRandom?'rgba(249,115,22,.5)':'rgba(62,207,106,.4)'};display:block;margin:0 auto 4px;" onerror="this.style.opacity='.2'">
-        <div style="font-size:9.5px;font-weight:600;color:${s.isRandom?'var(--or)':'var(--tx)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${dn}</div>
-        <div style="font-size:8.5px;color:var(--tx3)">${p.rating}</div>
-      </div>`;
-    }).join('');
-  }
-
-  const statsBod=el('res-stats-body');
-  if(statsBod){
-    const filled=G.squad.filter(Boolean);
-    const lgs={};filled.forEach(s=>{lgs[s.player.league]=(lgs[s.player.league]||0)+1;});
-    const nats={};filled.forEach(s=>{nats[s.player.nationality||'?']=(nats[s.player.nationality||'?']||0)+1;});
-    const topLg=Object.entries(lgs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([l,c])=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);"><span style="color:var(--tx2)">${l}</span><span style="font-weight:700">${c}</span></div>`).join('');
-    const topNat=Object.entries(nats).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([n,c])=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);"><span style="color:var(--tx2)">${n}</span><span style="font-weight:700">${c}</span></div>`).join('');
-    statsBod.innerHTML=`
-      <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Top leagues</div>
-      ${topLg}
-      <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px;">Top nationalities</div>
-      ${topNat}
-      <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:10px 0 6px;"><span style="color:var(--tx2)">Random players</span><span style="font-weight:700;color:${rndCount?'var(--or)':'var(--gr)'}">${rndCount}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;"><span style="color:var(--tx2)">Avg rating</span><span style="font-weight:700;color:var(--am)">${avg.toFixed(1)}</span></div>`;
-  }
-
+  const rndCount=result.rndCount!=null?result.rndCount:G.squad.filter(s=>s&&s.isRandom).length;
+  const natCounts=result.natCounts||{};
+  const data={
+    plW:result.plW||0, plD:result.plD||0, plL:result.plL||0, plPts:result.pts, plGF:result.gf, plGA:result.ga,
+    finalPosTreble:result.pos, cupR:result.cup, cW:result.cW||0, cL:result.cL||0,
+    uclR:result.ucl, uW:result.uW||0, uD:result.uD||0, uL:result.uL||0, uclGamesPlayed:result.uclGamesPlayed||0, uclLeaguePos:result.uclLeaguePos||0,
+    isTreble:!!result.treble, avg:result.avg, effectiveAvg:result.effectiveAvg!=null?result.effectiveAvg:result.avg,
+    rndCount, natCounts, uclWcWinners:result.uclWcWinners||0, grade:result.grade,
+    uclGF:result.uclGf, uclGA:result.uclGa, cupGF:result.cupGf, cupGA:result.cupGa,
+    fixtures:result.fixtures, playerStats:result.playerStats
+  };
+  renderResultsDOM(data);
   renderMpLobbyResultsInline();
-  window._simAnim={finalPos:finalPosTreble,cupR,uclR,uclLeaguePos};
-  saveGameResult({mode:'multiplayer', formation:CFG.formation, avgRating:Math.round(avg*10)/10, randomCount:rndCount, leaguePosition:finalPosTreble, leaguePoints:plPts, cupResult:cupR, uclResult:uclR, grade, timerSec:CFG.timer, respins:CFG.respins, isCompetitive:false});
+  saveGameResult({mode:'multiplayer', formation:CFG.formation, avgRating:Math.round(data.avg*10)/10, randomCount:rndCount, leaguePosition:data.finalPosTreble, leaguePoints:data.plPts, cupResult:data.cupR, uclResult:data.uclR, grade:data.grade, timerSec:CFG.timer, respins:CFG.respins, isCompetitive:false});
 }
 
 
@@ -2931,24 +2938,29 @@ function zoneColor(pos){
   if(pos<=17)return'var(--am)';
   return'var(--re)';
 }
-function synthTrajectory(finalPos,steps){
+// Real position-over-time trajectory: walks the actual generated league fixtures in order and
+// projects a full-season pace from cumulative points-per-game at each checkpoint, instead of
+// synthesizing fake noise toward the final position.
+function realTrajectory(plFixtures, finalPos, steps){
+  const posOf=pts=>pts>=88?1:pts>=78?2:pts>=71?3:pts>=64?4:pts>=58?5:pts>=53?6:pts>=48?7:pts>=43?8:pts>=38?9:pts>=34?10:pts>=30?11:pts>=27?12:pts>=24?13:pts>=21?14:pts>=18?15:pts>=15?16:pts>=12?17:pts>=9?18:pts>=6?19:20;
+  const n=plFixtures.length;
+  const cum=[0];
+  plFixtures.forEach(f=>{ const pts=f.res==='W'?3:f.res==='D'?1:0; cum.push(cum[cum.length-1]+pts); });
   const arr=[];
-  let cur=10+(Math.random()-0.5)*6;
   for(let i=1;i<=steps;i++){
-    const t=i/steps;
-    const pull=0.3+t*0.4;
-    cur=cur+(finalPos-cur)*pull+(Math.random()-0.5)*(5*(1-t));
-    cur=Math.max(1,Math.min(20,cur));
-    arr.push(Math.round(cur));
+    const mw=Math.max(1,Math.min(n,Math.round(i/steps*n)));
+    const projected=n?Math.round((cum[mw]/mw)*38):0;
+    arr.push(posOf(projected));
   }
   arr[arr.length-1]=finalPos;
   return arr;
 }
+function msFixtureLine(f){ return `${f.res==='W'?'Beat':'Lost to'} ${f.opp} ${f.gf}–${f.ga}`; }
 function showSeasonReplay(){
   const d=window._simAnim;
   if(!d){showStep('step-results');return;}
   const steps=12;
-  const traj=synthTrajectory(d.finalPos,steps);
+  const traj=(d.fixtures&&d.fixtures.pl&&d.fixtures.pl.length)?realTrajectory(d.fixtures.pl,d.finalPos,steps):(()=>{const arr=[];let cur=10+(Math.random()-0.5)*6;for(let i=1;i<=steps;i++){const t=i/steps;const pull=0.3+t*0.4;cur=cur+(d.finalPos-cur)*pull+(Math.random()-0.5)*(5*(1-t));cur=Math.max(1,Math.min(20,cur));arr.push(Math.round(cur));}arr[arr.length-1]=d.finalPos;return arr;})();
   const cupCheckpoint=Math.round(steps*0.55);
   const uclCheckpoint=Math.round(steps*0.85);
 
@@ -2993,11 +3005,22 @@ function showSeasonReplay(){
     }
     if(i===cupCheckpoint){
       const msEl=el('sa-ms-cup');
-      if(msEl){msEl.querySelector('.sim-anim-ms-val').textContent=d.cupR;msEl.classList.add('show');}
+      const cupFx=d.fixtures&&d.fixtures.cup;
+      const cupText=cupFx&&cupFx.length?`${cupFx[cupFx.length-1].round} — ${msFixtureLine(cupFx[cupFx.length-1])}`:d.cupR;
+      if(msEl){msEl.querySelector('.sim-anim-ms-val').textContent=cupText;msEl.classList.add('show');}
     }
     if(i===uclCheckpoint){
       const msEl=el('sa-ms-ucl');
-      if(msEl){msEl.querySelector('.sim-anim-ms-val').textContent=d.uclR==='League phase'?'Eliminated':d.uclR;msEl.classList.add('show');}
+      const koFx=d.fixtures&&d.fixtures.ucl&&d.fixtures.ucl.knockout;
+      let uclText;
+      if(koFx&&koFx.length){
+        const last=koFx[koFx.length-1];
+        const aggGf=last.legs.reduce((s,l)=>s+l.gf,0), aggGa=last.legs.reduce((s,l)=>s+l.ga,0);
+        uclText=`${last.round} — ${last.won?'Beat':'Lost to'} ${last.opp} agg ${aggGf}–${aggGa}`;
+      } else {
+        uclText=d.uclR==='League phase'?'Eliminated — League Phase':d.uclR;
+      }
+      if(msEl){msEl.querySelector('.sim-anim-ms-val').textContent=uclText;msEl.classList.add('show');}
     }
     if(i>=steps){
       setTimeout(finish,1200);
