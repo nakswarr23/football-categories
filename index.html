@@ -2150,7 +2150,10 @@ function simulateSeasonAggregate(squad, rnd){
   const variance=(rnd()-0.5)*18;
   let plW=clamp(Math.round(base+variance),3,34);
   let plD=clamp(Math.round(8-plW*0.12+rnd()*5),2,14);
-  let plL=clamp(38-plW-plD,0,33);
+  // plW and plD are clamped independently and can overshoot 38 combined (e.g. 34W + 9D) --
+  // rein plD in first so plW+plD+plL always sums to exactly 38 games, never more.
+  if(plW+plD>38) plD=Math.max(0,38-plW);
+  let plL=38-plW-plD;
   let plPts=plW*3+plD;
 
   let posCapPts=null;
@@ -2161,7 +2164,8 @@ function simulateSeasonAggregate(squad, rnd){
     const scale=posCapPts/plPts;
     plW=clamp(Math.round(plW*scale),1,plW);
     plD=clamp(Math.round(plD*scale),0,plD);
-    plL=clamp(38-plW-plD,0,36);
+    if(plW+plD>38) plD=Math.max(0,38-plW);
+    plL=38-plW-plD;
     plPts=plW*3+plD;
   }
 
