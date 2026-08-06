@@ -335,30 +335,33 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 /* ══ SEASON RESULTS ══ */
 #step-results{flex-direction:column;overflow-y:auto;position:relative;
   background:
-    radial-gradient(ellipse 1000px 560px at 50% -6%,rgba(108,142,247,.10) 0%,transparent 60%),
+    radial-gradient(ellipse 1000px 560px at 50% -6%,rgba(32,255,189,.08) 0%,transparent 60%),
+    radial-gradient(ellipse 700px 420px at 100% 0%,rgba(233,195,73,.05) 0%,transparent 55%),
     var(--bg);}
 .res-header{background:linear-gradient(135deg,var(--s2),var(--s3));border-bottom:1px solid var(--bd);padding:40px 46px;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;position:relative;}
-.res-eyebrow{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--ac);margin-bottom:12px;}
+.res-eyebrow{font-family:var(--fm);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--pri);margin-bottom:12px;}
 .res-h1{font-family:var(--fd);font-size:54px;letter-spacing:1px;line-height:1.05;margin-bottom:8px;}
-.res-h1 span{color:var(--am);}
+.res-h1 span{color:var(--pri);}
 .res-sub{font-size:18.5px;color:var(--tx);font-weight:500;line-height:1.5;max-width:720px;margin-top:2px;}
 .res-pts-wrap{text-align:right;flex-shrink:0;}
-.res-pts-lbl{font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;}
-.res-pts{font-family:var(--fd);font-size:66px;color:var(--am);line-height:1;}
+.res-pts-lbl{font-family:var(--fm);font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;}
+.res-pts{font-family:var(--fd);font-size:66px;color:var(--sec);line-height:1;}
 .res-gd{font-family:var(--fd);font-size:27px;color:var(--gr);}
 .res-body{padding:36px 46px;display:grid;grid-template-columns:1fr 300px;gap:26px;position:relative;}
 .trophy-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
-.tc{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:27px 22px;}
-.tc.won{border-color:rgba(240,168,48,.4);background:rgba(240,168,48,.04);}
-.tc-comp{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);margin-bottom:10px;}
+.clip-diagonal{clip-path:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);}
+.tc,.camp-card,.pots-card{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:var(--rl);border-top:1px solid rgba(32,255,189,.30);border-left:1px solid rgba(32,255,189,.30);border-bottom:1px solid var(--glass-bd);border-right:1px solid var(--glass-bd);overflow:hidden;}
+.tc{padding:27px 22px;}
+.tc.won{border-top-color:rgba(233,195,73,.55);border-left-color:rgba(233,195,73,.55);background:rgba(233,195,73,.05);}
+.tc-comp{font-family:var(--fm);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);margin-bottom:10px;}
 .tc-result{font-family:var(--fd);font-size:27px;letter-spacing:.5px;margin-bottom:10px;}
-.tc-result.gold{color:var(--am);}
+.tc-result.gold{color:var(--sec);}
 .tc-result.silver{color:#a0a8b8;}
 .tc-result.dim{color:var(--tx3);}
-.tc.tc-grade{background:var(--s1);border:2px solid var(--gc);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;position:relative;overflow:hidden;}
-.tc.tc-grade::before{content:'';position:absolute;top:-40%;right:-25%;width:130px;height:130px;border-radius:50%;background:var(--gc);opacity:.15;filter:blur(22px);pointer-events:none;}
+.tc.tc-grade{background:var(--glass-bg);border:2px solid var(--gc);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;position:relative;overflow:hidden;}
+.tc.tc-grade::before{content:'';position:absolute;top:-40%;right:-25%;width:130px;height:130px;border-radius:50%;background:var(--gc);opacity:.18;filter:blur(24px);pointer-events:none;}
 .tc-grade-badge{font-family:var(--fd);font-size:68px;letter-spacing:2px;color:var(--gc);line-height:1;position:relative;}
-.tc-grade-desc{font-size:12px;font-weight:700;color:var(--gc);text-transform:uppercase;letter-spacing:1.5px;position:relative;}
+.tc-grade-desc{font-family:var(--fm);font-size:12px;font-weight:700;color:var(--gc);text-transform:uppercase;letter-spacing:1.5px;position:relative;}
 .tc-grade-sub{font-size:12px;color:var(--tx3);position:relative;}
 .form-dots{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;}
 .fd{width:9px;height:9px;border-radius:2px;}
@@ -366,32 +369,48 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .fd.d{background:var(--am);}
 .fd.l{background:var(--re);}
 .tc-det{font-size:12px;color:var(--tx3);}
-.camp-card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:16px;}
-.camp-hd{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);padding:14px 20px;border-bottom:1px solid var(--bd);}
+.camp-card{margin-bottom:16px;}
+.camp-hd{font-family:var(--fm);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);padding:14px 20px;border-bottom:1px solid var(--glass-bd);}
 .camp-tbl{width:100%;border-collapse:collapse;font-size:13.5px;}
-.camp-tbl th{text-align:left;padding:10px 16px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);border-bottom:1px solid var(--bd);}
-.camp-tbl td{padding:13px 16px;border-bottom:1px solid var(--bd);}
+.camp-tbl th{font-family:var(--fm);text-align:left;padding:10px 16px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);border-bottom:1px solid var(--glass-bd);}
+.camp-tbl td{padding:13px 16px;border-bottom:1px solid var(--glass-bd);}
 .camp-tbl tr:last-child td{border-bottom:none;}
-.camp-tbl tr:hover td{background:var(--s2);}
+.camp-tbl tr:hover td{background:rgba(255,255,255,.03);}
+.ps-pots-row td{border-top:1px solid var(--prim);border-bottom:1px solid var(--prim);background:var(--prid);}
+.ps-pots-row td:first-child{border-left:2px solid var(--pri);}
+.ps-pots-score{color:var(--pri) !important;}
 .res-calendar-grid{display:grid;grid-template-columns:repeat(19,1fr);gap:4px;padding:16px 20px;}
 .cal-tile{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;position:relative;}
 .cal-tile.w{background:var(--grd);color:var(--gr);border:1px solid rgba(62,207,106,.3);}
 .cal-tile.d{background:var(--amd);color:var(--am);border:1px solid rgba(240,168,48,.3);}
 .cal-tile.l{background:var(--red);color:var(--re);border:1px solid rgba(240,80,96,.3);}
 .cal-tile:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--s3);border:1px solid var(--bd2);border-radius:6px;padding:4px 8px;font-size:10.5px;white-space:nowrap;color:var(--tx);margin-bottom:4px;z-index:5;}
-.res-newgame{padding:13px 24px;background:transparent;border:1px solid var(--bd2);border-radius:var(--r);color:var(--tx2);font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;}
-.res-newgame:hover{background:var(--s2);}
-.pots-lbl{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:14px;}
-.pots-card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;}
-.pots-img-wrap{padding:26px 0 16px;background:transparent;display:flex;align-items:center;justify-content:center;}
-.pots-img-wrap img{width:100px;height:100px;border-radius:50%;object-fit:cover;object-position:top center;border:3px solid var(--am);box-shadow:0 0 0 4px rgba(240,168,48,.15),0 4px 20px rgba(0,0,0,.4);}
+.res-newgame{padding:13px 24px;background:transparent;border:1px solid var(--glass-bd-hi);border-radius:var(--r);color:var(--tx2);font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;}
+.res-newgame:hover{background:var(--glass-bg);}
+#res-squad-grid{display:flex;flex-wrap:wrap;gap:14px 10px;padding:18px 16px;}
+#res-squad-grid>div{width:64px;}
+.squad-av-ring{border:2px solid rgba(62,207,106,.4);}
+.squad-av-ring.rnd{border-color:rgba(249,115,22,.5);}
+.squad-av-ring.pots{border-color:var(--pri);box-shadow:0 0 0 3px var(--prim),0 0 14px rgba(32,255,189,.35);}
+.pots-lbl{font-family:var(--fm);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:14px;}
+.pots-card{position:relative;}
+.pots-ribbon{position:absolute;top:0;right:0;background:var(--sec);color:#151200;font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:1.5px;padding:6px 18px 6px 14px;z-index:2;}
+.pots-img-wrap{padding:30px 0 16px;background:transparent;display:flex;align-items:center;justify-content:center;position:relative;}
+.pots-img-wrap::before{content:'';position:absolute;width:118px;height:118px;border-radius:50%;background:var(--pri);opacity:.25;filter:blur(20px);}
+.pots-img-wrap img{position:relative;width:100px;height:100px;border-radius:50%;object-fit:cover;object-position:top center;border:3px solid var(--pri);box-shadow:0 0 0 4px var(--prim),0 4px 20px rgba(0,0,0,.4);}
 .pots-body{padding:18px;}
 .pots-name{font-family:var(--fd);font-size:25px;letter-spacing:1px;margin-bottom:3px;}
-.pots-role{font-size:13px;color:var(--tx3);margin-bottom:12px;}
-.pots-stat{display:flex;justify-content:space-between;padding:7px 0;font-size:13px;border-bottom:1px solid var(--bd);}
+.pots-role{font-size:13px;color:var(--tx3);margin-bottom:16px;}
+.pots-stat{padding:9px 0;font-size:13px;border-bottom:1px solid var(--glass-bd);}
 .pots-stat:last-child{border-bottom:none;}
-.pots-sk{color:var(--tx3);}
+.pots-stat-top{display:flex;justify-content:space-between;margin-bottom:6px;}
+.pots-sk{font-family:var(--fm);font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--tx3);}
 .pots-sv{font-weight:600;}
+.pots-bar{height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;}
+.pots-bar-fill{display:block;height:100%;background:linear-gradient(90deg,var(--pri),var(--sec));border-radius:3px;transition:width .5s ease;}
+#res-squad-stats .sb-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:7px 10px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);margin-bottom:6px;}
+#res-squad-stats .sb-k{color:var(--tx2);}
+#res-squad-stats .sb-v{font-weight:700;color:var(--pri);}
 
 /* ══ TOAST ══ */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--bd2);color:var(--tx);padding:10px 18px;border-radius:var(--r);font-size:13px;z-index:1000;opacity:0;pointer-events:none;transition:opacity .25s;white-space:nowrap;}
@@ -494,7 +513,9 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   .trophy-cards{grid-template-columns:repeat(2,1fr);}
   .camp-card{overflow-x:auto;}
   .camp-tbl{min-width:480px;}
-  #res-squad-grid{grid-template-columns:repeat(4,1fr) !important;}
+  #res-squad-grid{gap:10px 6px;}
+  #res-squad-grid>div{width:52px;}
+  .pots-ribbon{font-size:9px;padding:5px 14px 5px 10px;}
   .rev-body>div{min-width:0;}
   .res-calendar-grid{grid-template-columns:repeat(10,1fr) !important;padding:14px !important;}
   .cal-tile{font-size:8px;}
@@ -953,12 +974,12 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   </div>
   <div class="res-body">
     <div>
-      <div class="camp-card" id="res-save-cta" style="display:none;background:rgba(108,142,247,.06);border-color:rgba(108,142,247,.3);padding:16px 20px;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+      <div class="camp-card" id="res-save-cta" style="display:none;background:var(--glass-bg);border-color:var(--glass-bd);padding:16px 20px;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
         <div>
           <div style="font-weight:700;font-size:14px;margin-bottom:2px;">Playing as guest</div>
           <div style="font-size:12.5px;color:var(--tx2);">Sign in to save this result to your profile and the leaderboard.</div>
         </div>
-        <button onclick="onSaveResultClick()" style="padding:10px 18px;background:var(--ac);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Sign in to save</button>
+        <button onclick="onSaveResultClick()" style="padding:10px 18px;background:var(--pri);color:#003827;border:none;border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Sign in to save</button>
       </div>
       <div class="trophy-cards" id="trophy-cards"></div>
       <div class="camp-card">
@@ -979,7 +1000,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       <!-- Squad overview -->
       <div class="camp-card" style="margin-top:0;">
         <div class="camp-hd">Your XI this season</div>
-        <div id="res-squad-grid" style="display:grid;grid-template-columns:repeat(11,1fr);gap:9px;padding:18px 16px;"></div>
+        <div id="res-squad-grid"></div>
       </div>
       <!-- Per-player season stats, tied to simulated match events -->
       <div class="camp-card" style="margin-top:0;">
@@ -998,18 +1019,22 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div class="pots-lbl">Player of the season</div>
       <div class="pots-card">
+        <div class="pots-ribbon clip-diagonal">MVP</div>
         <div class="pots-img-wrap" id="pots-img-wrap"><img id="pots-img" src=""></div>
         <div class="pots-body">
           <div class="pots-name" id="pots-name">—</div>
           <div class="pots-role" id="pots-role">—</div>
-          <div class="pots-stat"><span class="pots-sk">Rating</span><span class="pots-sv" id="pots-rat" style="color:var(--am)">—</span></div>
-          <div class="pots-stat"><span class="pots-sk">Category</span><span class="pots-sv" id="pots-cat">—</span></div>
-          <div class="pots-stat"><span class="pots-sk">Position</span><span class="pots-sv" id="pots-pos">—</span></div>
+          <div class="pots-stat">
+            <div class="pots-stat-top"><span class="pots-sk">Rating</span><span class="pots-sv" id="pots-rat" style="color:var(--pri)">—</span></div>
+            <div class="pots-bar"><span class="pots-bar-fill" id="pots-bar-fill" style="width:0%"></span></div>
+          </div>
+          <div class="pots-stat"><div class="pots-stat-top" style="margin-bottom:0;"><span class="pots-sk">Category</span><span class="pots-sv" id="pots-cat">—</span></div></div>
+          <div class="pots-stat"><div class="pots-stat-top" style="margin-bottom:0;"><span class="pots-sk">Position</span><span class="pots-sv" id="pots-pos">—</span></div></div>
         </div>
       </div>
       <!-- Squad stats sidebar -->
       <div class="pots-card" id="res-squad-stats" style="padding:14px;">
-        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:10px;">Squad breakdown</div>
+        <div style="font-family:var(--fm);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:10px;">Squad breakdown</div>
         <div id="res-stats-body"></div>
       </div>
       <div id="mp-leaderboard-btn-wrap" style="display:none;">
@@ -2578,7 +2603,7 @@ function renderResultsDOM(data){
     <div class="tc ${finalPosTreble===1?'won':''}"><div class="tc-comp">League</div><div class="tc-result ${finalPosTreble===1?'gold':finalPosTreble<=4?'silver':'dim'}">${finalPosTreble===1?'Champions':finalPosTreble<=4?'Top '+finalPosTreble:'P'+finalPosTreble}</div><div class="form-dots">${fdots(plW,plD,plL)}</div><div class="tc-det">${plW}W ${plD}D ${plL}L · ${plPts} pts</div></div>
     <div class="tc ${cupR==='Winners'?'won':''}"><div class="tc-comp">Domestic Cup</div><div class="tc-result ${cupR==='Winners'?'gold':cupR==='Finalists'?'silver':'dim'}">${cupR}</div><div class="form-dots">${fdots(cW,0,cL)}</div><div class="tc-det">${cW} wins</div></div>
     <div class="tc ${uclR==='Champions'?'won':''}"><div class="tc-comp">UCL</div><div class="tc-result ${uclR==='Champions'?'gold':uclR==='Final'?'silver':'dim'}">${uclR==='League phase'?'Eliminated':uclR}</div><div class="form-dots">${fdots(uW,uD,uL)}</div><div class="tc-det">${uclLeaguePos}${suf(uclLeaguePos)} in League Phase · ${uW}W ${uD}D ${uL}L</div></div>
-    <div class="tc tc-grade" style="--gc:${gradeColor}">${gradeHtml}<div class="tc-grade-sub">${avg.toFixed(1)} avg rating</div></div>`;
+    <div class="tc tc-grade clip-diagonal" style="--gc:${gradeColor}">${gradeHtml}<div class="tc-grade-sub">${avg.toFixed(1)} avg rating</div></div>`;
 
   const uclGF=data.uclGF!=null?data.uclGF:Math.round(uW*2.1+uD*1.1);
   const uclGA=data.uclGA!=null?data.uclGA:Math.round(uL*1.3+uD*.6);
@@ -2594,13 +2619,15 @@ function renderResultsDOM(data){
     el('pots-img').src=pots.player.photo||'';
     el('pots-name').textContent=(pots.player.fullName||pots.player.name).toUpperCase();
     el('pots-role').textContent=(pots.player.nationality||'—')+' · '+pots.player.position;
+    let barLabel='Rating', barVal=pots.player.rating, barMax=99;
     if(st){
-      const headline = st.goals>=st.assists&&st.goals>=st.cleanSheets ? {k:'Goals',v:st.goals} : st.assists>=st.cleanSheets ? {k:'Assists',v:st.assists} : {k:'Clean sheets',v:st.cleanSheets};
-      el('pots-rat').textContent=headline.v;
-      el('pots-rat').previousElementSibling.textContent=headline.k;
-    } else {
-      el('pots-rat').textContent=pots.player.rating;
+      const headline = st.goals>=st.assists&&st.goals>=st.cleanSheets ? {k:'Goals',v:st.goals,max:30} : st.assists>=st.cleanSheets ? {k:'Assists',v:st.assists,max:20} : {k:'Clean sheets',v:st.cleanSheets,max:20};
+      barLabel=headline.k; barVal=headline.v; barMax=headline.max;
     }
+    el('pots-rat').textContent=barVal;
+    el('pots-rat').previousElementSibling.textContent=barLabel;
+    const barFill=el('pots-bar-fill');
+    if(barFill) barFill.style.width=Math.max(4,Math.min(100,Math.round(barVal/barMax*100)))+'%';
     el('pots-cat').textContent=pots.cat.label;
     el('pots-pos').textContent=SLOTS[potsIdx].key;
   }
@@ -2611,8 +2638,9 @@ function renderResultsDOM(data){
       if(!s)return`<div style="text-align:center;opacity:.3"><div style="width:100%;aspect-ratio:1;border-radius:50%;background:var(--s3);margin:0 auto 5px;max-width:46px;"></div><div style="font-size:9.5px;color:var(--tx3)">${SLOTS[i].key}</div></div>`;
       const p=s.player;
       const dn=(p.fullName||p.name).split(' ').slice(-1)[0];
+      const ringCls=i===potsIdx?'squad-av-ring pots':s.isRandom?'squad-av-ring rnd':'squad-av-ring';
       return`<div style="text-align:center;cursor:pointer" title="${p.fullName||p.name} · ${p.rating}">
-        <img src="${p.photo||''}" style="width:100%;max-width:46px;aspect-ratio:1;border-radius:50%;object-fit:cover;object-position:top;border:2px solid ${s.isRandom?'rgba(249,115,22,.5)':'rgba(62,207,106,.4)'};display:block;margin:0 auto 4px;" onerror="this.style.opacity='.2'">
+        <img src="${p.photo||''}" class="${ringCls}" style="width:100%;max-width:46px;aspect-ratio:1;border-radius:50%;object-fit:cover;object-position:top;display:block;margin:0 auto 4px;" onerror="this.style.opacity='.2'">
         <div style="font-size:9.5px;font-weight:600;color:${s.isRandom?'var(--or)':'var(--tx)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${dn}</div>
         <div style="font-size:8.5px;color:var(--tx3)">${p.rating}</div>
       </div>`;
@@ -2627,11 +2655,11 @@ function renderResultsDOM(data){
       const dn=(s.player.fullName||s.player.name).split(' ').slice(-1)[0];
       const score=Math.round(perfScoreFor(s.player.position, st, seasonW));
       const isPots=i===potsIdx;
-      return `<tr${isPots?' style="border-left:2px solid var(--am);background:rgba(240,168,48,.05);"':''}>
+      return `<tr class="${isPots?'ps-pots-row':''}">
         <td style="font-weight:${isPots?'700':'500'};">${dn}</td>
         <td style="color:var(--tx3);">${SLOTS[i].key}</td>
         <td>${st.goals}</td><td>${st.assists}</td><td>${st.cleanSheets||'—'}</td>
-        <td style="color:${isPots?'var(--am)':'var(--tx)'};font-weight:700;">${score}</td>
+        <td class="${isPots?'ps-pots-score':''}" style="font-weight:700;">${score}</td>
       </tr>`;
     }).join('');
   }
@@ -2679,15 +2707,15 @@ function renderResultsDOM(data){
     const filled=G.squad.filter(Boolean);
     const lgs={};filled.forEach(s=>{lgs[s.player.league]=(lgs[s.player.league]||0)+1;});
     const nats={};filled.forEach(s=>{nats[s.player.nationality||'?']=(nats[s.player.nationality||'?']||0)+1;});
-    const topLg=Object.entries(lgs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([l,c])=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);"><span style="color:var(--tx2)">${l}</span><span style="font-weight:700">${c}</span></div>`).join('');
-    const topNat=Object.entries(nats).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([n,c])=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd);"><span style="color:var(--tx2)">${n}</span><span style="font-weight:700">${c}</span></div>`).join('');
+    const topLg=Object.entries(lgs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([l,c])=>`<div class="sb-row"><span class="sb-k">${l}</span><span class="sb-v">${c}</span></div>`).join('');
+    const topNat=Object.entries(nats).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([n,c])=>`<div class="sb-row"><span class="sb-k">${n}</span><span class="sb-v">${c}</span></div>`).join('');
     statsBod.innerHTML=`
-      <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Top leagues</div>
+      <div style="font-family:var(--fm);font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Top leagues</div>
       ${topLg}
-      <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px;">Top nationalities</div>
+      <div style="font-family:var(--fm);font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px;">Top nationalities</div>
       ${topNat}
-      <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:10px 0 6px;"><span style="color:var(--tx2)">Random players</span><span style="font-weight:700;color:${rndCount?'var(--or)':'var(--gr)'}">${rndCount}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;"><span style="color:var(--tx2)">Avg rating</span><span style="font-weight:700;color:var(--am)">${avg.toFixed(1)}</span></div>`;
+      <div class="sb-row"><span class="sb-k">Random players</span><span class="sb-v" style="color:${rndCount?'var(--or)':'var(--gr)'}">${rndCount}</span></div>
+      <div class="sb-row"><span class="sb-k">Avg rating</span><span class="sb-v">${avg.toFixed(1)}</span></div>`;
   }
 
   window._simAnim={finalPos:finalPosTreble, cupR, uclR, uclLeaguePos, fixtures};
