@@ -6,7 +6,7 @@
 <title>Football Categories</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --bg:#0b0f17;--s1:#111827;--s2:#171f2e;--s3:#1e2a3a;
@@ -17,8 +17,13 @@
   --gr:#3ecf6a;--grd:rgba(62,207,106,.10);
   --re:#f05060;--red:rgba(240,80,96,.10);
   --or:#f97316;--ord:rgba(249,115,22,.10);
+  --pri:#20ffbd;--prid:rgba(32,255,189,.12);--prim:rgba(32,255,189,.28);
+  --sec:#e9c349;--secd:rgba(233,195,73,.14);
+  --lose:#ffb4ab;--losed:rgba(255,180,171,.12);
+  --glass-bg:rgba(255,255,255,.05);--glass-bd:rgba(255,255,255,.10);--glass-bd-hi:rgba(255,255,255,.22);
   --fd:'Bebas Neue',Impact,sans-serif;
-  --fb:'Space Grotesk',-apple-system,sans-serif;
+  --fb:'Hanken Grotesk',-apple-system,sans-serif;
+  --fm:'JetBrains Mono',monospace;
   --r:8px;--rl:14px;
 }
 html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb);font-size:14px;-webkit-font-smoothing:antialiased;}
@@ -368,6 +373,12 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .camp-tbl td{padding:13px 16px;border-bottom:1px solid var(--bd);}
 .camp-tbl tr:last-child td{border-bottom:none;}
 .camp-tbl tr:hover td{background:var(--s2);}
+.res-calendar-grid{display:grid;grid-template-columns:repeat(19,1fr);gap:4px;padding:16px 20px;}
+.cal-tile{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;position:relative;}
+.cal-tile.w{background:var(--grd);color:var(--gr);border:1px solid rgba(62,207,106,.3);}
+.cal-tile.d{background:var(--amd);color:var(--am);border:1px solid rgba(240,168,48,.3);}
+.cal-tile.l{background:var(--red);color:var(--re);border:1px solid rgba(240,80,96,.3);}
+.cal-tile:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--s3);border:1px solid var(--bd2);border-radius:6px;padding:4px 8px;font-size:10.5px;white-space:nowrap;color:var(--tx);margin-bottom:4px;z-index:5;}
 .res-newgame{padding:13px 24px;background:transparent;border:1px solid var(--bd2);border-radius:var(--r);color:var(--tx2);font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;}
 .res-newgame:hover{background:var(--s2);}
 .pots-lbl{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:14px;}
@@ -403,25 +414,41 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .sim-anim-skip{padding:11px 24px;background:transparent;border:1px solid var(--bd2);border-radius:var(--r);color:var(--tx2);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--fb);}
 .sim-anim-skip:hover{background:var(--s2);}
 
-/* ══ RESULT STORY STAGES ══ */
-.result-stage-overlay{position:fixed;inset:0;background:radial-gradient(ellipse at 50% -10%,#1e3a5f 0%,var(--bg) 65%);z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center;cursor:pointer;}
-.rs-skip{position:absolute;top:20px;right:20px;padding:10px 20px;background:rgba(255,255,255,.08);border:1px solid var(--bd2);border-radius:var(--r);color:var(--tx);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--fb);z-index:2;}
-.rs-skip:hover{background:var(--s2);}
-.rs-always-skip{position:absolute;bottom:22px;right:22px;font-size:12px;color:var(--tx3);cursor:pointer;text-decoration:underline;z-index:2;}
-.rs-always-skip:hover{color:var(--tx2);}
-.rs-content{max-width:600px;width:100%;}
-.rs-eyebrow{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:16px;}
-.rs-hero-pos{font-family:var(--fd);font-size:clamp(48px,9vw,84px);line-height:1;letter-spacing:1px;}
-.rs-hero-grade{font-family:var(--fd);font-size:48px;letter-spacing:1px;margin-top:16px;}
-.rs-hero-sub{font-size:14px;color:var(--tx2);margin-top:16px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.5;}
-.rs-card{text-align:left;}
-.rs-dots{display:flex;gap:8px;margin-top:32px;justify-content:center;}
-.rs-dot{width:34px;height:4px;border-radius:2px;background:rgba(255,255,255,.15);transition:background .3s;}
-.rs-dot.active{background:var(--am);}
-.res-section-nav{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;gap:8px;padding:10px 20px;background:rgba(11,15,23,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--bd);}
-.res-section-nav-spacer{height:48px;}
-.res-section-nav-btn{padding:8px 16px;background:transparent;border:1px solid var(--bd2);border-radius:20px;color:var(--tx2);font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--fb);white-space:nowrap;}
-.res-section-nav-btn:hover{background:var(--s2);color:var(--tx);}
+/* ══ RESULT STORY ══ */
+.story-overlay{position:fixed;inset:0;background:radial-gradient(ellipse at 50% -10%,#0f2e28 0%,var(--bg) 62%);z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+.story-progress{position:absolute;top:16px;left:16px;right:16px;display:flex;gap:6px;z-index:3;}
+.story-bar{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.18);overflow:hidden;}
+.story-bar-fill{display:block;height:100%;width:0;background:var(--pri);border-radius:2px;}
+.story-bar.done .story-bar-fill{width:100%;}
+.story-bar.active .story-bar-fill{animation:story-fill 5s linear forwards;}
+@keyframes story-fill{from{width:0;}to{width:100%;}}
+.story-skip{position:absolute;top:34px;right:16px;padding:8px 16px;background:var(--glass-bg);border:1px solid var(--glass-bd);border-radius:20px;color:var(--tx);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--fm);letter-spacing:.5px;z-index:3;backdrop-filter:blur(8px);}
+.story-skip:hover{background:var(--glass-bd-hi);}
+.story-always-skip{position:absolute;bottom:20px;left:0;right:0;text-align:center;font-size:11.5px;color:var(--tx3);cursor:pointer;text-decoration:underline;z-index:3;font-family:var(--fm);}
+.story-always-skip:hover{color:var(--tx2);}
+.story-tap{position:absolute;top:0;bottom:0;width:35%;z-index:2;cursor:pointer;}
+.story-tap-l{left:0;}
+.story-tap-r{right:0;}
+.story-content{max-width:520px;width:100%;padding:0 28px;text-align:center;position:relative;z-index:1;}
+.story-eyebrow{font-family:var(--fm);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--pri);margin-bottom:18px;}
+.story-hero-pos{font-family:var(--fd);font-size:clamp(52px,10vw,92px);line-height:1;letter-spacing:1px;color:var(--tx);}
+.story-hero-grade{font-family:var(--fd);font-size:44px;letter-spacing:1px;margin-top:18px;}
+.story-hero-sub{font-size:14.5px;color:var(--tx2);margin-top:16px;line-height:1.55;}
+.story-card{text-align:left;background:var(--glass-bg);border:1px solid var(--glass-bd);border-radius:18px;padding:22px;backdrop-filter:blur(12px);}
+.story-stat-row{display:flex;gap:10px;margin-top:16px;}
+.story-stat{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);border-radius:12px;padding:12px 8px;text-align:center;}
+.story-stat-v{font-family:var(--fd);font-size:26px;color:var(--pri);}
+.story-stat-k{font-size:9.5px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);margin-top:2px;font-family:var(--fm);}
+.story-step{padding:9px 0;border-bottom:1px solid var(--glass-bd);font-size:13.5px;display:flex;justify-content:space-between;gap:10px;}
+.story-step:last-child{border-bottom:none;}
+.story-step.won{color:var(--pri);}
+.story-step.lost{color:var(--lose);}
+.story-pots-img{width:88px;height:88px;border-radius:50%;object-fit:cover;object-position:top;border:3px solid var(--sec);margin:0 auto 14px;display:block;}
+.story-navbar{position:fixed;bottom:0;left:0;right:0;z-index:200;display:flex;justify-content:space-around;padding:9px 12px;background:rgba(11,15,23,.92);backdrop-filter:blur(10px);border-top:1px solid var(--bd);}
+.story-navbar-spacer{height:54px;}
+.story-nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;color:var(--tx3);font-size:10px;font-weight:600;cursor:pointer;font-family:var(--fb);padding:4px 16px;}
+.story-nav-btn:hover{color:var(--tx);}
+.story-nav-btn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;}
 
 /* ══ MOBILE (390px min target) ══ */
 @media (max-width:600px){
@@ -469,6 +496,10 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   .camp-tbl{min-width:480px;}
   #res-squad-grid{grid-template-columns:repeat(4,1fr) !important;}
   .rev-body>div{min-width:0;}
+  .res-calendar-grid{grid-template-columns:repeat(10,1fr) !important;padding:14px !important;}
+  .cal-tile{font-size:8px;}
+  .story-content{padding:0 20px;}
+  .story-hero-pos{font-size:56px;}
 
   /* Landing / fullscreen cards */
   .land-logo{font-size:44px;}
@@ -939,6 +970,11 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       <div class="camp-card" id="res-journey-card" style="margin-top:0;">
         <div class="camp-hd">Season journey</div>
         <div id="res-journey" style="padding:16px 20px;"></div>
+      </div>
+      <!-- Full league fixture calendar -->
+      <div class="camp-card" id="res-calendar-card" style="margin-top:0;">
+        <div class="camp-hd">Premier League calendar</div>
+        <div class="res-calendar-grid" id="res-calendar-grid"></div>
       </div>
       <!-- Squad overview -->
       <div class="camp-card" style="margin-top:0;">
@@ -2492,6 +2528,14 @@ function doSim(){
   revealSimResults();
 }
 
+function renderResultsCalendar(fixtures){
+  const grid=el('res-calendar-grid');
+  if(!grid || !fixtures) return;
+  grid.innerHTML=fixtures.pl.map(f=>{
+    const cls=f.res==='W'?'w':f.res==='D'?'d':'l';
+    return `<div class="cal-tile ${cls}" data-tip="MW${f.mw} vs ${f.opp}: ${f.res} ${f.gf}-${f.ga}">${f.mw}</div>`;
+  }).join('');
+}
 // Shared DOM-writing tail for both solo (doSim) and multiplayer (renderResultsFromShared).
 // `data` carries the fully-resolved season result plus the fixture log and per-player stats.
 function renderResultsDOM(data){
@@ -2628,6 +2672,7 @@ function renderResultsDOM(data){
         </div>
       </div>`;
   }
+  renderResultsCalendar(fixtures);
 
   const statsBod=el('res-stats-body');
   if(statsBod){
@@ -2646,8 +2691,8 @@ function renderResultsDOM(data){
   }
 
   window._simAnim={finalPos:finalPosTreble, cupR, uclR, uclLeaguePos, fixtures};
-  window._resultsData={finalPosTreble, plPts, plGF, plGA, grade, gradeColor, gradeDesc, narrativeText,
-    cupR, uclR, uclLeaguePos, potsIdx, standoutName, fixtures, isTreble, effectiveAvg, rndCount};
+  window._resultsData={finalPosTreble, plPts, plGF, plGA, plW, plD, plL, grade, gradeColor, gradeDesc, narrativeText,
+    cupR, uclR, uclLeaguePos, potsIdx, standoutName, fixtures, isTreble, effectiveAvg, avg, rndCount, playerStats};
   renderSaveCTA();
 }
 // doSim() above is solo-only. Multiplayer uses handleSimulateClick() -> mpReadyToSim() ->
@@ -3024,7 +3069,7 @@ function skipAnimationsEnabled(){ return localStorage.getItem('fc_skip_reveal')=
 function setSkipAnimations(on){ if(on) localStorage.setItem('fc_skip_reveal','1'); else localStorage.removeItem('fc_skip_reveal'); }
 function showSeasonReplay(){
   const d=window._simAnim;
-  if(!d || skipAnimationsEnabled()){ showStep('step-results'); showResultStages(window._resultsData); return; }
+  if(!d || skipAnimationsEnabled()){ showStep('step-results'); showResultStory(window._resultsData); return; }
   const steps=12;
   const traj=(d.fixtures&&d.fixtures.pl&&d.fixtures.pl.length)?realTrajectory(d.fixtures.pl,d.finalPos,steps):(()=>{const arr=[];let cur=10+(Math.random()-0.5)*6;for(let i=1;i<=steps;i++){const t=i/steps;const pull=0.3+t*0.4;cur=cur+(d.finalPos-cur)*pull+(Math.random()-0.5)*(5*(1-t));cur=Math.max(1,Math.min(20,cur));arr.push(Math.round(cur));}arr[arr.length-1]=d.finalPos;return arr;})();
   const cupCheckpoint=Math.round(steps*0.55);
@@ -3051,7 +3096,7 @@ function showSeasonReplay(){
     const ov=document.getElementById('sim-anim-overlay');
     if(ov)ov.remove();
     showStep('step-results');
-    showResultStages(window._resultsData);
+    showResultStory(window._resultsData);
   }
   el('sa-skip').onclick=finish;
 
@@ -3095,102 +3140,175 @@ function showSeasonReplay(){
   },700);
 }
 
-// ══ RESULT STORY STAGES ══
+// ══ RESULT STORY ══
 // Runs once the season-replay animation above finishes (or is skipped) and the real results
 // page is already fully rendered underneath. Consumes window._resultsData directly (stashed at
 // the end of renderResultsDOM) rather than re-parsing any rendered HTML, and is called from the
 // one shared spot both solo (doSim) and multiplayer (pollForOwnResult) already funnel through.
-const STAGE_DWELL_MS=[4000,3500,3500];
-let _stageTimer=null, _stageIdx=0, _stageData=null;
-function stageHeroHtml(d){
+// The segment list is dynamic (a quick cup exit or a title-less season simply skips that segment)
+// -- the final "full" entry isn't rendered at all, it just means removing the overlay to reveal
+// the real #step-results page underneath.
+function buildResultSegments(d){
+  const segs=[{id:'hero'},{id:'league'}];
+  if(d.fixtures && d.fixtures.cup && d.fixtures.cup.length) segs.push({id:'cup'});
+  if(d.fixtures && d.fixtures.ucl) segs.push({id:'ucl'});
+  if(d.potsIdx!=null && G.squad[d.potsIdx]) segs.push({id:'pots'});
+  segs.push({id:'full', terminal:true});
+  return segs;
+}
+function renderSegHero(d){
   const bits=[
     d.finalPosTreble===1?'League champions':`P${d.finalPosTreble} in the league`,
     d.cupR==='Winners'?'Cup winners':d.cupR==='Finalists'?'Cup finalists':null,
     d.uclR==='Champions'?'Champions of Europe':d.uclR==='Final'?'UCL finalists':null
   ].filter(Boolean).join(' · ');
-  return `<div class="rs-eyebrow">Season 2025/26 complete</div>
-    <div class="rs-hero-pos" style="color:${d.finalPosTreble===1?'var(--am)':'var(--tx)'}">${d.finalPosTreble}${suf(d.finalPosTreble)} place</div>
-    <div style="font-size:15px;color:var(--tx2);margin-top:8px;">${bits}</div>
-    <div class="rs-hero-grade" style="color:${d.gradeColor}">${d.grade}</div>
-    <div style="font-size:12px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-top:-10px;">${d.gradeDesc}</div>
-    <div class="rs-hero-sub">${d.narrativeText}</div>`;
+  return `<div class="story-eyebrow">Season 2025/26 complete</div>
+    <div class="story-hero-pos" style="color:${d.finalPosTreble===1?'var(--sec)':'var(--tx)'}">${d.finalPosTreble}${suf(d.finalPosTreble)} place</div>
+    <div style="font-size:15px;color:var(--tx2);margin-top:10px;">${bits}</div>
+    <div class="story-hero-grade" style="color:${d.gradeColor}">${d.grade}</div>
+    <div style="font-size:12px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-top:-8px;font-family:var(--fm);">${d.gradeDesc}</div>
+    <div class="story-hero-sub">${d.narrativeText}</div>`;
 }
-function stageHtml(idx, d){
-  if(idx===0) return stageHeroHtml(d);
-  if(idx===1){
-    const journeyEl=document.getElementById('res-journey');
-    return `<div class="rs-eyebrow">Season journey</div><div class="rs-card">${journeyEl?journeyEl.innerHTML:''}</div>`;
-  }
-  const potsCard=document.getElementById('pots-img-wrap')?.closest('.pots-card');
-  return `<div class="rs-eyebrow">Player of the season</div><div class="rs-card">${potsCard?potsCard.outerHTML:''}</div>`;
+function renderSegLeague(d){
+  const fx=(d.fixtures&&d.fixtures.pl)||[];
+  const bestWin=fx.filter(f=>f.res==='W').sort((a,b)=>(b.gf-b.ga)-(a.gf-a.ga))[0];
+  const worstLoss=fx.filter(f=>f.res==='L').sort((a,b)=>(b.ga-b.gf)-(a.ga-a.gf))[0];
+  const chips=[bestWin&&{f:bestWin,win:true},worstLoss&&{f:worstLoss,win:false}].filter(Boolean).map(({f,win})=>
+    `<div class="story-step ${win?'won':'lost'}"><span>${win?'Beat':'Lost to'} ${f.opp} · MW${f.mw}</span><span>${f.gf}–${f.ga}</span></div>`
+  ).join('');
+  return `<div class="story-eyebrow">Premier League</div>
+    <div class="story-card">
+      <div style="font-family:var(--fd);font-size:34px;">${d.plW}W ${d.plD}D ${d.plL}L</div>
+      <div style="font-size:13px;color:var(--tx2);margin-top:4px;margin-bottom:8px;">${d.plPts} points · ${d.plGF}–${d.plGA} goals</div>
+      ${chips}
+    </div>`;
 }
-function renderStage(idx){
-  _stageIdx=idx;
-  const content=el('rs-content');
-  if(content) content.innerHTML=stageHtml(idx,_stageData);
-  const dotsEl=el('rs-dots');
-  if(dotsEl) dotsEl.innerHTML=STAGE_DWELL_MS.map((_,i)=>`<div class="rs-dot${i===idx?' active':''}"></div>`).join('');
-  clearTimeout(_stageTimer);
-  _stageTimer=setTimeout(()=>advanceStage(false), STAGE_DWELL_MS[idx]);
+function renderSegCup(d){
+  const steps=(d.fixtures.cup||[]).map(f=>
+    `<div class="story-step ${f.res==='W'?'won':'lost'}"><span>${f.round}</span><span>${f.res==='W'?'Beat':'Lost to'} ${f.opp} ${f.gf}–${f.ga}</span></div>`
+  ).join('');
+  return `<div class="story-eyebrow">Domestic Cup</div>
+    <div class="story-card">
+      <div style="font-family:var(--fd);font-size:30px;color:${d.cupR==='Winners'?'var(--sec)':'var(--tx)'};">${d.cupR}</div>
+      <div style="margin-top:14px;">${steps}</div>
+    </div>`;
 }
-function advanceStage(){
-  clearTimeout(_stageTimer);
-  const next=_stageIdx+1;
-  if(next>=STAGE_DWELL_MS.length){ finishStages(); return; }
-  renderStage(next);
+function renderSegUcl(d){
+  const ko=(d.fixtures.ucl&&d.fixtures.ucl.knockout)||[];
+  const koSteps=ko.map(k=>{
+    const gf=k.legs.reduce((s,l)=>s+l.gf,0), ga=k.legs.reduce((s,l)=>s+l.ga,0);
+    return `<div class="story-step ${k.won?'won':'lost'}"><span>${k.round}</span><span>${k.won?'Beat':'Lost to'} ${k.opp} agg ${gf}–${ga}</span></div>`;
+  }).join('');
+  const leagueLine=`<div class="story-step"><span>League phase</span><span>${d.uclLeaguePos}${suf(d.uclLeaguePos)}</span></div>`;
+  return `<div class="story-eyebrow">Champions League</div>
+    <div class="story-card">
+      <div style="font-family:var(--fd);font-size:30px;color:${d.uclR==='Champions'?'var(--sec)':'var(--tx)'};">${d.uclR==='League phase'?'Eliminated':d.uclR}</div>
+      <div style="margin-top:14px;">${leagueLine}${koSteps}</div>
+    </div>`;
 }
-function showResultStages(data){
-  if(!data || skipAnimationsEnabled()){ finishStages(); return; }
-  _stageData=data;
-  const existing=document.getElementById('result-stage-overlay');
+function renderSegPots(d){
+  const s=G.squad[d.potsIdx];
+  if(!s) return '';
+  const p=s.player;
+  const st=d.playerStats?d.playerStats[d.potsIdx]:null;
+  const headline=st?(st.goals>=st.assists&&st.goals>=st.cleanSheets?{k:'Goals',v:st.goals}:st.assists>=st.cleanSheets?{k:'Assists',v:st.assists}:{k:'Clean sheets',v:st.cleanSheets}):{k:'Rating',v:p.rating};
+  return `<div class="story-eyebrow">Player of the season</div>
+    <div class="story-card" style="text-align:center;">
+      <img class="story-pots-img" src="${p.photo||''}" onerror="this.style.opacity='.2'">
+      <div style="font-family:var(--fd);font-size:26px;letter-spacing:.5px;">${(p.fullName||p.name).toUpperCase()}</div>
+      <div style="font-size:12.5px;color:var(--tx2);margin-top:2px;">${p.nationality||'—'} · ${p.position}</div>
+      <div class="story-stat-row">
+        <div class="story-stat"><div class="story-stat-v">${headline.v}</div><div class="story-stat-k">${headline.k}</div></div>
+        <div class="story-stat"><div class="story-stat-v">${SLOTS[d.potsIdx].key}</div><div class="story-stat-k">Position</div></div>
+        <div class="story-stat"><div style="font-family:var(--fb);font-size:12.5px;font-weight:700;color:var(--pri);line-height:1.3;">${s.cat.label}</div><div class="story-stat-k">Category</div></div>
+      </div>
+    </div>`;
+}
+const STORY_SEG_MS=5000;
+const STORY_RENDERERS={hero:renderSegHero, league:renderSegLeague, cup:renderSegCup, ucl:renderSegUcl, pots:renderSegPots};
+let _storySegs=[], _storyIdx=0, _storyTimer=null, _storyData=null;
+function renderStorySegment(idx){
+  const seg=_storySegs[idx];
+  if(!seg) return;
+  if(seg.terminal){ mountStoryTerminal(); return; }
+  _storyIdx=idx;
+  const content=el('story-content');
+  const fn=STORY_RENDERERS[seg.id];
+  if(content && fn) content.innerHTML=fn(_storyData);
+  const barsEl=el('story-progress');
+  const realSegs=_storySegs.filter(s=>!s.terminal);
+  if(barsEl) barsEl.innerHTML=realSegs.map((_,i)=>
+    `<div class="story-bar ${i<idx?'done':i===idx?'active':''}"><div class="story-bar-fill"></div></div>`
+  ).join('');
+  clearTimeout(_storyTimer);
+  _storyTimer=setTimeout(()=>goToStorySegment(idx+1), STORY_SEG_MS);
+}
+function goToStorySegment(idx){
+  clearTimeout(_storyTimer);
+  if(idx<0) idx=0;
+  if(idx>=_storySegs.length){ mountStoryTerminal(); return; }
+  renderStorySegment(idx);
+}
+function showResultStory(data){
+  if(!data || skipAnimationsEnabled()){ mountStoryTerminal(); return; }
+  _storyData=data;
+  _storySegs=buildResultSegments(data);
+  const existing=document.getElementById('story-overlay');
   if(existing)existing.remove();
-  document.body.insertAdjacentHTML('beforeend',`<div class="result-stage-overlay" id="result-stage-overlay">
-    <button class="rs-skip" id="rs-skip">Skip to results →</button>
-    <a href="javascript:void(0)" class="rs-always-skip" id="rs-always-skip">Always skip this animation</a>
-    <div class="rs-content" id="rs-content"></div>
-    <div class="rs-dots" id="rs-dots"></div>
+  document.body.insertAdjacentHTML('beforeend',`<div class="story-overlay" id="story-overlay">
+    <div class="story-progress" id="story-progress"></div>
+    <button class="story-skip" id="story-skip">Skip →</button>
+    <div class="story-tap story-tap-l" id="story-tap-l"></div>
+    <div class="story-tap story-tap-r" id="story-tap-r"></div>
+    <div class="story-content" id="story-content"></div>
+    <a href="javascript:void(0)" class="story-always-skip" id="story-always-skip">Always skip this animation</a>
   </div>`);
-  el('rs-skip').onclick=(e)=>{ e.stopPropagation(); finishStages(); };
-  el('rs-always-skip').onclick=(e)=>{ e.stopPropagation(); setSkipAnimations(true); finishStages(); };
-  el('result-stage-overlay').onclick=()=>advanceStage();
-  renderStage(0);
+  el('story-skip').onclick=(e)=>{ e.stopPropagation(); mountStoryTerminal(); };
+  el('story-always-skip').onclick=(e)=>{ e.stopPropagation(); setSkipAnimations(true); mountStoryTerminal(); };
+  el('story-tap-l').onclick=()=>goToStorySegment(_storyIdx-1);
+  el('story-tap-r').onclick=()=>goToStorySegment(_storyIdx+1);
+  renderStorySegment(0);
 }
-function finishStages(){
-  clearTimeout(_stageTimer);
-  const ov=document.getElementById('result-stage-overlay');
+function mountStoryTerminal(){
+  clearTimeout(_storyTimer);
+  const ov=document.getElementById('story-overlay');
   if(ov)ov.remove();
-  buildResultsSectionNav();
+  buildStoryNavbar();
 }
 
-// Sticky in-page nav so players can jump straight to a section after the reveal, without
-// re-scrolling or replaying anything -- these are plain scroll-to-anchor shortcuts into the
-// same full results page that's always there, not a second routing mechanism.
+// Bottom icon nav so players can jump straight to a section (or replay) after the reveal --
+// plain scroll-to-anchor shortcuts into the same full results page that's always there.
 function scrollToResultsSection(id){
   const target=document.getElementById(id);
   if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
 }
-function buildResultsSectionNav(){
+const STORY_NAV_ICONS={
+  home:'<svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>',
+  stats:'<svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/></svg>',
+  squad:'<svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M4.5 20c1-3.8 4-6 7.5-6s6.5 2.2 7.5 6"/></svg>',
+  replay:'<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.6 5.9"/><path d="M4 12V6"/><path d="M4 12h6"/></svg>'
+};
+function buildStoryNavbar(){
   const page=el('step-results');
   if(!page) return;
-  let nav=document.getElementById('res-section-nav');
+  let nav=document.getElementById('story-navbar');
   if(nav) nav.remove();
-  let spacer=document.getElementById('res-section-nav-spacer');
+  let spacer=document.getElementById('story-navbar-spacer');
   if(spacer) spacer.remove();
-  const isMp=APP.mode==='multiplayer';
   nav=document.createElement('div');
-  nav.className='res-section-nav';
-  nav.id='res-section-nav';
+  nav.className='story-navbar';
+  nav.id='story-navbar';
   nav.innerHTML=`
-    <button class="res-section-nav-btn" onclick="scrollToResultsSection('res-pos')">Overview</button>
-    <button class="res-section-nav-btn" onclick="scrollToResultsSection('res-journey-card')">Journey</button>
-    <button class="res-section-nav-btn" onclick="scrollToResultsSection('pots-img-wrap')">Player of the season</button>
-    ${isMp?'<button class="res-section-nav-btn" onclick="scrollToResultsSection(\'mp-lobby-results\')">Lobby standings</button>':''}
+    <button class="story-nav-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})">${STORY_NAV_ICONS.home}Home</button>
+    <button class="story-nav-btn" onclick="scrollToResultsSection('res-playerstats-tbl')">${STORY_NAV_ICONS.stats}Stats</button>
+    <button class="story-nav-btn" onclick="scrollToResultsSection('res-squad-grid')">${STORY_NAV_ICONS.squad}Squad</button>
+    <button class="story-nav-btn" onclick="showStep('step-landing')">${STORY_NAV_ICONS.replay}Replay</button>
   `;
   spacer=document.createElement('div');
-  spacer.className='res-section-nav-spacer';
-  spacer.id='res-section-nav-spacer';
-  page.insertBefore(spacer, page.firstChild);
-  page.insertBefore(nav, page.firstChild);
+  spacer.className='story-navbar-spacer';
+  spacer.id='story-navbar-spacer';
+  page.appendChild(spacer);
+  page.appendChild(nav);
 }
 </script>
 </body>
