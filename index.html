@@ -387,11 +387,39 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .cal-tile:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--s3);border:1px solid var(--bd2);border-radius:6px;padding:4px 8px;font-size:10.5px;white-space:nowrap;color:var(--tx);margin-bottom:4px;z-index:5;}
 .res-newgame{padding:13px 24px;background:transparent;border:1px solid var(--glass-bd-hi);border-radius:var(--r);color:var(--tx2);font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;}
 .res-newgame:hover{background:var(--glass-bg);}
-#res-squad-grid{display:flex;flex-wrap:wrap;gap:14px 10px;padding:18px 16px;}
-#res-squad-grid>div{width:64px;}
-.squad-av-ring{border:2px solid rgba(62,207,106,.4);}
-.squad-av-ring.rnd{border-color:rgba(249,115,22,.5);}
-.squad-av-ring.pots{border-color:var(--pri);box-shadow:0 0 0 3px var(--prim),0 0 14px rgba(32,255,189,.35);}
+#res-squad-grid{padding:16px;}
+.respitch-field{position:relative;width:100%;max-width:460px;aspect-ratio:3/4;margin:0 auto;border-radius:var(--rl);overflow:hidden;
+  background:
+    radial-gradient(ellipse 900px 520px at 50% 4%,rgba(108,142,247,.14) 0%,transparent 62%),
+    linear-gradient(180deg,#0d1f30 0%,#0a1826 50%,#070f18 100%);}
+.respitch-field::before{content:'';position:absolute;top:50%;left:6%;right:6%;height:1px;background:rgba(255,255,255,.08);}
+.respitch-field::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:110px;height:110px;border:1px solid rgba(255,255,255,.08);border-radius:50%;}
+.respitch-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(14,minmax(0,1fr));width:100%;height:100%;padding:16px 8px;}
+.respitch-slot{display:flex;align-items:center;justify-content:center;}
+.respitch-node{position:relative;width:48px;height:48px;border-radius:50%;cursor:pointer;background:var(--s3);border:2px solid rgba(62,207,106,.4);flex-shrink:0;transition:transform .15s,box-shadow .15s;}
+.respitch-node:hover{transform:translateY(-2px) scale(1.06);}
+.respitch-node.rnd{border-color:rgba(249,115,22,.5);}
+.respitch-node.pots{border-color:var(--pri);box-shadow:0 0 0 3px var(--prim),0 0 14px rgba(32,255,189,.35);}
+.respitch-node.empty{cursor:default;background:rgba(255,255,255,.04);border-style:dashed;border-color:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;}
+.respitch-node.empty:hover{transform:none;}
+.respitch-node img{width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top center;display:block;}
+.respitch-badge{position:absolute;bottom:-3px;right:-3px;background:var(--s1);border:1px solid var(--glass-bd-hi);border-radius:8px;font-family:var(--fm);font-size:9.5px;font-weight:700;line-height:1;padding:2px 4px;color:var(--pri);}
+.respitch-pos-empty{font-family:var(--fm);font-size:9px;color:var(--tx3);}
+.respitch-card{position:absolute;z-index:5;left:50%;bottom:14px;transform:translate(-50%,12px);width:min(280px,86%);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;
+  background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:var(--rl);
+  border-top:1px solid rgba(32,255,189,.30);border-left:1px solid rgba(32,255,189,.30);border-bottom:1px solid var(--glass-bd);border-right:1px solid var(--glass-bd);
+  padding:16px;}
+.respitch-card.active{opacity:1;pointer-events:auto;transform:translate(-50%,0);}
+.respitch-card-close{position:absolute;top:6px;right:9px;background:none;border:none;color:var(--tx3);font-size:19px;line-height:1;cursor:pointer;padding:4px;font-family:var(--fb);}
+.respitch-card-close:hover{color:var(--tx);}
+.respitch-card-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.respitch-card-img{width:42px;height:42px;border-radius:50%;object-fit:cover;object-position:top center;flex-shrink:0;background:var(--s3);}
+.respitch-card-name{font-weight:700;font-size:14px;color:var(--tx);}
+.respitch-card-pos{font-size:11px;color:var(--tx3);}
+.respitch-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.respitch-stat{background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);border-radius:12px;padding:10px 8px;text-align:center;}
+.respitch-stat-v{font-family:var(--fd);font-size:22px;color:var(--pri);line-height:1;}
+.respitch-stat-k{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);margin-top:3px;font-family:var(--fm);}
 .pots-lbl{font-family:var(--fm);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:14px;}
 .pots-card{position:relative;}
 .pots-ribbon{position:absolute;top:0;right:0;background:var(--sec);color:#151200;font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:1.5px;padding:6px 18px 6px 14px;z-index:2;}
@@ -513,8 +541,10 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   .trophy-cards{grid-template-columns:repeat(2,1fr);}
   .camp-card{overflow-x:auto;}
   .camp-tbl{min-width:480px;}
-  #res-squad-grid{gap:10px 6px;}
-  #res-squad-grid>div{width:52px;}
+  .respitch-node{width:38px;height:38px;}
+  .respitch-badge{font-size:8px;padding:1px 3px;}
+  .respitch-card{width:92%;padding:12px;}
+  .respitch-stat-v{font-size:19px;}
   .pots-ribbon{font-size:9px;padding:5px 14px 5px 10px;}
   .rev-body>div{min-width:0;}
   .res-calendar-grid{grid-template-columns:repeat(10,1fr) !important;padding:14px !important;}
@@ -2494,12 +2524,14 @@ function seasonWeights(plGF, plGA){
   const attackShare=attackOver/total;
   return {attackShare, defenseShare:1-attackShare};
 }
-function perfScoreFor(pos, st, weights){
+// Base multipliers already favor rarer contributions for the position (a defender's goal
+// or a keeper's clean sheet is worth more than an attacker's, mirroring how Opta doesn't
+// expect defenders to match attackers' attacking output) -- then scaled by how much this
+// particular season's success actually came from scoring vs not conceding. Shared by
+// perfScoreFor (cumulative "Score" column) and computeSeasonRating (per-match season
+// rating) so the two can never rank two players in the same squad in contradicting order.
+function posMultipliers(pos, weights){
   const w=weights||{attackShare:0.5,defenseShare:0.5};
-  // Base multipliers already favor rarer contributions for the position (a defender's goal
-  // or a keeper's clean sheet is worth more than an attacker's, mirroring how Opta doesn't
-  // expect defenders to match attackers' attacking output) -- then scaled by how much this
-  // particular season's success actually came from scoring vs not conceding.
   const baseGoalMul=pos==='Goalkeeper'?8:pos==='Defender'?7:pos==='Midfielder'?5:4;
   const baseAssistMul=pos==='Midfielder'?4:pos==='Defender'?4:pos==='Goalkeeper'?3:2.5;
   // Goalkeeper and Defender get the *same* clean-sheet credit per match (both are marked
@@ -2507,10 +2539,31 @@ function perfScoreFor(pos, st, weights){
   // defenders edge out the keeper via their (much more likely) extra goal/assist contributions,
   // instead of the keeper mechanically topping every defense-driven season by default.
   const baseCsMul=pos==='Goalkeeper'?7:pos==='Defender'?7:pos==='Midfielder'?2:0;
-  const goalMul=baseGoalMul*(0.6+0.8*w.attackShare);
-  const assistMul=baseAssistMul*(0.6+0.8*w.attackShare);
-  const csMul=baseCsMul*(0.6+0.8*w.defenseShare);
+  return {
+    goalMul: baseGoalMul*(0.6+0.8*w.attackShare),
+    assistMul: baseAssistMul*(0.6+0.8*w.attackShare),
+    csMul: baseCsMul*(0.6+0.8*w.defenseShare)
+  };
+}
+function perfScoreFor(pos, st, weights){
+  const {goalMul,assistMul,csMul}=posMultipliers(pos, weights);
   return st.apps*2 + st.goals*goalMul + st.assists*assistMul + st.cleanSheets*csMul;
+}
+// Opta/WhoScored-style season rating: 0-10 scale, 6.0 baseline (matches Opta's own starting
+// point), built from the SAME position-weighted goal/assist/clean-sheet production as
+// perfScoreFor's Score column (via posMultipliers) so the two can never disagree on ranking
+// within a squad -- apps is uniform across the squad (see attributeMatchEvents), so dividing
+// production by it and passing through a monotonic log compresses outliers into a realistic
+// spread without changing relative order. teamPtsPct is a small bounded nudge for team
+// context (Opta factors in match result; a season aggregate points-percentage is the proxy
+// here), clamped so a good player on a bad team isn't crushed and vice versa.
+function computeSeasonRating(pos, st, weights, teamPtsPct){
+  const {goalMul,assistMul,csMul}=posMultipliers(pos, weights);
+  const production=st.goals*goalMul + st.assists*assistMul + st.cleanSheets*csMul;
+  const perApp=production/Math.max(1, st.apps);
+  const teamNudge=Math.max(-0.25, Math.min(0.25, ((teamPtsPct!=null?teamPtsPct:0.45)-0.45)*0.6));
+  const rating=6.0 + 1.3*Math.log(1+perApp) + teamNudge;
+  return Math.max(5.0, Math.min(9.6, Math.round(rating*10)/10));
 }
 function pickPlayerOfSeason(squad, playerStats, weights){
   let bi=-1;
@@ -2561,6 +2614,63 @@ function renderResultsCalendar(fixtures){
     return `<div class="cal-tile ${cls}" data-tip="MW${f.mw} vs ${f.opp}: ${f.res} ${f.gf}-${f.ga}">${f.mw}</div>`;
   }).join('');
 }
+// Tactical-pitch "Your XI" view -- reuses the draft screen's SLOTS/FORMATION_LAYOUT/toSub
+// grid-positioning system (still valid at results-render time, never reassigned after
+// launchGame()'s setFormation() call) so each node lands in its real formation slot.
+function renderResultsPitch(potsIdx, pitchStats){
+  const wrap=el('res-squad-grid');
+  if(!wrap) return;
+  const maxRow=Math.max(...FORMATION_LAYOUT.map(p=>p.r));
+  const slotsHtml=SLOTS.map((s,i)=>{
+    const entry=G.squad[i];
+    const pos=FORMATION_LAYOUT[i]||{r:1,c:4};
+    const cellStyle=`grid-row:${toSub(pos.r)} / span 2;grid-column:${toSub(pos.c)} / span 2;`;
+    if(!entry) return `<div class="respitch-slot" style="${cellStyle}"><div class="respitch-node empty"><span class="respitch-pos-empty">${s.key}</span></div></div>`;
+    const p=entry.player, st=pitchStats[i];
+    const ringCls=i===potsIdx?'pots':entry.isRandom?'rnd':'';
+    return `<div class="respitch-slot" style="${cellStyle}">
+      <div class="respitch-node ${ringCls}" onclick="showPlayerStatCard(${i})" title="${(p.fullName||p.name)} · ${s.key}">
+        <img src="${p.photo||''}" onerror="this.style.opacity='.15'">
+        <div class="respitch-badge">${st?st.rating.toFixed(1):'—'}</div>
+      </div>
+    </div>`;
+  }).join('');
+  wrap.innerHTML=`<div class="respitch-field">
+    <div class="respitch-grid" style="grid-template-rows:repeat(${Math.round(maxRow*2)},1fr);">${slotsHtml}</div>
+    <div class="respitch-card" id="respitch-card">
+      <button class="respitch-card-close" onclick="hidePlayerStatCard()">×</button>
+      <div class="respitch-card-hd">
+        <img class="respitch-card-img" id="respitch-card-img" src="">
+        <div><div class="respitch-card-name" id="respitch-card-name">—</div><div class="respitch-card-pos" id="respitch-card-pos">—</div></div>
+      </div>
+      <div class="respitch-stat-grid">
+        <div class="respitch-stat"><div class="respitch-stat-v" id="respitch-stat-goals">0</div><div class="respitch-stat-k">Goals</div></div>
+        <div class="respitch-stat"><div class="respitch-stat-v" id="respitch-stat-assists">0</div><div class="respitch-stat-k">Assists</div></div>
+        <div class="respitch-stat"><div class="respitch-stat-v" id="respitch-stat-rating">—</div><div class="respitch-stat-k">Rating</div></div>
+        <div class="respitch-stat"><div class="respitch-stat-v" id="respitch-stat-score">0</div><div class="respitch-stat-k">Score</div></div>
+      </div>
+    </div>
+  </div>`;
+}
+function showPlayerStatCard(i){
+  const s=G.squad[i]; if(!s) return;
+  const d=window._resultsData;
+  const st=d&&d.pitchStats?d.pitchStats[i]:null;
+  if(!st) return;
+  const p=s.player;
+  el('respitch-card-img').src=p.photo||'';
+  el('respitch-card-name').textContent=p.fullName||p.name;
+  el('respitch-card-pos').textContent=SLOTS[i].key+' · '+(p.nationality||'—');
+  el('respitch-stat-goals').textContent=st.goals;
+  el('respitch-stat-assists').textContent=st.assists;
+  el('respitch-stat-rating').textContent=st.rating.toFixed(1);
+  el('respitch-stat-score').textContent=st.score;
+  el('respitch-card').classList.add('active');
+}
+function hidePlayerStatCard(){
+  const card=el('respitch-card');
+  if(card) card.classList.remove('active');
+}
 // Shared DOM-writing tail for both solo (doSim) and multiplayer (renderResultsFromShared).
 // `data` carries the fully-resolved season result plus the fixture log and per-player stats.
 function renderResultsDOM(data){
@@ -2570,6 +2680,9 @@ function renderResultsDOM(data){
   const seasonW=seasonWeights(plGF, plGA);
   const potsIdx=fixtures&&playerStats?pickPlayerOfSeason(G.squad, playerStats, seasonW):G.squad.reduce((bi,s,i)=>s&&(!G.squad[bi]||(s.player.rating||0)>(G.squad[bi]?.player?.rating||0))?i:bi,0);
   const pots=G.squad[potsIdx];
+  const teamPtsPct=(plW*3+plD)/(38*3);
+  const seasonRatings=G.squad.map((s,i)=>s&&playerStats?computeSeasonRating(s.player.position, playerStats[i], seasonW, teamPtsPct):null);
+  const pitchStats=G.squad.map((s,i)=>s&&playerStats?{goals:playerStats[i].goals, assists:playerStats[i].assists, rating:seasonRatings[i], score:Math.round(perfScoreFor(s.player.position, playerStats[i], seasonW))}:null);
   const standoutName=pots?(pots.player.name||pots.player.fullName||pots.player.lastname||'').split(' ').slice(-1)[0]:'the squad';
   const natEntry=natCounts?Object.entries(natCounts).sort((a,b)=>b[1]-a[1])[0]:null;
   const natHeavy=natEntry&&natEntry[1]>=4?natEntry[0]:null;
@@ -2615,37 +2728,19 @@ function renderResultsDOM(data){
     <tr><td>Domestic Cup</td><td>${cW+cL}</td><td>${cW}</td><td>0</td><td>${cL}</td><td>${cupGF}</td><td>${cupGA}</td><td>—</td></tr>`;
 
   if(pots){
-    const st=playerStats?playerStats[potsIdx]:null;
     el('pots-img').src=pots.player.photo||'';
     el('pots-name').textContent=(pots.player.fullName||pots.player.name).toUpperCase();
     el('pots-role').textContent=(pots.player.nationality||'—')+' · '+pots.player.position;
-    let barLabel='Rating', barVal=pots.player.rating, barMax=99;
-    if(st){
-      const headline = st.goals>=st.assists&&st.goals>=st.cleanSheets ? {k:'Goals',v:st.goals,max:30} : st.assists>=st.cleanSheets ? {k:'Assists',v:st.assists,max:20} : {k:'Clean sheets',v:st.cleanSheets,max:20};
-      barLabel=headline.k; barVal=headline.v; barMax=headline.max;
-    }
-    el('pots-rat').textContent=barVal;
-    el('pots-rat').previousElementSibling.textContent=barLabel;
+    const seasonRat=seasonRatings[potsIdx];
+    el('pots-rat').textContent=seasonRat!=null?seasonRat.toFixed(1):'—';
+    el('pots-rat').previousElementSibling.textContent='Rating';
     const barFill=el('pots-bar-fill');
-    if(barFill) barFill.style.width=Math.max(4,Math.min(100,Math.round(barVal/barMax*100)))+'%';
+    if(barFill) barFill.style.width=Math.max(4,Math.min(100,Math.round((seasonRat||6)/10*100)))+'%';
     el('pots-cat').textContent=pots.cat.label;
     el('pots-pos').textContent=SLOTS[potsIdx].key;
   }
 
-  const squadGrid=el('res-squad-grid');
-  if(squadGrid){
-    squadGrid.innerHTML=G.squad.map((s,i)=>{
-      if(!s)return`<div style="text-align:center;opacity:.3"><div style="width:100%;aspect-ratio:1;border-radius:50%;background:var(--s3);margin:0 auto 5px;max-width:46px;"></div><div style="font-size:9.5px;color:var(--tx3)">${SLOTS[i].key}</div></div>`;
-      const p=s.player;
-      const dn=(p.fullName||p.name).split(' ').slice(-1)[0];
-      const ringCls=i===potsIdx?'squad-av-ring pots':s.isRandom?'squad-av-ring rnd':'squad-av-ring';
-      return`<div style="text-align:center;cursor:pointer" title="${p.fullName||p.name} · ${p.rating}">
-        <img src="${p.photo||''}" class="${ringCls}" style="width:100%;max-width:46px;aspect-ratio:1;border-radius:50%;object-fit:cover;object-position:top;display:block;margin:0 auto 4px;" onerror="this.style.opacity='.2'">
-        <div style="font-size:9.5px;font-weight:600;color:${s.isRandom?'var(--or)':'var(--tx)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${dn}</div>
-        <div style="font-size:8.5px;color:var(--tx3)">${p.rating}</div>
-      </div>`;
-    }).join('');
-  }
+  renderResultsPitch(potsIdx, pitchStats);
 
   const psTbl=el('res-playerstats-tbl');
   if(psTbl && playerStats){
@@ -2720,7 +2815,7 @@ function renderResultsDOM(data){
 
   window._simAnim={finalPos:finalPosTreble, cupR, uclR, uclLeaguePos, fixtures};
   window._resultsData={finalPosTreble, plPts, plGF, plGA, plW, plD, plL, grade, gradeColor, gradeDesc, narrativeText,
-    cupR, uclR, uclLeaguePos, potsIdx, standoutName, fixtures, isTreble, effectiveAvg, avg, rndCount, playerStats};
+    cupR, uclR, uclLeaguePos, potsIdx, standoutName, fixtures, isTreble, effectiveAvg, avg, rndCount, playerStats, pitchStats, seasonRatings};
   renderSaveCTA();
 }
 // doSim() above is solo-only. Multiplayer uses handleSimulateClick() -> mpReadyToSim() ->
