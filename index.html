@@ -376,6 +376,12 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .camp-tbl td{padding:13px 16px;border-bottom:1px solid var(--glass-bd);}
 .camp-tbl tr:last-child td{border-bottom:none;}
 .camp-tbl tr:hover td{background:rgba(255,255,255,.03);}
+.comp-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--glass-bd);}
+.comp-row:last-child{border-bottom:none;}
+.comp-bar{width:3px;height:22px;border-radius:2px;flex-shrink:0;}
+.comp-name{font-weight:600;font-size:13.5px;flex-shrink:0;min-width:120px;}
+.comp-nums{font-family:var(--fm);font-size:11.5px;color:var(--tx2);flex:1;}
+.comp-outcome{font-family:var(--fm);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
 .ps-pots-row td{border-top:1px solid var(--prim);border-bottom:1px solid var(--prim);background:var(--prid);}
 .ps-pots-row td:first-child{border-left:2px solid var(--pri);}
 .ps-pots-score{color:var(--pri) !important;}
@@ -388,7 +394,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .res-newgame{padding:13px 24px;background:transparent;border:1px solid var(--glass-bd-hi);border-radius:var(--r);color:var(--tx2);font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;}
 .res-newgame:hover{background:var(--glass-bg);}
 #res-squad-grid{padding:16px;}
-.respitch-field{position:relative;width:100%;max-width:460px;aspect-ratio:3/4;margin:0 auto;border-radius:var(--rl);overflow:hidden;
+.respitch-field{position:relative;width:100%;max-width:420px;height:300px;margin:0 auto;border-radius:var(--rl);overflow:hidden;
   background:
     radial-gradient(ellipse 900px 520px at 50% 4%,rgba(108,142,247,.14) 0%,transparent 62%),
     linear-gradient(180deg,#0d1f30 0%,#0a1826 50%,#070f18 100%);}
@@ -541,6 +547,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   .trophy-cards{grid-template-columns:repeat(2,1fr);}
   .camp-card{overflow-x:auto;}
   .camp-tbl{min-width:480px;}
+  .respitch-field{height:260px;}
   .respitch-node{width:38px;height:38px;}
   .respitch-badge{font-size:8px;padding:1px 3px;}
   .respitch-card{width:92%;padding:12px;}
@@ -1014,8 +1021,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       <div class="trophy-cards" id="trophy-cards"></div>
       <div class="camp-card">
         <div class="camp-hd">Full campaign stats</div>
-        <table class="camp-tbl"><thead><tr><th>Competition</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Pts</th></tr></thead>
-        <tbody id="camp-tbl"></tbody></table>
+        <div id="camp-tbl"></div>
       </div>
       <!-- Season journey: real fixtures/opponents per competition -->
       <div class="camp-card" id="res-journey-card" style="margin-top:0;">
@@ -1035,7 +1041,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       <!-- Per-player season stats, tied to simulated match events -->
       <div class="camp-card" style="margin-top:0;">
         <div class="camp-hd">Season stats</div>
-        <table class="camp-tbl" style="table-layout:fixed;"><thead><tr><th style="width:34%;">Player</th><th style="width:14%;">Pos</th><th style="width:13%;">G</th><th style="width:13%;">A</th><th style="width:13%;">CS</th><th style="width:13%;">Score</th></tr></thead>
+        <table class="camp-tbl" style="table-layout:fixed;"><thead><tr><th style="width:30%;">Player</th><th style="width:14%;">Pos</th><th style="width:12%;">G</th><th style="width:12%;">A</th><th style="width:12%;">CS</th><th style="width:20%;">Rating</th></tr></thead>
         <tbody id="res-playerstats-tbl"></tbody></table>
       </div>
       <!-- Multiplayer only: everyone else's placement, at a glance -->
@@ -1693,6 +1699,11 @@ const RED_CLUBS=['Liverpool','Manchester United','Arsenal','AC Milan','Bayern Mu
 const YG_CLUBS=['Borussia Dortmund','Villarreal','Al Nassr','Sporting CP','Norwich'];
 const CAP_CLUBS=['Arsenal','Chelsea','Tottenham Hotspur','Crystal Palace','West Ham','Brentford','Fulham','Atletico Madrid','Real Madrid','Getafe','Rayo Vallecano','AS Roma','Lazio','Paris Saint-Germain','Benfica','Sporting CP','Galatasaray','Fenerbahçe','Inter Miami'];
 const TOP5=['Premier League','La Liga','Serie A','Bundesliga','Ligue 1'];
+// UCL knockout opponent tiers -- reuses the same 12 elite clubs already curated for the
+// "no_big_club" draft category below, so later UCL rounds can realistically skew toward them
+// without a team ever being guaranteed to face one (see weightedOppPicker/genUclFixtures).
+const UCL_ELITE=['Real Madrid','Barcelona','Manchester City','Manchester United','Liverpool','Arsenal','Chelsea','Bayern Munich','Paris Saint-Germain','Juventus','AC Milan','Inter'];
+const UCL_STRONG=['Borussia Dortmund','Atletico Madrid','Napoli','AS Roma','RB Leipzig','Atalanta','Sevilla','Porto','Benfica','Villarreal','Bayer Leverkusen','Tottenham Hotspur'];
 function hasTrophy(p,l,pl='Winner'){return(p.trophies||[]).some(t=>t.league===l&&t.place===pl);}
 function hasAnyTitle(p){return TOP5.concat(['Primeira Liga','Eredivisie']).some(l=>hasTrophy(p,l));}
 const ALL_CATS=[
@@ -2296,13 +2307,13 @@ function simulateSeasonAggregate(squad, rnd){
   const finalPos=posFloor!==null?Math.max(posF,posFloor):posF;
 
   let uclR, uW=0, uD=0, uL=0, uclGamesPlayed=0, uclLeaguePos=0;
-  const leagueW=clamp(Math.round((effectiveAvg-72)*0.22+rnd()*2.5),0,8);
-  const leagueD=clamp(Math.round(rnd()*2.5),0,4);
+  const leagueW=clamp(Math.round((effectiveAvg-70)*0.22+rnd()*2.4),0,8);
+  const leagueD=clamp(Math.round(rnd()*2.2),0,4);
   const leagueL=clamp(8-leagueW-leagueD,0,8);
   uclGamesPlayed=8; uW=leagueW; uD=leagueD; uL=leagueL;
   const leagueOnlyW=leagueW, leagueOnlyD=leagueD, leagueOnlyL=leagueL;
   const leaguePts=leagueW*3+leagueD;
-  uclLeaguePos=clamp(Math.round(36-(leaguePts/24)*35-(rnd()-0.5)*6),1,36);
+  uclLeaguePos=clamp(Math.round(34-(leaguePts/22)*30-(rnd()-0.5)*7),1,36);
 
   function uclTwoLegTie(){
     const tieStrength=clamp((effectiveAvg-78)*0.032+(rnd()-0.5)*0.5,-0.45,0.4);
@@ -2369,7 +2380,7 @@ function simulateSeasonAggregate(squad, rnd){
 // natural aggregate above. Multiplayer uses cross-player arbitration instead (see hostComputeSharedSeason).
 function applySoloTierOverrides(agg, rnd){
   const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
-  let {uclR, uW, uD, uL, uclGamesPlayed, uclMaxGames, cupR, cW, cL, cupRounds, plPts, effectiveAvg, uclWinChance, cupWinChance, trebleRoll, leagueOnlyW, leagueOnlyD, leagueOnlyL}=agg;
+  let {uclR, uW, uD, uL, uclGamesPlayed, uclMaxGames, uclLeaguePos, cupR, cW, cL, cupRounds, plPts, effectiveAvg, uclWinChance, cupWinChance, trebleRoll, leagueOnlyW, leagueOnlyD, leagueOnlyL}=agg;
 
   if(effectiveAvg>=89 && rnd()<uclWinChance && uclR!=='Champions'){
     uclR='Champions';
@@ -2402,7 +2413,18 @@ function applySoloTierOverrides(agg, rnd){
   }
   const finalPosTreble=isTreble?1:agg.finalPos;
 
-  return {...agg, uclR, uW, uD, uL, uclGamesPlayed, cupR, cW, cL, plPts, isTreble, finalPosTreble};
+  // uclR can be forced above (elite-squad Champions run, weak-squad early elimination, or a
+  // treble) independently of the league-phase position rolled earlier in
+  // simulateSeasonAggregate -- resample uclLeaguePos here too so the displayed position can
+  // never contradict the round actually reached (e.g. "Eliminated -- League phase" next to a
+  // single-digit league-phase finish, which should have gone straight to the Round of 16).
+  if(uclR==='League phase' && uclLeaguePos<=24){
+    uclLeaguePos=clamp(Math.round(25+rnd()*11),25,36);
+  } else if(uclR!=='League phase' && uclLeaguePos>24){
+    uclLeaguePos=clamp(Math.round(1+rnd()*23),1,24);
+  }
+
+  return {...agg, uclR, uW, uD, uL, uclGamesPlayed, uclLeaguePos, cupR, cW, cL, plPts, isTreble, finalPosTreble};
 }
 
 // ── Fixture/opponent generation ──
@@ -2446,14 +2468,33 @@ function genCupFixtures(cW, cL, cupR, cupRounds, effectiveAvg, pool, rnd){
   }
   return fixtures;
 }
+// Builds a same-signature "next opponent" function whose draws lean toward UCL_ELITE/
+// UCL_STRONG clubs by the given weights (1 = no bias) -- unmatched club-name spellings just
+// fall back to weight 1 (the uniform pool), so this degrades safely if the live club data
+// ever renames something rather than risking an empty pool.
+function weightedOppPicker(pool, rnd, eliteW, strongW){
+  const entries=pool.map(c=>({c, w: UCL_ELITE.includes(c)?eliteW : UCL_STRONG.includes(c)?strongW : 1}));
+  const total=entries.reduce((s,e)=>s+e.w,0);
+  return ()=>{
+    let roll=rnd()*total;
+    for(const e of entries){ roll-=e.w; if(roll<=0) return e.c; }
+    return entries[entries.length-1].c;
+  };
+}
 function genUclFixtures(agg, pool, rnd){
   const {uclLeaguePos, uW, uD, uL, uclR, leagueOnlyW, leagueOnlyD, leagueOnlyL, effectiveAvg}=agg;
   const dominance=Math.max(-1,Math.min(1,(effectiveAvg-77)/20));
-  const oppPool=shuffleArr(pool, rnd);
-  let poolIdx=0; const nextOpp=()=>oppPool[(poolIdx++)%oppPool.length];
+  // Quality realistically picks up round by round -- the league phase draws broadly (real UCL
+  // seeding still lets anyone face anyone across 8 games), then knockout rounds skew
+  // increasingly toward elite/strong clubs without ever guaranteeing them.
+  const nextOppLeague=weightedOppPicker(pool, rnd, 1, 1);
+  const nextOppEarlyKO=weightedOppPicker(pool, rnd, 2, 1.4);
+  const nextOppQF=weightedOppPicker(pool, rnd, 4, 2);
+  const nextOppLate=weightedOppPicker(pool, rnd, 9, 3);
+  const nextOppForRound=(round)=>round==='Quarter-finals'?nextOppQF():(round==='Semi-finals'||round==='Final')?nextOppLate():nextOppEarlyKO();
 
   const leagueOutcomes=shuffleArr([...Array(leagueOnlyW).fill('W'),...Array(leagueOnlyD).fill('D'),...Array(leagueOnlyL).fill('L')], rnd);
-  const league=leagueOutcomes.map((res,i)=>{ const {gf,ga}=genScoreline(res,dominance,rnd); return {mw:i+1, opp:nextOpp(), home:i%2===0, res, gf, ga}; });
+  const league=leagueOutcomes.map((res,i)=>{ const {gf,ga}=genScoreline(res,dominance,rnd); return {mw:i+1, opp:nextOppLeague(), home:i%2===0, res, gf, ga}; });
 
   const uclTookPlayoffPath=uclLeaguePos>=9&&uclLeaguePos<=24;
   const roundsSeq=uclTookPlayoffPath
@@ -2474,7 +2515,7 @@ function genUclFixtures(agg, pool, rnd){
     const legCount=isFinal?1:2;
     const legs=[];
     for(let l=0;l<legCount;l++){ const res=koOutcomes.length?koOutcomes[koIdx%koOutcomes.length]:(won?'W':'L'); koIdx++; const {gf,ga}=genScoreline(res,dominance,rnd); legs.push({res,gf,ga}); }
-    return {round:roundName, opp:nextOpp(), won, legs};
+    return {round:roundName, opp:nextOppForRound(roundName), won, legs};
   });
 
   return {league, knockout, uclTookPlayoffPath};
@@ -2482,7 +2523,7 @@ function genUclFixtures(agg, pool, rnd){
 
 // ── Per-player event attribution + performance score (rating-independent) ──
 function attributeMatchEvents(squad, allFixtures, rnd){
-  const posWeight={Attacker:5, Midfielder:2.5, Defender:0.6, Goalkeeper:0.02};
+  const posWeight={Attacker:5, Midfielder:2.5, Defender:0.6, Goalkeeper:0};
   const assistWeight={Attacker:2.5, Midfielder:5, Defender:1, Goalkeeper:0};
   const stats=squad.map(s=>s?{goals:0,assists:0,cleanSheets:0,apps:allFixtures.length}:null);
   function weightedPick(weightMap){
@@ -2524,21 +2565,19 @@ function seasonWeights(plGF, plGA){
   const attackShare=attackOver/total;
   return {attackShare, defenseShare:1-attackShare};
 }
-// Base multipliers already favor rarer contributions for the position (a defender's goal
-// or a keeper's clean sheet is worth more than an attacker's, mirroring how Opta doesn't
-// expect defenders to match attackers' attacking output) -- then scaled by how much this
-// particular season's success actually came from scoring vs not conceding. Shared by
-// perfScoreFor (cumulative "Score" column) and computeSeasonRating (per-match season
-// rating) so the two can never rank two players in the same squad in contradicting order.
+// Base multipliers favor attacking output -- goals and assists are the highest-threat events
+// on a scoreline, so attackers get the top goal/assist multipliers, mirroring how real match
+// ratings skew toward attacking players who directly swing results. Clean sheets still count
+// (a genuinely defense-driven season still lifts defenders/keepers via defenseShare below) but
+// no longer outweigh attacking production by default. Shared by perfScoreFor (cumulative
+// "Score", used internally for Player of the Season) and computeSeasonRating (the displayed
+// per-match season rating) so the two can never rank two players in the same squad in
+// contradicting order.
 function posMultipliers(pos, weights){
   const w=weights||{attackShare:0.5,defenseShare:0.5};
-  const baseGoalMul=pos==='Goalkeeper'?8:pos==='Defender'?7:pos==='Midfielder'?5:4;
-  const baseAssistMul=pos==='Midfielder'?4:pos==='Defender'?4:pos==='Goalkeeper'?3:2.5;
-  // Goalkeeper and Defender get the *same* clean-sheet credit per match (both are marked
-  // whenever a match finishes 0 GA), so an equal multiplier here is what actually lets
-  // defenders edge out the keeper via their (much more likely) extra goal/assist contributions,
-  // instead of the keeper mechanically topping every defense-driven season by default.
-  const baseCsMul=pos==='Goalkeeper'?7:pos==='Defender'?7:pos==='Midfielder'?2:0;
+  const baseGoalMul=pos==='Attacker'?7:pos==='Midfielder'?6:pos==='Defender'?5:0;
+  const baseAssistMul=pos==='Midfielder'?5:pos==='Attacker'?4.5:pos==='Defender'?3:0;
+  const baseCsMul=pos==='Goalkeeper'?4:pos==='Defender'?4:pos==='Midfielder'?1:0;
   return {
     goalMul: baseGoalMul*(0.6+0.8*w.attackShare),
     assistMul: baseAssistMul*(0.6+0.8*w.attackShare),
@@ -2551,19 +2590,20 @@ function perfScoreFor(pos, st, weights){
 }
 // Opta/WhoScored-style season rating: 0-10 scale, 6.0 baseline (matches Opta's own starting
 // point), built from the SAME position-weighted goal/assist/clean-sheet production as
-// perfScoreFor's Score column (via posMultipliers) so the two can never disagree on ranking
+// perfScoreFor's internal Score (via posMultipliers) so the two can never disagree on ranking
 // within a squad -- apps is uniform across the squad (see attributeMatchEvents), so dividing
-// production by it and passing through a monotonic log compresses outliers into a realistic
-// spread without changing relative order. teamPtsPct is a small bounded nudge for team
+// production by it and passing through a monotonic power curve compresses outliers far less
+// than a log would, preserving real separation between players instead of flattening every
+// strong performer into the same narrow band. teamPtsPct is a small bounded nudge for team
 // context (Opta factors in match result; a season aggregate points-percentage is the proxy
 // here), clamped so a good player on a bad team isn't crushed and vice versa.
 function computeSeasonRating(pos, st, weights, teamPtsPct){
   const {goalMul,assistMul,csMul}=posMultipliers(pos, weights);
   const production=st.goals*goalMul + st.assists*assistMul + st.cleanSheets*csMul;
   const perApp=production/Math.max(1, st.apps);
-  const teamNudge=Math.max(-0.25, Math.min(0.25, ((teamPtsPct!=null?teamPtsPct:0.45)-0.45)*0.6));
-  const rating=6.0 + 1.3*Math.log(1+perApp) + teamNudge;
-  return Math.max(5.0, Math.min(9.6, Math.round(rating*10)/10));
+  const teamNudge=Math.max(-0.3, Math.min(0.3, ((teamPtsPct!=null?teamPtsPct:0.45)-0.45)*0.7));
+  const rating=6.0 + 1.1*Math.pow(perApp, 0.35) + teamNudge;
+  return Math.max(4.8, Math.min(9.3, Math.round(rating*10)/10));
 }
 function pickPlayerOfSeason(squad, playerStats, weights){
   let bi=-1;
@@ -2647,7 +2687,7 @@ function renderResultsPitch(potsIdx, pitchStats){
         <div class="respitch-stat"><div class="respitch-stat-v" id="respitch-stat-goals">0</div><div class="respitch-stat-k">Goals</div></div>
         <div class="respitch-stat"><div class="respitch-stat-v" id="respitch-stat-assists">0</div><div class="respitch-stat-k">Assists</div></div>
         <div class="respitch-stat"><div class="respitch-stat-v" id="respitch-stat-rating">—</div><div class="respitch-stat-k">Rating</div></div>
-        <div class="respitch-stat"><div class="respitch-stat-v" id="respitch-stat-score">0</div><div class="respitch-stat-k">Score</div></div>
+        <div class="respitch-stat"><div class="respitch-stat-v" id="respitch-stat-cs">0</div><div class="respitch-stat-k">Clean sheets</div></div>
       </div>
     </div>
   </div>`;
@@ -2664,7 +2704,7 @@ function showPlayerStatCard(i){
   el('respitch-stat-goals').textContent=st.goals;
   el('respitch-stat-assists').textContent=st.assists;
   el('respitch-stat-rating').textContent=st.rating.toFixed(1);
-  el('respitch-stat-score').textContent=st.score;
+  el('respitch-stat-cs').textContent=st.cleanSheets;
   el('respitch-card').classList.add('active');
 }
 function hidePlayerStatCard(){
@@ -2682,7 +2722,7 @@ function renderResultsDOM(data){
   const pots=G.squad[potsIdx];
   const teamPtsPct=(plW*3+plD)/(38*3);
   const seasonRatings=G.squad.map((s,i)=>s&&playerStats?computeSeasonRating(s.player.position, playerStats[i], seasonW, teamPtsPct):null);
-  const pitchStats=G.squad.map((s,i)=>s&&playerStats?{goals:playerStats[i].goals, assists:playerStats[i].assists, rating:seasonRatings[i], score:Math.round(perfScoreFor(s.player.position, playerStats[i], seasonW))}:null);
+  const pitchStats=G.squad.map((s,i)=>s&&playerStats?{goals:playerStats[i].goals, assists:playerStats[i].assists, cleanSheets:playerStats[i].cleanSheets, rating:seasonRatings[i]}:null);
   const standoutName=pots?(pots.player.name||pots.player.fullName||pots.player.lastname||'').split(' ').slice(-1)[0]:'the squad';
   const natEntry=natCounts?Object.entries(natCounts).sort((a,b)=>b[1]-a[1])[0]:null;
   const natHeavy=natEntry&&natEntry[1]>=4?natEntry[0]:null;
@@ -2722,10 +2762,11 @@ function renderResultsDOM(data){
   const uclGA=data.uclGA!=null?data.uclGA:Math.round(uL*1.3+uD*.6);
   const cupGF=data.cupGF!=null?data.cupGF:cW*2;
   const cupGA=data.cupGA!=null?data.cupGA:Math.max(1,cL*1.4)|0;
-  el('camp-tbl').innerHTML=`
-    <tr><td>Premier League</td><td>38</td><td>${plW}</td><td>${plD}</td><td>${plL}</td><td>${plGF}</td><td>${plGA}</td><td>${plPts}</td></tr>
-    <tr><td>UCL</td><td>${uclGamesPlayed}</td><td>${uW}</td><td>${uD}</td><td>${uL}</td><td>${uclGF}</td><td>${uclGA}</td><td>—</td></tr>
-    <tr><td>Domestic Cup</td><td>${cW+cL}</td><td>${cW}</td><td>0</td><td>${cL}</td><td>${cupGF}</td><td>${cupGA}</td><td>—</td></tr>`;
+  const compRow=(label,won,pStr,outcome)=>`<div class="comp-row"><div class="comp-bar" style="background:${won?'var(--sec)':'var(--pri)'}"></div><div class="comp-name">${label}</div><div class="comp-nums">${pStr}</div><div class="comp-outcome" style="color:${won?'var(--sec)':'var(--tx2)'}">${outcome}</div></div>`;
+  el('camp-tbl').innerHTML=
+    compRow('Premier League', finalPosTreble===1, `${plW}W-${plD}D-${plL}L · ${plGF}-${plGA} · ${plPts}pts`, finalPosTreble===1?'Champions':'P'+finalPosTreble) +
+    compRow('Champions League', uclR==='Champions', `${uW}W-${uD}D-${uL}L · ${uclGF}-${uclGA}`, uclR==='League phase'?'Eliminated':uclR) +
+    compRow('Domestic Cup', cupR==='Winners', `${cW}W-${cL}L · ${cupGF}-${cupGA}`, cupR);
 
   if(pots){
     el('pots-img').src=pots.player.photo||'';
@@ -2748,13 +2789,13 @@ function renderResultsDOM(data){
       if(!s) return `<tr style="opacity:.3;"><td>${SLOTS[i].key}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
       const st=playerStats[i];
       const dn=(s.player.fullName||s.player.name).split(' ').slice(-1)[0];
-      const score=Math.round(perfScoreFor(s.player.position, st, seasonW));
+      const rat=seasonRatings[i];
       const isPots=i===potsIdx;
       return `<tr class="${isPots?'ps-pots-row':''}">
         <td style="font-weight:${isPots?'700':'500'};">${dn}</td>
         <td style="color:var(--tx3);">${SLOTS[i].key}</td>
         <td>${st.goals}</td><td>${st.assists}</td><td>${st.cleanSheets||'—'}</td>
-        <td class="${isPots?'ps-pots-score':''}" style="font-weight:700;">${score}</td>
+        <td class="${isPots?'ps-pots-score':''}" style="font-weight:700;">${rat!=null?rat.toFixed(1):'—'}</td>
       </tr>`;
     }).join('');
   }
@@ -2767,8 +2808,6 @@ function renderResultsDOM(data){
       const win=f.res==='W';
       return `<div style="background:${win?'rgba(62,207,106,.08)':'rgba(229,72,77,.08)'};border:1px solid ${win?'rgba(62,207,106,.25)':'rgba(229,72,77,.25)'};border-radius:6px;padding:6px 10px;font-size:12px;">${win?'Beat':'Lost to'} ${f.opp} <span style="color:${win?'var(--gr)':'var(--re)'};font-weight:700;">${f.gf}–${f.ga}</span> <span style="color:var(--tx3);">· MW${f.mw}</span></div>`;
     }).join('');
-    const dotsHtml=fixtures.pl.map(f=>`<div class="fd ${f.res==='W'?'w':f.res==='D'?'d':'l'}"></div>`).join('');
-
     const cupSteps=fixtures.cup.map(f=>`<div${f.res==='L'?' style="color:var(--re);"':''}>${f.round} <span style="color:var(--tx3);">${f.res==='W'?'beat':'lost to'}</span> ${f.opp} <span style="color:${f.res==='W'?'var(--gr)':'var(--re)'};">${f.gf}–${f.ga}</span></div>`).join('') || `<div style="color:var(--tx3);">Did not enter</div>`;
 
     const uclLeagueLine=`<div>League phase <span style="color:var(--tx3);">${uclLeaguePos}${suf(uclLeaguePos)}, ${fixtures.ucl.league.length} games</span></div>`;
@@ -2781,7 +2820,6 @@ function renderResultsDOM(data){
     journeyEl.innerHTML=`
       <div style="margin-bottom:16px;">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);margin-bottom:10px;">Premier League</div>
-        <div style="display:flex;gap:3px;margin-bottom:10px;flex-wrap:wrap;">${dotsHtml}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">${chips}</div>
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">
