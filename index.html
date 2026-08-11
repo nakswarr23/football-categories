@@ -347,7 +347,12 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .res-pts-lbl{font-family:var(--fm);font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;}
 .res-pts{font-family:var(--fd);font-size:66px;color:var(--sec);line-height:1;}
 .res-gd{font-family:var(--fd);font-size:27px;color:var(--gr);}
-.res-body{padding:36px 46px;display:grid;grid-template-columns:1fr 300px;gap:26px;position:relative;}
+.res-body{padding:36px 46px;display:grid;grid-template-columns:1fr 300px;grid-auto-rows:min-content;align-items:start;gap:26px;position:relative;}
+.res-zoneA-main{min-width:0;}
+.res-zoneA-side{display:flex;flex-direction:column;gap:14px;min-width:0;justify-content:space-between;}
+.res-zoneB{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:stretch;}
+.res-xi-plain{min-width:0;display:flex;flex-direction:column;}
+.res-full-row{grid-column:1/-1;}
 .trophy-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
 .clip-diagonal{clip-path:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);}
 .tc,.camp-card,.pots-card{background:var(--glass-bg);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:var(--rl);border-top:1px solid rgba(32,255,189,.30);border-left:1px solid rgba(32,255,189,.30);border-bottom:1px solid var(--glass-bd);border-right:1px solid var(--glass-bd);overflow:hidden;}
@@ -385,16 +390,17 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .ps-pots-row td{border-top:1px solid var(--prim);border-bottom:1px solid var(--prim);background:var(--prid);}
 .ps-pots-row td:first-child{border-left:2px solid var(--pri);}
 .ps-pots-score{color:var(--pri) !important;}
-.res-calendar-grid{display:grid;grid-template-columns:repeat(19,1fr);gap:4px;padding:16px 20px;}
-.cal-tile{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;position:relative;}
+.res-calendar-grid{display:grid;grid-template-columns:repeat(38,1fr);gap:3px;padding:14px 16px;}
+.cal-tile{aspect-ratio:1;border-radius:3px;position:relative;min-width:0;transition:transform .1s;}
+.cal-tile:hover{transform:scale(1.6);z-index:2;}
 .cal-tile.w{background:var(--grd);color:var(--gr);border:1px solid rgba(62,207,106,.3);}
 .cal-tile.d{background:var(--amd);color:var(--am);border:1px solid rgba(240,168,48,.3);}
 .cal-tile.l{background:var(--red);color:var(--re);border:1px solid rgba(240,80,96,.3);}
 .cal-tile:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--s3);border:1px solid var(--bd2);border-radius:6px;padding:4px 8px;font-size:10.5px;white-space:nowrap;color:var(--tx);margin-bottom:4px;z-index:5;}
 .res-newgame{padding:13px 24px;background:transparent;border:1px solid var(--glass-bd-hi);border-radius:var(--r);color:var(--tx2);font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;}
 .res-newgame:hover{background:var(--glass-bg);}
-#res-squad-grid{padding:16px;}
-.respitch-field{position:relative;width:100%;max-width:420px;height:300px;margin:0 auto;border-radius:var(--rl);overflow:hidden;
+#res-squad-grid{padding:0;flex:1;display:flex;min-height:260px;}
+.respitch-field{position:relative;width:100%;height:100%;margin:0 auto;border-radius:var(--rl);overflow:hidden;
   background:
     radial-gradient(ellipse 900px 520px at 50% 4%,rgba(108,142,247,.14) 0%,transparent 62%),
     linear-gradient(180deg,#0d1f30 0%,#0a1826 50%,#070f18 100%);}
@@ -543,19 +549,18 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   .res-h1{font-size:32px;}
   .res-pts-wrap{text-align:left;}
   .res-body{grid-template-columns:1fr;padding:16px;gap:16px;}
+  .res-zoneB{grid-template-columns:1fr;gap:16px;}
   .res-body>div{min-width:0;}
   .trophy-cards{grid-template-columns:repeat(2,1fr);}
   .camp-card{overflow-x:auto;}
   .camp-tbl{min-width:480px;}
-  .respitch-field{height:260px;}
   .respitch-node{width:38px;height:38px;}
   .respitch-badge{font-size:8px;padding:1px 3px;}
   .respitch-card{width:92%;padding:12px;}
   .respitch-stat-v{font-size:19px;}
   .pots-ribbon{font-size:9px;padding:5px 14px 5px 10px;}
   .rev-body>div{min-width:0;}
-  .res-calendar-grid{grid-template-columns:repeat(10,1fr) !important;padding:14px !important;}
-  .cal-tile{font-size:8px;}
+  .res-calendar-grid{grid-template-columns:repeat(19,1fr) !important;padding:12px !important;gap:2px;}
   .story-content{padding:0 20px;}
   .story-hero-pos{font-size:56px;}
 
@@ -1010,14 +1015,14 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
     </div>
   </div>
   <div class="res-body">
-    <div>
-      <div class="camp-card" id="res-save-cta" style="display:none;background:var(--glass-bg);border-color:var(--glass-bd);padding:16px 20px;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
-        <div>
-          <div style="font-weight:700;font-size:14px;margin-bottom:2px;">Playing as guest</div>
-          <div style="font-size:12.5px;color:var(--tx2);">Sign in to save this result to your profile and the leaderboard.</div>
-        </div>
-        <button onclick="onSaveResultClick()" style="padding:10px 18px;background:var(--pri);color:#003827;border:none;border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Sign in to save</button>
+    <div class="camp-card res-full-row" id="res-save-cta" style="display:none;background:var(--glass-bg);border-color:var(--glass-bd);padding:16px 20px;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+      <div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:2px;">Playing as guest</div>
+        <div style="font-size:12.5px;color:var(--tx2);">Sign in to save this result to your profile and the leaderboard.</div>
       </div>
+      <button onclick="onSaveResultClick()" style="padding:10px 18px;background:var(--pri);color:#003827;border:none;border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Sign in to save</button>
+    </div>
+    <div class="res-zoneA-main">
       <div class="trophy-cards" id="trophy-cards"></div>
       <div class="camp-card">
         <div class="camp-hd">Full campaign stats</div>
@@ -1029,30 +1034,12 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
         <div id="res-journey" style="padding:16px 20px;"></div>
       </div>
       <!-- Full league fixture calendar -->
-      <div class="camp-card" id="res-calendar-card" style="margin-top:0;">
+      <div class="camp-card" id="res-calendar-card" style="margin-top:0;margin-bottom:0;">
         <div class="camp-hd">Premier League calendar</div>
         <div class="res-calendar-grid" id="res-calendar-grid"></div>
       </div>
-      <!-- Squad overview -->
-      <div class="camp-card" style="margin-top:0;">
-        <div class="camp-hd">Your XI this season</div>
-        <div id="res-squad-grid"></div>
-      </div>
-      <!-- Per-player season stats, tied to simulated match events -->
-      <div class="camp-card" style="margin-top:0;">
-        <div class="camp-hd">Season stats</div>
-        <table class="camp-tbl" style="table-layout:fixed;"><thead><tr><th style="width:30%;">Player</th><th style="width:14%;">Pos</th><th style="width:12%;">G</th><th style="width:12%;">A</th><th style="width:12%;">CS</th><th style="width:20%;">Rating</th></tr></thead>
-        <tbody id="res-playerstats-tbl"></tbody></table>
-      </div>
-      <!-- Multiplayer only: everyone else's placement, at a glance -->
-      <div class="camp-card" id="mp-lobby-results" style="display:none;margin-top:0;">
-        <div class="camp-hd">Lobby results</div>
-        <table class="camp-tbl"><thead><tr><th>Team</th><th>League</th><th>Domestic Cup</th><th>UCL</th></tr></thead>
-        <tbody id="mp-lobby-results-body"></tbody></table>
-      </div>
-      <button class="res-newgame" onclick="showStep('step-landing')">← Play again</button>
     </div>
-    <div style="display:flex;flex-direction:column;gap:14px;">
+    <div class="res-zoneA-side">
       <div class="pots-lbl">Player of the season</div>
       <div class="pots-card">
         <div class="pots-ribbon clip-diagonal">MVP</div>
@@ -1064,12 +1051,15 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
             <div class="pots-stat-top"><span class="pots-sk">Rating</span><span class="pots-sv" id="pots-rat" style="color:var(--pri)">—</span></div>
             <div class="pots-bar"><span class="pots-bar-fill" id="pots-bar-fill" style="width:0%"></span></div>
           </div>
+          <div class="pots-stat"><div class="pots-stat-top" style="margin-bottom:0;"><span class="pots-sk">Goals</span><span class="pots-sv" id="pots-goals">—</span></div></div>
+          <div class="pots-stat"><div class="pots-stat-top" style="margin-bottom:0;"><span class="pots-sk">Assists</span><span class="pots-sv" id="pots-assists">—</span></div></div>
+          <div class="pots-stat"><div class="pots-stat-top" style="margin-bottom:0;"><span class="pots-sk">Clean sheets</span><span class="pots-sv" id="pots-cs">—</span></div></div>
           <div class="pots-stat"><div class="pots-stat-top" style="margin-bottom:0;"><span class="pots-sk">Category</span><span class="pots-sv" id="pots-cat">—</span></div></div>
           <div class="pots-stat"><div class="pots-stat-top" style="margin-bottom:0;"><span class="pots-sk">Position</span><span class="pots-sv" id="pots-pos">—</span></div></div>
         </div>
       </div>
       <!-- Squad stats sidebar -->
-      <div class="pots-card" id="res-squad-stats" style="padding:14px;">
+      <div class="pots-card" id="res-squad-stats" style="padding:14px;margin-bottom:0;">
         <div style="font-family:var(--fm);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin-bottom:10px;">Squad breakdown</div>
         <div id="res-stats-body"></div>
       </div>
@@ -1077,6 +1067,26 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
         <button onclick="fetchAndShowLeaderboard()" style="width:100%;padding:11px;background:var(--gr);color:#071a0e;border:none;border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;">View lobby standings →</button>
       </div>
     </div>
+    <!-- Season stats and Your XI sit shoulder-to-shoulder, full width, starting at a clean
+         line below both columns above regardless of which one is taller. -->
+    <div class="res-zoneB">
+      <div class="camp-card" style="margin:0;">
+        <div class="camp-hd">Season stats</div>
+        <table class="camp-tbl" style="table-layout:fixed;"><thead><tr><th style="width:30%;">Player</th><th style="width:14%;">Pos</th><th style="width:12%;">G</th><th style="width:12%;">A</th><th style="width:12%;">CS</th><th style="width:20%;">Rating</th></tr></thead>
+        <tbody id="res-playerstats-tbl"></tbody></table>
+      </div>
+      <div class="res-xi-plain">
+        <div class="pots-lbl" style="margin-bottom:10px;">Your XI this season</div>
+        <div id="res-squad-grid"></div>
+      </div>
+    </div>
+    <!-- Multiplayer only: everyone else's placement, at a glance -->
+    <div class="camp-card res-full-row" id="mp-lobby-results" style="display:none;">
+      <div class="camp-hd">Lobby results</div>
+      <table class="camp-tbl"><thead><tr><th>Team</th><th>League</th><th>Domestic Cup</th><th>UCL</th></tr></thead>
+      <tbody id="mp-lobby-results-body"></tbody></table>
+    </div>
+    <button class="res-newgame res-full-row" onclick="showStep('step-landing')">← Play again</button>
   </div>
 </div>
 
@@ -1702,8 +1712,18 @@ const TOP5=['Premier League','La Liga','Serie A','Bundesliga','Ligue 1'];
 // UCL knockout opponent tiers -- reuses the same 12 elite clubs already curated for the
 // "no_big_club" draft category below, so later UCL rounds can realistically skew toward them
 // without a team ever being guaranteed to face one (see weightedOppPicker/genUclFixtures).
-const UCL_ELITE=['Real Madrid','Barcelona','Manchester City','Manchester United','Liverpool','Arsenal','Chelsea','Bayern Munich','Paris Saint-Germain','Juventus','AC Milan','Inter'];
-const UCL_STRONG=['Borussia Dortmund','Atletico Madrid','Napoli','AS Roma','RB Leipzig','Atalanta','Sevilla','Porto','Benfica','Villarreal','Bayer Leverkusen','Tottenham Hotspur'];
+// The actual UCL opponent pool -- every club here genuinely played in the 2024-25 and/or
+// 2025-26 Champions League league phase (cross-checked against Wikipedia's final standings
+// for both seasons) AND exists in this app's live player database, so no team that only plays
+// domestic football (Nottingham Forest, Leeds, Hoffenheim, etc.) can ever show up as a UCL
+// opponent. Clubs that participated but aren't in the DB's supported leagues (e.g. Bodø/Glimt,
+// Qarabağ, PSV, Club Brugge) aren't representable here and are simply left out of the pool.
+const UCL_CLUBS=['Arsenal','Bayern Munich','Liverpool','Tottenham Hotspur','Barcelona','Chelsea','Sporting CP','Manchester City','Real Madrid','Inter','Paris Saint-Germain','Juventus','Atletico Madrid','Atalanta','Bayer Leverkusen','Borussia Dortmund','Galatasaray','Monaco','Benfica','Marseille','Napoli','Eintracht Frankfurt','Villarreal','Lille','Aston Villa','AC Milan','VfB Stuttgart','Bologna','RB Leipzig','Athletic Club'];
+// Elite tier (semis/final skew) and strong tier (early-mid knockout skew) both drawn from
+// UCL_CLUBS -- weighted toward recent top-8 finishers and the specific clubs realistically
+// expected to show up deep in a Champions League run.
+const UCL_ELITE=['Manchester City','Real Madrid','Paris Saint-Germain','Barcelona','Arsenal','Liverpool','Bayern Munich','Inter','Chelsea','Tottenham Hotspur','Bayer Leverkusen'];
+const UCL_STRONG=['Borussia Dortmund','Atletico Madrid','Juventus','Napoli','AC Milan','Atalanta','Monaco','Benfica','Sporting CP','Aston Villa','Lille'];
 function hasTrophy(p,l,pl='Winner'){return(p.trophies||[]).some(t=>t.league===l&&t.place===pl);}
 function hasAnyTitle(p){return TOP5.concat(['Primeira Liga','Eredivisie']).some(l=>hasTrophy(p,l));}
 const ALL_CATS=[
@@ -2376,6 +2396,19 @@ function simulateSeasonAggregate(squad, rnd){
     cupR, cW, cL, cupRounds};
 }
 
+// Realistic correlation between league-phase finish and knockout depth reached -- real UCL
+// winners overwhelmingly come from the top few league-phase spots, with only occasional deep
+// runs from a lower seed. Called whenever uclR is finalized (solo tier overrides, MP
+// arbitration) so a "Champions" result can't end up paired with a mid-table league-phase
+// finish, which are otherwise decided by unrelated random processes upstream.
+function biasUclPosForRound(uclR, rnd){
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  if(uclR==='League phase') return clamp(Math.round(25+rnd()*11),25,36);
+  if(uclR==='Champions') return rnd()<0.85?clamp(Math.round(1+rnd()*5),1,6):clamp(Math.round(7+rnd()*17),7,24);
+  if(uclR==='Final') return rnd()<0.75?clamp(Math.round(1+rnd()*7),1,8):clamp(Math.round(9+rnd()*15),9,24);
+  if(uclR==='Semi-finals') return rnd()<0.65?clamp(Math.round(1+rnd()*9),1,10):clamp(Math.round(11+rnd()*13),11,24);
+  return clamp(Math.round(1+rnd()*23),1,24);
+}
 // Solo-only: guarantee-deep-run / guarantee-early-exit overrides + treble, layered on top of the
 // natural aggregate above. Multiplayer uses cross-player arbitration instead (see hostComputeSharedSeason).
 function applySoloTierOverrides(agg, rnd){
@@ -2413,16 +2446,13 @@ function applySoloTierOverrides(agg, rnd){
   }
   const finalPosTreble=isTreble?1:agg.finalPos;
 
-  // uclR can be forced above (elite-squad Champions run, weak-squad early elimination, or a
-  // treble) independently of the league-phase position rolled earlier in
-  // simulateSeasonAggregate -- resample uclLeaguePos here too so the displayed position can
-  // never contradict the round actually reached (e.g. "Eliminated -- League phase" next to a
-  // single-digit league-phase finish, which should have gone straight to the Round of 16).
-  if(uclR==='League phase' && uclLeaguePos<=24){
-    uclLeaguePos=clamp(Math.round(25+rnd()*11),25,36);
-  } else if(uclR!=='League phase' && uclLeaguePos>24){
-    uclLeaguePos=clamp(Math.round(1+rnd()*23),1,24);
-  }
+  // The knockout round reached (uclR) and the league-phase finish (uclLeaguePos) are decided
+  // by separate random processes upstream -- without this, a team could win the whole
+  // competition from a mid-table league-phase finish just as easily as from 1st, which isn't
+  // how real UCL winners actually distribute. Resample uclLeaguePos here so it correlates with
+  // how deep the run actually went: Champions League winners overwhelmingly finish in the top
+  // few spots, with only occasional deeper-seed Cinderella runs, tapering off for earlier exits.
+  uclLeaguePos=biasUclPosForRound(uclR, rnd);
 
   return {...agg, uclR, uW, uD, uL, uclGamesPlayed, uclLeaguePos, cupR, cW, cL, plPts, isTreble, finalPosTreble};
 }
@@ -2621,7 +2651,7 @@ function pickPlayerOfSeason(squad, playerStats, weights){
 // result. Called once per squad, after all trophy overrides/arbitration are settled.
 function buildSeasonNarrative(squad, agg, rnd){
   const plPool=getClubPool(['Premier League']);
-  const uclPool=getClubPool(TOP5.concat(['Primeira Liga','Eredivisie']));
+  const uclPool=UCL_CLUBS;
   const pl=genLeagueFixtures(agg.plW, agg.plD, agg.plL, agg.effectiveAvg, plPool, rnd);
   const cup=genCupFixtures(agg.cW, agg.cL, agg.cupR, agg.cupRounds, agg.effectiveAvg, plPool, rnd);
   const ucl=genUclFixtures(agg, uclPool, rnd);
@@ -2651,7 +2681,7 @@ function renderResultsCalendar(fixtures){
   if(!grid || !fixtures) return;
   grid.innerHTML=fixtures.pl.map(f=>{
     const cls=f.res==='W'?'w':f.res==='D'?'d':'l';
-    return `<div class="cal-tile ${cls}" data-tip="MW${f.mw} vs ${f.opp}: ${f.res} ${f.gf}-${f.ga}">${f.mw}</div>`;
+    return `<div class="cal-tile ${cls}" data-tip="MW${f.mw} vs ${f.opp}: ${f.res} ${f.gf}-${f.ga}"></div>`;
   }).join('');
 }
 // Tactical-pitch "Your XI" view -- reuses the draft screen's SLOTS/FORMATION_LAYOUT/toSub
@@ -2711,6 +2741,20 @@ function hidePlayerStatCard(){
   const card=el('respitch-card');
   if(card) card.classList.remove('active');
 }
+// The main column (campaign stats/journey/calendar) and sidebar (POTS/squad breakdown) vary
+// independently in height depending on how deep the season's cup/UCL run was -- pin the
+// shorter one's min-height to the taller so both end at the same line before the shoulder-
+// to-shoulder Season stats / Your XI row starts underneath.
+function syncZoneAHeights(){
+  const main=document.querySelector('.res-zoneA-main'), side=document.querySelector('.res-zoneA-side');
+  if(!main || !side) return;
+  main.style.minHeight=''; side.style.minHeight='';
+  if(window.innerWidth<=600) return; // single-column layout below this width -- nothing to align
+  const mh=main.getBoundingClientRect().height, sh=side.getBoundingClientRect().height;
+  if(mh>sh) side.style.minHeight=mh+'px';
+  else if(sh>mh) main.style.minHeight=sh+'px';
+}
+window.addEventListener('resize', ()=>{ if(window._resultsData) syncZoneAHeights(); });
 // Shared DOM-writing tail for both solo (doSim) and multiplayer (renderResultsFromShared).
 // `data` carries the fully-resolved season result plus the fixture log and per-player stats.
 function renderResultsDOM(data){
@@ -2777,6 +2821,10 @@ function renderResultsDOM(data){
     el('pots-rat').previousElementSibling.textContent='Rating';
     const barFill=el('pots-bar-fill');
     if(barFill) barFill.style.width=Math.max(4,Math.min(100,Math.round((seasonRat||6)/10*100)))+'%';
+    const potsStats=playerStats?playerStats[potsIdx]:null;
+    el('pots-goals').textContent=potsStats?potsStats.goals:'—';
+    el('pots-assists').textContent=potsStats?potsStats.assists:'—';
+    el('pots-cs').textContent=potsStats?(potsStats.cleanSheets||0):'—';
     el('pots-cat').textContent=pots.cat.label;
     el('pots-pos').textContent=SLOTS[potsIdx].key;
   }
@@ -3077,6 +3125,9 @@ async function hostComputeSharedSeason(){
       e.uclR='Semi-finals';
     }
   });
+  // uclR is only just finalized above -- resample each entry's league-phase position to
+  // correlate with it (see biasUclPosForRound), same as the solo path.
+  entries.forEach(e=>{ e.uclLeaguePos=biasUclPosForRound(e.uclR, r); });
 
   // A treble emerges naturally if the same entry topped the league, won the cup, AND the UCL --
   // no separate roll needed, it just falls out of the three arbitrations above.
@@ -3435,6 +3486,9 @@ function mountStoryTerminal(){
   const ov=document.getElementById('story-overlay');
   if(ov)ov.remove();
   buildStoryNavbar();
+  // Only meaningful once #step-results is actually the visible/active step (getBoundingClientRect
+  // reports 0 for anything still behind display:none), which is guaranteed by this point.
+  syncZoneAHeights();
 }
 
 // Bottom icon nav so players can jump straight to a section (or replay) after the reveal --
