@@ -1315,9 +1315,7 @@ async function loadMyStats(){
   } catch(e){ body.innerHTML = '<div style="color:var(--re);font-size:12px;">Couldn\'t load your stats.</div>'; }
 }
 function onMultiplayerClick(){
-  if (AUTH.user) { showStep('step-mp'); return; }
-  AUTH.pendingAction='multiplayer';
-  openAuth();
+  showStep('step-mp');
 }
 function showAuthPanel(name){
   const panels = {form:'auth-form-panel', checkEmail:'auth-check-email-panel', forgot:'auth-forgot-panel', newpass:'auth-newpass-panel'};
