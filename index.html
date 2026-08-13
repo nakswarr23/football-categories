@@ -3148,20 +3148,6 @@ function hidePlayerStatCard(){
   const card=el('respitch-card');
   if(card) card.classList.remove('active');
 }
-// The main column (campaign stats/journey/calendar) and sidebar (POTS/squad breakdown) vary
-// independently in height depending on how deep the season's cup/UCL run was -- pin the
-// shorter one's min-height to the taller so both end at the same line before the shoulder-
-// to-shoulder Season stats / Your XI row starts underneath.
-function syncZoneAHeights(){
-  const main=document.querySelector('.res-zoneA-main'), side=document.querySelector('.res-zoneA-side');
-  if(!main || !side) return;
-  main.style.minHeight=''; side.style.minHeight='';
-  if(window.innerWidth<=600) return; // single-column layout below this width -- nothing to align
-  const mh=main.getBoundingClientRect().height, sh=side.getBoundingClientRect().height;
-  if(mh>sh) side.style.minHeight=mh+'px';
-  else if(sh>mh) main.style.minHeight=sh+'px';
-}
-window.addEventListener('resize', ()=>{ if(window._resultsData) syncZoneAHeights(); });
 // Shared DOM-writing tail for both solo (doSim) and multiplayer (renderResultsFromShared).
 // `data` carries the fully-resolved season result plus the fixture log and per-player stats.
 function renderResultsDOM(data){
@@ -3952,9 +3938,6 @@ function mountStoryTerminal(){
   const ov=document.getElementById('story-overlay');
   if(ov)ov.remove();
   buildStoryNavbar();
-  // Only meaningful once #step-results is actually the visible/active step (getBoundingClientRect
-  // reports 0 for anything still behind display:none), which is guaranteed by this point.
-  syncZoneAHeights();
 }
 
 // Bottom icon nav so players can jump straight to a section (or replay) after the reveal --
