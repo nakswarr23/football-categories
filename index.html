@@ -350,7 +350,6 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .res-body{padding:36px 46px;display:grid;grid-template-columns:1fr 300px;grid-auto-rows:min-content;align-items:start;gap:26px;position:relative;}
 .res-zoneA-main{min-width:0;}
 .res-zoneA-side{display:flex;flex-direction:column;gap:14px;min-width:0;justify-content:space-between;}
-.res-zoneC{grid-column:1/-1;display:grid;grid-template-columns:5fr 7fr;gap:26px;align-items:start;}
 .res-zoneD{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start;}
 .res-xi-plain{min-width:0;display:flex;flex-direction:column;}
 .res-full-row{grid-column:1/-1;}
@@ -394,7 +393,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .ps-pots-row td{border-top:1px solid var(--prim);border-bottom:1px solid var(--prim);background:var(--prid);}
 .ps-pots-row td:first-child{border-left:2px solid var(--pri);}
 .ps-pots-score{color:var(--pri) !important;}
-.res-calendar-grid{display:grid;grid-template-columns:repeat(38,1fr);gap:3px;padding:14px 16px;}
+.res-calendar-grid{display:grid;grid-template-columns:repeat(19,1fr);gap:3px;padding:14px 16px;}
 .cal-tile{aspect-ratio:1;border-radius:3px;position:relative;min-width:0;transition:transform .1s;}
 .cal-tile:hover{transform:scale(1.6);z-index:2;}
 .cal-tile.w{background:var(--grd);color:var(--gr);border:1px solid rgba(62,207,106,.3);}
@@ -452,12 +451,14 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .pots-sv{font-weight:600;}
 .pots-bar{height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;}
 .pots-bar-fill{display:block;height:100%;background:linear-gradient(90deg,var(--pri),var(--sec));border-radius:3px;transition:width .5s ease;}
-#res-stats-body{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
-#res-stats-body .sb-lbl{flex-basis:100%;font-family:var(--fm);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin:10px 0 -2px;}
-#res-stats-body .sb-lbl:first-child{margin-top:0;}
-#res-squad-stats .sb-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;padding:7px 12px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);}
-#res-squad-stats .sb-k{color:var(--tx2);}
-#res-squad-stats .sb-v{font-weight:700;color:var(--pri);}
+.sb-flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.sb-flow .sb-lbl{flex-basis:100%;font-family:var(--fm);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--tx3);margin:10px 0 -2px;}
+.sb-flow .sb-lbl:first-child{margin-top:0;}
+.sb-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;padding:7px 12px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);}
+.sb-row.l{border-color:rgba(240,80,96,.25);background:rgba(240,80,96,.06);}
+.sb-k{color:var(--tx2);}
+.sb-v{font-weight:700;color:var(--pri);}
+.sb-row.l .sb-v{color:var(--re);}
 
 /* ══ TOAST ══ */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--bd2);color:var(--tx);padding:10px 18px;border-radius:var(--r);font-size:13px;z-index:1000;opacity:0;pointer-events:none;transition:opacity .25s;white-space:nowrap;}
@@ -556,7 +557,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
   .res-h1{font-size:32px;}
   .res-pts-wrap{text-align:left;}
   .res-body{grid-template-columns:1fr;padding:16px;gap:16px;}
-  .res-zoneC,.res-zoneD{grid-template-columns:1fr;gap:16px;}
+  .res-zoneD{grid-template-columns:1fr;gap:16px;}
   .res-body>div{min-width:0;}
   .trophy-cards{grid-template-columns:repeat(2,1fr);}
   .camp-card{overflow-x:auto;}
@@ -1035,6 +1036,10 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
         <div class="camp-hd">Full campaign stats</div>
         <div id="camp-tbl"></div>
       </div>
+      <div class="camp-card">
+        <div class="camp-hd">Champions League knockout bracket</div>
+        <div id="res-ucl-bracket" style="padding:20px;overflow-x:auto;"></div>
+      </div>
       <div class="camp-card" style="margin-bottom:0;">
         <div class="camp-hd">Season stats</div>
         <table class="camp-tbl" style="table-layout:fixed;"><thead><tr><th style="width:30%;">Player</th><th style="width:14%;">Pos</th><th style="width:12%;">G</th><th style="width:12%;">A</th><th style="width:12%;">CS</th><th style="width:20%;">Rating</th></tr></thead>
@@ -1064,45 +1069,38 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
         <div class="pots-lbl" style="margin-bottom:10px;">Your XI this season</div>
         <div id="res-squad-grid"></div>
       </div>
-    </div>
-    <!-- Squad breakdown used to live stacked in the sidebar, but that made the sidebar column
-         run far longer than Trophy/Campaign/Season stats on the left, leaving dead space under
-         whichever column finished first -- its own full-width strip (chips wrap horizontally
-         instead of stacking) keeps both columns above close to the same height. -->
-    <div class="camp-card res-full-row" id="res-squad-stats" style="margin:0;">
-      <div class="camp-hd">Squad breakdown</div>
-      <div id="res-stats-body" style="padding:16px 20px;"></div>
-    </div>
-    <div id="mp-leaderboard-btn-wrap" class="res-full-row" style="display:none;">
-      <button onclick="fetchAndShowLeaderboard()" style="width:100%;padding:11px;background:var(--gr);color:#071a0e;border:none;border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;">View lobby standings →</button>
-    </div>
-    <!-- Season journey + PL calendar sit shoulder-to-shoulder below the two columns above. -->
-    <div class="res-zoneC">
-      <div class="camp-card" id="res-journey-card" style="margin:0;">
-        <div class="camp-hd">Season journey</div>
-        <div id="res-journey" style="padding:16px 20px;"></div>
+      <div class="camp-card" id="res-squad-stats" style="margin-bottom:0;">
+        <div class="camp-hd">Squad breakdown</div>
+        <div id="res-stats-body" class="sb-flow" style="padding:16px 20px;"></div>
       </div>
-      <div class="camp-card" id="res-calendar-card" style="margin:0;">
+      <div class="camp-card" id="res-calendar-card" style="margin-bottom:0;">
         <div class="camp-hd">Premier League calendar</div>
         <div class="res-calendar-grid" id="res-calendar-grid"></div>
       </div>
     </div>
-    <!-- The Premier League table and Champions League standings sit shoulder-to-shoulder. -->
+    <div id="mp-leaderboard-btn-wrap" class="res-full-row" style="display:none;">
+      <button onclick="fetchAndShowLeaderboard()" style="width:100%;padding:11px;background:var(--gr);color:#071a0e;border:none;border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;">View lobby standings →</button>
+    </div>
+    <!-- Champions League standings and the Premier League table sit shoulder-to-shoulder. -->
     <div class="res-zoneD">
-      <div class="camp-card" style="margin:0;">
-        <div class="camp-hd camp-hd-row">Premier League table<button class="camp-page-btn" id="pl-page-btn" onclick="onPlPageClick()" style="display:none;"></button></div>
-        <table class="camp-tbl" style="table-layout:fixed;font-size:11.5px;"><thead><tr><th style="width:8%;">#</th><th style="width:38%;">Team</th><th style="width:9%;">P</th><th style="width:9%;">W</th><th style="width:9%;">D</th><th style="width:9%;">L</th><th style="width:9%;">GD</th><th style="width:9%;">Pts</th></tr></thead>
-        <tbody id="res-league-table"></tbody></table>
-      </div>
       <div class="camp-card" style="margin:0;">
         <div class="camp-hd camp-hd-row">Champions League standings<button class="camp-page-btn" id="ucl-page-btn" onclick="onUclPageClick()" style="display:none;"></button></div>
         <table class="camp-tbl" style="table-layout:fixed;font-size:11.5px;"><thead><tr><th style="width:8%;">#</th><th style="width:38%;">Team</th><th style="width:9%;">P</th><th style="width:9%;">W</th><th style="width:9%;">D</th><th style="width:9%;">L</th><th style="width:9%;">GD</th><th style="width:9%;">Pts</th></tr></thead>
         <tbody id="res-ucl-table"></tbody></table>
       </div>
+      <div class="camp-card" style="margin:0;">
+        <div class="camp-hd camp-hd-row">Premier League table<button class="camp-page-btn" id="pl-page-btn" onclick="onPlPageClick()" style="display:none;"></button></div>
+        <table class="camp-tbl" style="table-layout:fixed;font-size:11.5px;"><thead><tr><th style="width:8%;">#</th><th style="width:38%;">Team</th><th style="width:9%;">P</th><th style="width:9%;">W</th><th style="width:9%;">D</th><th style="width:9%;">L</th><th style="width:9%;">GD</th><th style="width:9%;">Pts</th></tr></thead>
+        <tbody id="res-league-table"></tbody></table>
+      </div>
     </div>
-    <div class="camp-card res-full-row" style="margin:0;">
-      <div class="camp-hd">Champions League knockout bracket</div>
-      <div id="res-ucl-bracket" style="padding:20px;overflow-x:auto;"></div>
+    <!-- Domestic Cup round-by-round log -- the one part of the old Season Journey card that
+         wasn't already covered elsewhere (the Champions League half duplicated the standings
+         table + bracket above, so it was dropped) -- kept as its own compact strip since no
+         other section shows the cup run in detail. -->
+    <div class="camp-card res-full-row" id="res-cup-log-card" style="margin:0;">
+      <div class="camp-hd">Domestic Cup</div>
+      <div id="res-cup-log" class="sb-flow" style="padding:16px 20px;"></div>
     </div>
     <!-- Multiplayer only: everyone else's placement, at a glance -->
     <div class="camp-card res-full-row" id="mp-lobby-results" style="display:none;">
@@ -2768,13 +2766,30 @@ function renderResultsCalendar(fixtures){
     return `<div class="cal-tile ${cls}" data-tip="MW${f.mw} vs ${f.opp}: ${f.res} ${f.gf}-${f.ga}"></div>`;
   }).join('');
 }
-// Confirmed 2026/27 Premier League clubs -- fills the "other" rows of the generated table below.
-const PL_CLUBS_2627=['Arsenal','Aston Villa','Bournemouth','Brentford','Brighton','Chelsea','Coventry City','Crystal Palace','Everton','Fulham','Hull City','Ipswich Town','Leeds United','Liverpool','Manchester City','Manchester United','Newcastle United','Nottingham Forest','Sunderland','Tottenham Hotspur'];
 // User-specified weakest-first replacement order: as more real squads need a spot in the table
 // (one per lobby member, capped at MAX_LOBBY_PLAYERS), these clubs are dropped from the pool in
 // this exact order -- Hull City first (solo/1-player games only ever drop this one), Nottingham
 // Forest last (only dropped once a lobby is completely full).
 const PL_REPLACEMENT_ORDER=['Hull City','Ipswich Town','Coventry City','Leeds United','Crystal Palace','Brentford','Fulham','Nottingham Forest'];
+// Real strength order for the 2026/27 pool: the 17 clubs remaining in the Prem after research
+// confirmed West Ham/Burnley/Wolves as the real 2025/26 relegated three, ranked by their real
+// final 2025/26 position (Arsenal champions down to Tottenham 17th), then the 3 real promoted
+// Championship sides (Coventry, Ipswich, Hull, in their real promotion order) at the bottom.
+// This is a strength PRIOR for plSimulatedOrder() below -- like UCL_STANDINGS_2526, it is never
+// used as literal per-simulation stats, only as an input to a jittered per-sim finishing order.
+const PL_STRENGTH_2627=['Arsenal','Manchester City','Manchester United','Aston Villa','Liverpool','Bournemouth',
+  'Sunderland','Brighton','Brentford','Chelsea','Fulham','Newcastle United','Everton','Leeds United',
+  'Crystal Palace','Nottingham Forest','Tottenham Hotspur','Coventry City','Ipswich Town','Hull City'];
+// Same jittered-reorder trick as uclSimulatedOrder() -- small noise near the top (title race is
+// fairly stable year to year), much wider noise toward the bottom (relegation/mid-table form is
+// far less predictable), so each simulation gets a plausible-but-different table instead of
+// literally replaying 2025/26 or using a fixed alphabetical-ish order every time.
+function plSimulatedOrder(){
+  return PL_STRENGTH_2627
+    .map((team,i)=>({team, key:i+(Math.random()-0.5)*Math.max(2.5,i*0.34)}))
+    .sort((a,b)=>a.key-b.key)
+    .map(x=>x.team);
+}
 function uclEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // Paginated table state, shared by the Premier League table and Champions League standings --
 // both render only the first chunk (top 10) and reveal further chunks via a header button
@@ -2838,7 +2853,7 @@ async function renderLeagueTable(data){
 
   const n=clamp(realEntries.length,1,PL_REPLACEMENT_ORDER.length);
   const removed=new Set(PL_REPLACEMENT_ORDER.slice(0,n));
-  const others=PL_CLUBS_2627.filter(c=>!removed.has(c));
+  const order=plSimulatedOrder().filter(c=>!removed.has(c));
   const rows=[];
   let oi=0;
   for(let pos=1; pos<=20; pos++){
@@ -2850,13 +2865,31 @@ async function renderLeagueTable(data){
     const l=Math.max(0,38-w-d);
     const pts=w*3+d;
     const gf=Math.round(30+(38-pos)*1.5+rnd()*10), ga=Math.round(30+pos*1.4+rnd()*10);
-    rows.push({team:others[oi%others.length], me:false, w, d, l, gf, ga, pts});
+    rows.push({team:order[oi%order.length], me:false, w, d, l, gf, ga, pts});
     oi++;
   }
   rows.sort((a,b)=>b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga));
   tblPageInit('pl', rows);
 }
 
+// Real club-crest image IDs, confirmed working against api-sports.io's media CDN (the same host
+// already used for every player photo -- https://media.api-sports.io/football/teams/{id}.png).
+// Sourced from the teamId already stored per-player in DB for any club with players in our
+// dataset; only includes entries verified this way, deliberately incomplete rather than guessed --
+// clubs outside the DB's covered leagues (smaller UCL sides, the two newly-promoted Prem clubs
+// without existing players in DB) fall back to a plain monogram badge instead of a broken image.
+const TEAM_CREST_ID={
+  'Arsenal':42,'Manchester United':33,'Manchester City':50,'Liverpool':40,'Chelsea':49,
+  'Tottenham Hotspur':47,'Newcastle United':34,'Brighton':51,'Aston Villa':66,'Everton':45,
+  'Fulham':36,'Brentford':55,'Crystal Palace':52,'Bournemouth':35,'Nottingham Forest':65,
+  'Leeds United':63,'Sunderland':746,'Ipswich Town':57,
+  'Barcelona':529,'Real Madrid':541,'Atletico Madrid':530,'Athletic Club':531,'Villarreal':533,
+  'Bayern Munich':157,'Borussia Dortmund':165,'Bayer Leverkusen':168,'Eintracht Frankfurt':169,
+  'Juventus':496,'Napoli':492,'Atalanta':499,'Inter':505,
+  'Paris Saint-Germain':85,'Monaco':91,'Marseille':81,
+  'Galatasaray':645,'Benfica':211,'Sporting CP':228
+};
+function teamCrestUrl(team){ const id=TEAM_CREST_ID[team]; return id? `https://media.api-sports.io/football/teams/${id}.png` : null; }
 // The 36 real 2025/26 Champions League league-phase clubs, in their real final rank order.
 // IMPORTANT: this order (and this order ONLY) is used for two things -- UCL_REPLACEMENT_ORDER's
 // weakest-first priority, and as a strength prior for uclSimulatedOrder() below. The real
@@ -2922,11 +2955,12 @@ async function renderUclSection(data){
   const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
   const rnd=Math.random;
   const realEntries=await getUclRealEntries(data);
+  const simOrder=uclSimulatedOrder(); // shared by the standings table and the bracket below
 
   if(tblGrid){
     const n=clamp(realEntries.length,1,UCL_REPLACEMENT_ORDER.length);
     const removed=new Set(UCL_REPLACEMENT_ORDER.slice(0,n));
-    const order=uclSimulatedOrder().filter(t=>!removed.has(t));
+    const order=simOrder.filter(t=>!removed.has(t));
     const rows=[];
     let oi=0;
     for(let pos=1; pos<=36; pos++){
@@ -2948,7 +2982,7 @@ async function renderUclSection(data){
   }
 
   if(bracketGrid){
-    const rounds=buildUclBracketRounds(realEntries);
+    const rounds=buildUclBracketRounds(realEntries, simOrder);
     bracketGrid.innerHTML=renderUclBracketSvg(rounds);
   }
 }
@@ -2959,9 +2993,19 @@ async function renderUclSection(data){
 // spliced into every round they actually played; when they lose, their real recorded opponent
 // becomes the "winner" that legitimately continues through later rounds -- nobody who has
 // already been eliminated can reappear as a winner further down the bracket.
-function buildUclBracketRounds(realEntries){
+//
+// Flavor (non-real) ties are drawn from `simOrder` -- the same per-simulation strength order
+// shown in the standings table -- respecting the real format's tier boundary (ranks 0-7 only
+// ever appear as direct Round of 16 qualifiers, ranks 8-23 only ever appear in the Playoff
+// pool), and every flavor-vs-flavor tie's winner is decided by a rank-gap-weighted probability
+// rather than a coin flip. That weighting is the actual fix for a genuinely weak side stringing
+// together several unrelated 50/50s and reaching the Final -- upsets can still happen, but the
+// odds compound realistically round over round instead of resetting to even every time.
+function buildUclBracketRounds(realEntries, simOrder){
   const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
-  const pool=UCL_STANDINGS_2526;
+  const pool=(simOrder&&simOrder.length)?simOrder:UCL_STANDINGS_2526;
+  const rankByTeam=new Map(pool.map((t,i)=>[t,i]));
+  function rankOf(name){ return rankByTeam.has(name)?rankByTeam.get(name):18; }
   // Reserve every real entry's own name AND every opponent name they actually recorded (across
   // every round they played) up front -- those opponent names come from a separate, independent
   // random process (buildSeasonNarrative), so without this a flavor draw elsewhere in the tree
@@ -2972,15 +3016,22 @@ function buildUclBracketRounds(realEntries){
     used.add(e.team);
     (e.knockout||[]).forEach(k=>used.add(k.opp));
   });
-  function draw(tierStart,tierSpan){
-    for(let t=0;t<40;t++){
-      const idx=clamp(Math.round(tierStart+Math.random()*tierSpan),0,pool.length-1);
-      if(!used.has(pool[idx])){ used.add(pool[idx]); return pool[idx]; }
+  // rankStart/rankSpan bound the draw to a real tier: 0-7 for direct qualifiers, 8-23 for the
+  // Playoff pool -- so a flavor team's rank always matches the tier it's actually drawn for.
+  function draw(rankStart,rankSpan){
+    for(let t=0;t<50;t++){
+      const idx=clamp(Math.round(rankStart+Math.random()*rankSpan),0,pool.length-1);
+      if(!used.has(pool[idx])){ used.add(pool[idx]); return {name:pool[idx], rank:idx}; }
     }
-    const fallback=pool.find(nm=>!used.has(nm))||pool[Math.floor(Math.random()*pool.length)];
-    used.add(fallback);
-    return fallback;
+    const idx=pool.findIndex(nm=>!used.has(nm));
+    const name=idx>=0?pool[idx]:pool[Math.floor(Math.random()*pool.length)];
+    used.add(name);
+    return {name, rank:idx>=0?idx:18};
   }
+  // ELO-style win probability from the rank gap: the strongest direct qualifier against the
+  // weakest playoff side is a heavy favourite (~90%+) but never a lock; closely-ranked sides
+  // stay close to a coin flip.
+  function pWin(rankA,rankB){ return clamp(0.5+(rankB-rankA)*0.026,0.06,0.94); }
   function scoreFor(winnerIsA){
     const wg=1+Math.floor(Math.random()*4), lg=Math.max(0,wg-1-Math.floor(Math.random()*3));
     return winnerIsA?[wg,lg]:[lg,wg];
@@ -2995,12 +3046,12 @@ function buildUclBracketRounds(realEntries){
     {key:'Semi-finals',      ties:2, span:4},
     {key:'Final',            ties:1, span:8}
   ];
-  let incoming=new Array(8).fill(null);
+  let incoming=new Array(8).fill(null), incomingRank=new Array(8).fill(18);
   const rounds=[];
 
   roundsDef.forEach((r,ri)=>{
     const ties=[];
-    const nextIncoming=new Array(8).fill(null);
+    const nextIncoming=new Array(8).fill(null), nextRank=new Array(8).fill(18);
     for(let t=0;t<r.ties;t++){
       const slotStart=t*r.span;
       let featured=null;
@@ -3011,8 +3062,8 @@ function buildUclBracketRounds(realEntries){
         const gf=rec.legs.reduce((x,l)=>x+l.gf,0), ga=rec.legs.reduce((x,l)=>x+l.ga,0);
         used.add(rec.opp);
         a=featured.team; b=rec.opp; aWon=rec.won; scoreA=gf; scoreB=ga;
-        const winnerName=rec.won?featured.team:rec.opp;
-        for(let s=slotStart;s<slotStart+r.span;s++) nextIncoming[s]=winnerName;
+        const winnerName=rec.won?featured.team:rec.opp, winnerRank=rankOf(winnerName);
+        for(let s=slotStart;s<slotStart+r.span;s++){ nextIncoming[s]=winnerName; nextRank[s]=winnerRank; }
       } else if(ri===0){
         const entry=slotEntry(slotStart);
         const nextRec=recordFor(entry,'Round of 16');
@@ -3021,27 +3072,34 @@ function buildUclBracketRounds(realEntries){
           // shown here is pure flavor, but its winner MUST equal the entry's known R16 opponent
           // so the bracket stays coherent once we reach that round.
           const forced=nextRec.opp; used.add(forced);
-          a=draw(8,12); b=forced; aWon=false;
+          const flavor=draw(8,15);
+          a=flavor.name; b=forced; aWon=false;
           [scoreA,scoreB]=scoreFor(false);
-          nextIncoming[slotStart]=forced;
+          nextIncoming[slotStart]=forced; nextRank[slotStart]=rankOf(forced);
         } else {
-          a=draw(8,12); b=draw(8,12); aWon=Math.random()<0.5;
+          const da=draw(8,15), db=draw(8,15); // Playoff pool: ranks 9th-24th
+          aWon=Math.random()<pWin(da.rank,db.rank);
           [scoreA,scoreB]=scoreFor(aWon);
-          nextIncoming[slotStart]=aWon?a:b;
+          a=da.name; b=db.name;
+          nextIncoming[slotStart]=aWon?a:b; nextRank[slotStart]=aWon?da.rank:db.rank;
         }
       } else if(ri===1){
-        a=draw(0,7); b=incoming[slotStart]; aWon=Math.random()<0.58;
+        const da=draw(0,7); // Direct qualifier: ranks 1st-8th
+        a=da.name; b=incoming[slotStart];
+        aWon=Math.random()<pWin(da.rank,incomingRank[slotStart]);
         [scoreA,scoreB]=scoreFor(aWon);
-        nextIncoming[slotStart]=aWon?a:b;
+        nextIncoming[slotStart]=aWon?a:b; nextRank[slotStart]=aWon?da.rank:incomingRank[slotStart];
       } else {
-        a=incoming[slotStart]; b=incoming[slotStart+r.span/2]; aWon=Math.random()<0.5;
+        a=incoming[slotStart]; b=incoming[slotStart+r.span/2];
+        const rA=incomingRank[slotStart], rB=incomingRank[slotStart+r.span/2];
+        aWon=Math.random()<pWin(rA,rB);
         [scoreA,scoreB]=scoreFor(aWon);
-        for(let s=slotStart;s<slotStart+r.span;s++) nextIncoming[s]=aWon?a:b;
+        for(let s=slotStart;s<slotStart+r.span;s++){ nextIncoming[s]=aWon?a:b; nextRank[s]=aWon?rA:rB; }
       }
       ties.push({a,b,aWon,scoreA,scoreB});
     }
     rounds.push({round:r.key, ties});
-    incoming=nextIncoming;
+    incoming=nextIncoming; incomingRank=nextRank;
   });
   return rounds;
 }
@@ -3051,8 +3109,20 @@ function buildUclBracketRounds(realEntries){
 // the midpoint of the two ties feeding them. Each tie shows the real aggregate scoreline next to
 // each team, with the winner's name/score picked out in teal and a small accent bar; the Final's
 // champion gets a gold outline.
+function teamAbbr(name){
+  const words=String(name).split(/[\s/]+/).filter(Boolean);
+  return (words.length>=2 ? words[0][0]+words[1][0] : name.slice(0,2)).toUpperCase();
+}
+// A real crest (drawn from TEAM_CREST_ID) if we have one, otherwise a plain monogram badge --
+// never a broken-image icon, since we only ever reference confirmed-working IDs.
+function crestBadge(x, cy, team){
+  const url=teamCrestUrl(team), r=9;
+  if(url) return `<image href="${url}" x="${x}" y="${cy-r}" width="${r*2}" height="${r*2}"/>`;
+  return `<circle cx="${x+r}" cy="${cy}" r="${r}" fill="var(--s3)" stroke="var(--glass-bd)"/>
+    <text x="${x+r}" y="${cy+3}" text-anchor="middle" style="font-family:var(--fm);font-size:8px;font-weight:700;fill:var(--tx2);">${uclEsc(teamAbbr(team))}</text>`;
+}
 function renderUclBracketSvg(rounds){
-  const boxW=196, boxH=58, rowH=74, colGap=230, padTop=42, padX=14;
+  const boxW=216, boxH=58, rowH=74, colGap=250, padTop=42, padX=14;
   const n=rounds[1].ties.length; // Round of 16 -- the baseline
   const xs=rounds.map((r,i)=>padX+i*colGap);
   const ysByRound=[];
@@ -3077,10 +3147,12 @@ function renderUclBracketSvg(rounds){
         ${isFinal?`<rect x="${x-3}" y="${y-3}" width="${boxW+6}" height="${boxH+6}" rx="10" fill="none" stroke="var(--sec)" stroke-width="1.5" opacity=".55"/>`:''}
         <rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="8" fill="rgba(255,255,255,.035)" stroke="var(--glass-bd)"/>
         <rect x="${x}" y="${tie.aWon?y:y+boxH/2}" width="3" height="${boxH/2}" fill="${tie.aWon?'var(--pri)':'var(--tx3)'}" opacity="${tie.aWon?1:.4}"/>
-        <text x="${x+14}" y="${rowAY}" style="font-family:var(--fb);font-size:12.5px;font-weight:${tie.aWon?700:500};fill:${tie.aWon?'var(--pri)':'var(--tx3)'};">${uclEsc(tie.a)}</text>
+        ${crestBadge(x+12, rowAY-4, tie.a)}
+        <text x="${x+34}" y="${rowAY}" style="font-family:var(--fb);font-size:12.5px;font-weight:${tie.aWon?700:500};fill:${tie.aWon?'var(--pri)':'var(--tx3)'};">${uclEsc(tie.a)}</text>
         <text x="${x+boxW-14}" y="${rowAY}" text-anchor="end" style="font-family:var(--fm);font-size:12px;font-weight:700;fill:${tie.aWon?'var(--tx)':'var(--tx3)'};">${tie.scoreA}</text>
         <line x1="${x+12}" x2="${x+boxW-12}" y1="${midY}" y2="${midY}" stroke="var(--glass-bd)"/>
-        <text x="${x+14}" y="${rowBY}" style="font-family:var(--fb);font-size:12.5px;font-weight:${tie.aWon?500:700};fill:${tie.aWon?'var(--tx3)':'var(--pri)'};">${uclEsc(tie.b)}</text>
+        ${crestBadge(x+12, rowBY-4, tie.b)}
+        <text x="${x+34}" y="${rowBY}" style="font-family:var(--fb);font-size:12.5px;font-weight:${tie.aWon?500:700};fill:${tie.aWon?'var(--tx3)':'var(--pri)'};">${uclEsc(tie.b)}</text>
         <text x="${x+boxW-14}" y="${rowBY}" text-anchor="end" style="font-family:var(--fm);font-size:12px;font-weight:700;fill:${tie.aWon?'var(--tx3)':'var(--tx)'};">${tie.scoreB}</text>
       </g>`;
       if(ri===0){
@@ -3247,38 +3319,14 @@ function renderResultsDOM(data){
     }).join('');
   }
 
-  const journeyEl=el('res-journey');
-  if(journeyEl && fixtures){
-    const bestWin=fixtures.pl.filter(f=>f.res==='W').sort((a,b)=>(b.gf-b.ga)-(a.gf-a.ga))[0];
-    const worstLoss=fixtures.pl.filter(f=>f.res==='L').sort((a,b)=>(b.ga-b.gf)-(a.ga-a.gf))[0];
-    const chips=[bestWin,worstLoss].filter(Boolean).map(f=>{
-      const win=f.res==='W';
-      return `<div style="background:${win?'rgba(62,207,106,.08)':'rgba(229,72,77,.08)'};border:1px solid ${win?'rgba(62,207,106,.25)':'rgba(229,72,77,.25)'};border-radius:6px;padding:6px 10px;font-size:12px;">${win?'Beat':'Lost to'} ${f.opp} <span style="color:${win?'var(--gr)':'var(--re)'};font-weight:700;">${f.gf}–${f.ga}</span> <span style="color:var(--tx3);">· MW${f.mw}</span></div>`;
-    }).join('');
-    const cupSteps=fixtures.cup.map(f=>`<div${f.res==='L'?' style="color:var(--re);"':''}>${f.round} <span style="color:var(--tx3);">${f.res==='W'?'beat':'lost to'}</span> ${f.opp} <span style="color:${f.res==='W'?'var(--gr)':'var(--re)'};">${f.gf}–${f.ga}</span></div>`).join('') || `<div style="color:var(--tx3);">Did not enter</div>`;
-
-    const uclLeagueLine=`<div>League phase <span style="color:var(--tx3);">${uclLeaguePos}${suf(uclLeaguePos)}, ${fixtures.ucl.league.length} games</span></div>`;
-    const uclKoSteps=fixtures.ucl.knockout.map(k=>{
-      const aggGf=k.legs.reduce((s,l)=>s+l.gf,0), aggGa=k.legs.reduce((s,l)=>s+l.ga,0);
-      return `<div${!k.won?' style="color:var(--re);"':''}>${k.round} <span style="color:var(--tx3);">${k.won?'beat':'lost to'}</span> ${k.opp} <span style="color:${k.won?'var(--gr)':'var(--re)'};">agg ${aggGf}–${aggGa}</span></div>`;
-    }).join('');
-    const championsLine=uclR==='Champions'?`<div style="color:var(--am);font-weight:700;">Champions of Europe</div>`:'';
-
-    journeyEl.innerHTML=`
-      <div style="margin-bottom:16px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);margin-bottom:10px;">Premier League</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">${chips}</div>
-      </div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:200px;">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--tx3);margin-bottom:10px;">Domestic cup</div>
-          <div style="font-size:12.5px;line-height:2;">${cupSteps}</div>
-        </div>
-        <div style="flex:1;min-width:200px;">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:${uclR==='Champions'?'var(--am)':'var(--tx3)'};margin-bottom:10px;">Champions League</div>
-          <div style="font-size:12.5px;line-height:2;">${uclLeagueLine}${uclKoSteps}${championsLine}</div>
-        </div>
-      </div>`;
+  // The Champions League half of the old "Season journey" card is dropped here -- the UCL
+  // standings table + knockout bracket already cover that in full detail. The Domestic Cup
+  // round-by-round log has no other home on the page, so it gets its own compact strip.
+  const cupLogEl=el('res-cup-log');
+  if(cupLogEl && fixtures){
+    cupLogEl.innerHTML = fixtures.cup.length
+      ? fixtures.cup.map(f=>`<div class="sb-row${f.res==='L'?' l':''}">${f.round} ${f.res==='W'?'beat':'lost to'} ${f.opp}<span class="sb-v">${f.gf}–${f.ga}</span></div>`).join('')
+      : `<div style="color:var(--tx3);font-size:12.5px;">Did not enter</div>`;
   }
   renderResultsCalendar(fixtures);
   renderLeagueTable(data);
