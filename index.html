@@ -350,7 +350,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 .res-body{padding:36px 46px;display:grid;grid-template-columns:1fr 300px;grid-auto-rows:min-content;align-items:start;gap:26px;position:relative;}
 .res-zoneA-main{min-width:0;}
 .res-zoneA-side{display:flex;flex-direction:column;gap:14px;min-width:0;justify-content:space-between;}
-.res-zoneB{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:stretch;}
+.res-zoneB{grid-column:1/-1;display:grid;grid-template-columns:3fr 2fr;gap:26px;align-items:stretch;}
 .res-xi-plain{min-width:0;display:flex;flex-direction:column;}
 .res-full-row{grid-column:1/-1;}
 .trophy-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
@@ -833,7 +833,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
       <div class="lobby-code" id="lobby-code-display">——</div>
       <div class="lobby-hint"><span id="lobby-code-text"></span><button class="copy-btn" onclick="copyCode()">⎘</button></div>
     </div>
-    <div class="lobby-pl-lbl">Players in lobby</div>
+    <div class="lobby-pl-lbl">Players in lobby <span id="lobby-pl-count" style="color:var(--tx3);"></span></div>
     <div class="lobby-pl-list" id="lobby-pl-list"><div class="lobby-wait">Waiting for players...</div></div>
 
     <div class="lobby-pl-lbl" style="margin-top:6px;"><span>Game settings</span><span class="lobby-pl-lbl-note" id="mp-settings-host-tag"></span></div>
@@ -1080,6 +1080,21 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
         <div id="res-squad-grid"></div>
       </div>
     </div>
+    <div class="camp-card res-full-row" style="margin:0;">
+      <div class="camp-hd">Premier League table</div>
+      <table class="camp-tbl" style="table-layout:fixed;font-size:11.5px;"><thead><tr><th style="width:8%;">#</th><th style="width:38%;">Team</th><th style="width:9%;">P</th><th style="width:9%;">W</th><th style="width:9%;">D</th><th style="width:9%;">L</th><th style="width:9%;">GD</th><th style="width:9%;">Pts</th></tr></thead>
+      <tbody id="res-league-table"></tbody></table>
+    </div>
+    <!-- Champions League: real league-phase standings + a full knockout bracket -->
+    <div class="camp-card res-full-row" style="margin:0;">
+      <div class="camp-hd">Champions League standings</div>
+      <table class="camp-tbl" style="table-layout:fixed;font-size:11.5px;"><thead><tr><th style="width:8%;">#</th><th style="width:38%;">Team</th><th style="width:9%;">P</th><th style="width:9%;">W</th><th style="width:9%;">D</th><th style="width:9%;">L</th><th style="width:9%;">GD</th><th style="width:9%;">Pts</th></tr></thead>
+      <tbody id="res-ucl-table"></tbody></table>
+    </div>
+    <div class="camp-card res-full-row" style="margin:0;">
+      <div class="camp-hd">Champions League knockout bracket</div>
+      <div id="res-ucl-bracket" style="padding:20px;overflow-x:auto;"></div>
+    </div>
     <!-- Multiplayer only: everyone else's placement, at a glance -->
     <div class="camp-card res-full-row" id="mp-lobby-results" style="display:none;">
       <div class="camp-hd">Lobby results</div>
@@ -1100,6 +1115,7 @@ let DB = [];
 
 // ══ APP STATE ══
 const APP = { mode:'solo', playerName:'Scout', lobbyId:null, lobbyPlayerId:null, isHost:false, usedPlayerIds:new Set(), isCompetitive:false };
+const MAX_LOBBY_PLAYERS=8;
 let lobSub=null, plSub=null, mpSub=null, gameStarted=false;
 const CFG = { timer:0, respins:3, excludedTypes:new Set(), formation:'f433', mpFormationMode:'host', competitive:false };
 const COMPETITIVE_TIMER=30, COMPETITIVE_RESPINS=0;
@@ -1531,6 +1547,8 @@ async function joinLobby(codeOverride) {
     const {data:lb,error:lbErr}=await sb.from('lobbies').select('*').eq('id',code).single();
     if (lbErr||!lb){toast('Lobby not found','err');return;}
     if (lb.status!=='waiting'){toast('Game already started','err');return;}
+    const {count}=await sb.from('lobby_players').select('*',{count:'exact',head:true}).eq('lobby_id',code);
+    if ((count||0)>=MAX_LOBBY_PLAYERS){toast('Lobby is full','err');return;}
     const {data:pd,error:plErr}=await sb.from('lobby_players').insert({lobby_id:code,player_name:name,is_host:false,team:[],categories:[],current_idx:0}).select().single();
     if (plErr||!pd) throw (plErr||new Error('No player row returned'));
     APP.lobbyId=code; APP.lobbyPlayerId=pd.id;
@@ -1624,6 +1642,8 @@ async function refreshPlayers(code) {
   if (!ps)return;
   const el2=el('lobby-pl-list');
   el2.innerHTML=ps.length?ps.map(p=>`<div class="lobby-pl-row"><div class="lobby-pl-av">${p.player_name[0].toUpperCase()}</div><div class="lobby-pl-name">${p.player_name}</div><div class="lobby-badge ${p.is_host?'host':'ready'}">${p.is_host?'Host':'Ready'}</div></div>`).join(''):'<div class="lobby-wait">Waiting...</div>';
+  const countEl=el('lobby-pl-count');
+  if(countEl) countEl.textContent=`(${ps.length}/${MAX_LOBBY_PLAYERS})`;
 }
 async function startMultiplayer(){if(APP.isHost)await sb.from('lobbies').update({status:'playing'}).eq('id',APP.lobbyId);}
 function kickoff() {
@@ -2380,8 +2400,8 @@ function simulateSeasonAggregate(squad, rnd){
   const cupRounds=['Round 3','Round 4','Quarter-finals','Semi-finals','Final'];
   let cIdx=0, cAlive=true;
   while(cAlive&&cIdx<cupRounds.length){
-    const winRoll=rnd()+(effectiveAvg-77)*0.014;
-    if(winRoll>0.46){ cW++; cIdx++; if(cIdx>=cupRounds.length){cupR='Winners';cAlive=false;} }
+    const winRoll=rnd()+(effectiveAvg-77)*0.022;
+    if(winRoll>0.38){ cW++; cIdx++; if(cIdx>=cupRounds.length){cupR='Winners';cAlive=false;} }
     else{ cL++; cupR=cupRounds[cIdx]==='Final'?'Finalists':cupRounds[cIdx]; cAlive=false; }
   }
   if(cAlive) cupR='Winners';
@@ -2424,7 +2444,7 @@ function applySoloTierOverrides(agg, rnd){
   }
 
   if(rnd()<cupWinChance && cupR!=='Winners'){ cupR='Winners'; cW=5; cL=0; }
-  else if(effectiveAvg<80 && rnd()<0.5){
+  else if(effectiveAvg<72 && rnd()<0.2){
     const idx=clamp(Math.round(rnd()*2),0,2);
     cupR=cupRounds[idx]; cW=idx; cL=1;
   }
@@ -2476,11 +2496,34 @@ function genScoreline(outcome, dominance, rnd){
   if(outcome==='W'){ const [a,b]=winMargins[clampIdx(Math.floor(rnd()*winMargins.length)+bias,winMargins.length)]; return {gf:a,ga:b}; }
   const [a,b]=loseMargins[clampIdx(Math.floor(rnd()*loseMargins.length)-bias,loseMargins.length)]; return {gf:a,ga:b};
 }
-function genLeagueFixtures(plW, plD, plL, effectiveAvg, pool, rnd){
+// Splices pre-decided "reserved" fixtures (real lobby-mate head-to-heads, multiplayer only)
+// into an otherwise decorative-opponent schedule, spread evenly across the matchweeks rather
+// than clustered at the start. `outcomes.length + reserved.length` must equal the total game
+// count -- callers are responsible for having already subtracted reserved results from the
+// W/D/L counts used to build `outcomes`, so the totals still add up.
+function mergeReservedFixtures(outcomes, reserved, nextOpp, dominance, rnd){
+  const total=outcomes.length+reserved.length;
+  const fixtures=new Array(total);
+  reserved.forEach((res,i)=>{
+    let slot=Math.min(total-1, Math.max(0, Math.round((i+1)*total/(reserved.length+1))-1));
+    while(fixtures[slot]) slot=(slot+1)%total;
+    fixtures[slot]={...res, mw:slot+1, home:slot%2===0};
+  });
+  let oi=0;
+  for(let slot=0; slot<total; slot++){
+    if(fixtures[slot]) continue;
+    const res=outcomes[oi++];
+    const {gf,ga}=genScoreline(res,dominance,rnd);
+    fixtures[slot]={mw:slot+1, opp:nextOpp(), home:slot%2===0, res, gf, ga};
+  }
+  return fixtures;
+}
+function genLeagueFixtures(plW, plD, plL, effectiveAvg, pool, rnd, reserved){
   const dominance=Math.max(-1,Math.min(1,(effectiveAvg-77)/20));
   const outcomes=shuffleArr([...Array(plW).fill('W'),...Array(plD).fill('D'),...Array(plL).fill('L')], rnd);
   const oppPool=shuffleArr(pool, rnd);
-  return outcomes.map((res,i)=>{ const {gf,ga}=genScoreline(res,dominance,rnd); return {mw:i+1, opp:oppPool[i%oppPool.length], home:i%2===0, res, gf, ga}; });
+  let oi=0; const nextOpp=()=>oppPool[(oi++)%oppPool.length];
+  return mergeReservedFixtures(outcomes, reserved||[], nextOpp, dominance, rnd);
 }
 function genCupFixtures(cW, cL, cupR, cupRounds, effectiveAvg, pool, rnd){
   const dominance=Math.max(-1,Math.min(1,(effectiveAvg-77)/20));
@@ -2509,7 +2552,7 @@ function weightedOppPicker(pool, rnd, eliteW, strongW){
     return entries[entries.length-1].c;
   };
 }
-function genUclFixtures(agg, pool, rnd){
+function genUclFixtures(agg, pool, rnd, reservedLeague){
   const {uclLeaguePos, uW, uD, uL, uclR, leagueOnlyW, leagueOnlyD, leagueOnlyL, effectiveAvg}=agg;
   const dominance=Math.max(-1,Math.min(1,(effectiveAvg-77)/20));
   // Quality realistically picks up round by round -- the league phase draws broadly (real UCL
@@ -2521,8 +2564,16 @@ function genUclFixtures(agg, pool, rnd){
   const nextOppLate=weightedOppPicker(pool, rnd, 9, 3);
   const nextOppForRound=(round)=>round==='Quarter-finals'?nextOppQF():(round==='Semi-finals'||round==='Final')?nextOppLate():nextOppEarlyKO();
 
-  const leagueOutcomes=shuffleArr([...Array(leagueOnlyW).fill('W'),...Array(leagueOnlyD).fill('D'),...Array(leagueOnlyL).fill('L')], rnd);
-  const league=leagueOutcomes.map((res,i)=>{ const {gf,ga}=genScoreline(res,dominance,rnd); return {mw:i+1, opp:nextOppLeague(), home:i%2===0, res, gf, ga}; });
+  // A possible (not guaranteed) lobby-mate meeting in the league phase, multiplayer only --
+  // subtract it from the pool that feeds the auto-generated portion, same total 8 games either
+  // way. The knockout derivation below still uses the ORIGINAL (unreduced) leagueOnlyW/D/L via
+  // `agg`, since koW=uW-leagueOnlyW must reflect true season totals, not this local reduction.
+  const resUcl=reservedLeague||[];
+  const remLW=leagueOnlyW-resUcl.filter(f=>f.res==='W').length;
+  const remLD=leagueOnlyD-resUcl.filter(f=>f.res==='D').length;
+  const remLL=leagueOnlyL-resUcl.filter(f=>f.res==='L').length;
+  const leagueOutcomes=shuffleArr([...Array(remLW).fill('W'),...Array(remLD).fill('D'),...Array(remLL).fill('L')], rnd);
+  const league=mergeReservedFixtures(leagueOutcomes, resUcl, nextOppLeague, dominance, rnd);
 
   const uclTookPlayoffPath=uclLeaguePos>=9&&uclLeaguePos<=24;
   const roundsSeq=uclTookPlayoffPath
@@ -2647,12 +2698,16 @@ function pickPlayerOfSeason(squad, playerStats, weights){
 
 // Builds the fixture log + player stats for a finalized (post-override/post-arbitration) squad
 // result. Called once per squad, after all trophy overrides/arbitration are settled.
-function buildSeasonNarrative(squad, agg, rnd){
+function buildSeasonNarrative(squad, agg, rnd, h2hLeague, h2hUcl){
   const plPool=getClubPool(['Premier League']);
   const uclPool=UCL_CLUBS;
-  const pl=genLeagueFixtures(agg.plW, agg.plD, agg.plL, agg.effectiveAvg, plPool, rnd);
+  const resLeague=h2hLeague||[];
+  const remPlW=agg.plW-resLeague.filter(f=>f.res==='W').length;
+  const remPlD=agg.plD-resLeague.filter(f=>f.res==='D').length;
+  const remPlL=agg.plL-resLeague.filter(f=>f.res==='L').length;
+  const pl=genLeagueFixtures(remPlW, remPlD, remPlL, agg.effectiveAvg, plPool, rnd, resLeague);
   const cup=genCupFixtures(agg.cW, agg.cL, agg.cupR, agg.cupRounds, agg.effectiveAvg, plPool, rnd);
-  const ucl=genUclFixtures(agg, uclPool, rnd);
+  const ucl=genUclFixtures(agg, uclPool, rnd, h2hUcl);
   const plGF=pl.reduce((s,f)=>s+f.gf,0), plGA=pl.reduce((s,f)=>s+f.ga,0);
   const uclAllGames=[...ucl.league, ...ucl.knockout.flatMap(k=>k.legs)];
   const uclGF=uclAllGames.reduce((s,f)=>s+f.gf,0), uclGA=uclAllGames.reduce((s,f)=>s+f.ga,0);
@@ -2681,6 +2736,223 @@ function renderResultsCalendar(fixtures){
     const cls=f.res==='W'?'w':f.res==='D'?'d':'l';
     return `<div class="cal-tile ${cls}" data-tip="MW${f.mw} vs ${f.opp}: ${f.res} ${f.gf}-${f.ga}"></div>`;
   }).join('');
+}
+// Confirmed 2026/27 Premier League clubs -- fills the "other" rows of the generated table below.
+const PL_CLUBS_2627=['Arsenal','Aston Villa','Bournemouth','Brentford','Brighton','Chelsea','Coventry City','Crystal Palace','Everton','Fulham','Hull City','Ipswich Town','Leeds United','Liverpool','Manchester City','Manchester United','Newcastle United','Nottingham Forest','Sunderland','Tottenham Hotspur'];
+// User-specified weakest-first replacement order: as more real squads need a spot in the table
+// (one per lobby member, capped at MAX_LOBBY_PLAYERS), these clubs are dropped from the pool in
+// this exact order -- Hull City first (solo/1-player games only ever drop this one), Nottingham
+// Forest last (only dropped once a lobby is completely full).
+const PL_REPLACEMENT_ORDER=['Hull City','Ipswich Town','Coventry City','Leeds United','Crystal Palace','Brentford','Fulham','Nottingham Forest'];
+// Generates a plausible full 20-team table around the real squad(s) actually simulated -- solo
+// (or any lobby member not yet resolvable) shows just the viewer's own line; a multiplayer
+// lobby shows every member's real position/W/D/L/GF/GA, fetched fresh so it stays accurate even
+// though renderResultsDOM itself only carries the current viewer's own data. Every row that
+// isn't a real squad is procedurally filled (smoothly-decreasing points curve with noise, GF/GA
+// estimated from rank) purely for texture -- this app doesn't simulate the other real clubs.
+async function renderLeagueTable(data){
+  const grid=el('res-league-table');
+  if(!grid) return;
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  const rnd=Math.random;
+  const {finalPosTreble, plW, plD, plL, plPts, plGF, plGA}=data;
+  let realEntries=[{team:'Your Squad', me:true, pos:clamp(finalPosTreble,1,20), w:plW, d:plD, l:plL, gf:plGF, ga:plGA, pts:plPts}];
+
+  if(APP.mode==='multiplayer' && APP.lobbyId){
+    try{
+      const {data:ps}=await sb.from('lobby_players').select('*').eq('lobby_id',APP.lobbyId).order('joined_at');
+      const withResults=(ps||[]).map(p=>{
+        const res=(p.categories&&p.categories[0])||{};
+        return {team:p.player_name, me:p.id===APP.lobbyPlayerId, pos:res.pos, w:res.plW, d:res.plD, l:res.plL, gf:res.gf, ga:res.ga, pts:res.pts};
+      }).filter(e=>typeof e.pos==='number');
+      if(withResults.length) realEntries=withResults;
+    }catch(e){ /* fetch failed (or sandboxed/offline) -- fall back to the viewer's own line only */ }
+  }
+
+  const n=clamp(realEntries.length,1,PL_REPLACEMENT_ORDER.length);
+  const removed=new Set(PL_REPLACEMENT_ORDER.slice(0,n));
+  const others=PL_CLUBS_2627.filter(c=>!removed.has(c));
+  const rows=[];
+  let oi=0;
+  for(let pos=1; pos<=20; pos++){
+    const real=realEntries.find(e=>e.pos===pos);
+    if(real){ rows.push({team:real.team, me:real.me, w:real.w, d:real.d, l:real.l, gf:real.gf, ga:real.ga, pts:real.pts}); continue; }
+    const targetPts=Math.round(95-pos*3.6+(rnd()-0.5)*6);
+    const w=clamp(Math.round((targetPts-8)/2.6+(rnd()-0.5)*3),0,32);
+    const d=clamp(Math.round(rnd()*6+2),0,Math.max(0,14-Math.max(0,w-24)));
+    const l=Math.max(0,38-w-d);
+    const pts=w*3+d;
+    const gf=Math.round(30+(38-pos)*1.5+rnd()*10), ga=Math.round(30+pos*1.4+rnd()*10);
+    rows.push({team:others[oi%others.length], me:false, w, d, l, gf, ga, pts});
+    oi++;
+  }
+  rows.sort((a,b)=>b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga));
+  grid.innerHTML=rows.map((r,i)=>{
+    const gd=r.gf-r.ga;
+    return `<tr class="${r.me?'ps-pots-row':''}"><td>${i+1}</td><td style="font-weight:${r.me?'700':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.team}</td><td>38</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${gd>=0?'+':''}${gd}</td><td style="font-weight:700;">${r.pts}</td></tr>`;
+  }).join('');
+}
+
+// Real 2025/26 Champions League league-phase final standings (rank order preserved, spellings
+// aligned with UCL_CLUBS/PL_CLUBS_2627 where the same club appears there).
+const UCL_STANDINGS_2526=[
+  {team:'Arsenal',w:8,d:0,l:0,gf:23,ga:4},{team:'Bayern Munich',w:7,d:0,l:1,gf:22,ga:8},
+  {team:'Liverpool',w:6,d:0,l:2,gf:20,ga:8},{team:'Tottenham Hotspur',w:5,d:2,l:1,gf:17,ga:7},
+  {team:'Barcelona',w:5,d:1,l:2,gf:22,ga:14},{team:'Chelsea',w:5,d:1,l:2,gf:17,ga:10},
+  {team:'Sporting CP',w:5,d:1,l:2,gf:17,ga:11},{team:'Manchester City',w:5,d:1,l:2,gf:15,ga:9},
+  {team:'Real Madrid',w:5,d:0,l:3,gf:21,ga:12},{team:'Inter',w:5,d:0,l:3,gf:15,ga:7},
+  {team:'Paris Saint-Germain',w:4,d:2,l:2,gf:21,ga:11},{team:'Newcastle United',w:4,d:2,l:2,gf:17,ga:7},
+  {team:'Juventus',w:3,d:4,l:1,gf:14,ga:10},{team:'Atletico Madrid',w:4,d:1,l:3,gf:17,ga:15},
+  {team:'Atalanta',w:4,d:1,l:3,gf:10,ga:10},{team:'Bayer Leverkusen',w:3,d:3,l:2,gf:13,ga:14},
+  {team:'Borussia Dortmund',w:3,d:2,l:3,gf:19,ga:17},{team:'Olympiacos',w:3,d:2,l:3,gf:10,ga:14},
+  {team:'Club Brugge',w:3,d:1,l:4,gf:15,ga:17},{team:'Galatasaray',w:3,d:1,l:4,gf:9,ga:11},
+  {team:'Monaco',w:2,d:4,l:2,gf:8,ga:14},{team:'Qarabağ',w:3,d:1,l:4,gf:13,ga:21},
+  {team:'Bodø/Glimt',w:2,d:3,l:3,gf:14,ga:15},{team:'Benfica',w:3,d:0,l:5,gf:10,ga:12},
+  {team:'Marseille',w:3,d:0,l:5,gf:11,ga:14},{team:'Pafos',w:2,d:3,l:3,gf:8,ga:11},
+  {team:'Union Saint-Gilloise',w:3,d:0,l:5,gf:8,ga:17},{team:'PSV Eindhoven',w:2,d:2,l:4,gf:16,ga:16},
+  {team:'Athletic Club',w:2,d:2,l:4,gf:9,ga:14},{team:'Napoli',w:2,d:2,l:4,gf:9,ga:15},
+  {team:'Copenhagen',w:2,d:2,l:4,gf:12,ga:21},{team:'Ajax',w:2,d:0,l:6,gf:8,ga:21},
+  {team:'Eintracht Frankfurt',w:1,d:1,l:6,gf:10,ga:21},{team:'Slavia Prague',w:0,d:3,l:5,gf:5,ga:19},
+  {team:'Villarreal',w:0,d:1,l:7,gf:5,ga:18},{team:'Kairat',w:0,d:1,l:7,gf:7,ga:22}
+];
+// Weakest-first replacement order (36th place through 29th) -- same mechanic as
+// PL_REPLACEMENT_ORDER, applied to the UCL standings table specifically.
+const UCL_REPLACEMENT_ORDER=['Kairat','Villarreal','Slavia Prague','Eintracht Frankfurt','Ajax','Copenhagen','Napoli','Athletic Club'];
+// Builds the {team, pos, w,d,l,gf,ga,pts, knockout} list of real squads for the UCL section --
+// the viewer's own result always, plus (in multiplayer) every lobby member's, fetched fresh.
+// Shared by both the standings table and the bracket below so they always agree with each other.
+// uW/uD/uL (and uclGF/uclGA) accumulate the ENTIRE UCL campaign -- league phase plus every
+// knockout leg played -- so they overcount games played once a squad reaches the knockout
+// rounds. The standings table needs league-phase-only numbers, which aren't stored as a
+// separate field; derive them directly from the real per-fixture log instead.
+function uclLeagueStats(fixtures){
+  const games=(fixtures&&fixtures.ucl&&fixtures.ucl.league)||[];
+  return {
+    w:games.filter(f=>f.res==='W').length, d:games.filter(f=>f.res==='D').length, l:games.filter(f=>f.res==='L').length,
+    gf:games.reduce((s,f)=>s+f.gf,0), ga:games.reduce((s,f)=>s+f.ga,0)
+  };
+}
+async function getUclRealEntries(data){
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  const myStats=uclLeagueStats(data.fixtures);
+  let entries=[{team:'Your Squad', me:true, pos:clamp(data.uclLeaguePos,1,36), w:myStats.w, d:myStats.d, l:myStats.l,
+    gf:myStats.gf, ga:myStats.ga, pts:myStats.w*3+myStats.d, knockout:(data.fixtures&&data.fixtures.ucl&&data.fixtures.ucl.knockout)||[]}];
+  if(APP.mode==='multiplayer' && APP.lobbyId){
+    try{
+      const {data:ps}=await sb.from('lobby_players').select('*').eq('lobby_id',APP.lobbyId).order('joined_at');
+      const withResults=(ps||[]).map(p=>{
+        const res=(p.categories&&p.categories[0])||{};
+        const st=uclLeagueStats(res.fixtures);
+        return {team:p.player_name, me:p.id===APP.lobbyPlayerId, pos:res.uclLeaguePos, w:st.w, d:st.d, l:st.l,
+          gf:st.gf, ga:st.ga, pts:st.w*3+st.d, knockout:(res.fixtures&&res.fixtures.ucl&&res.fixtures.ucl.knockout)||[]};
+      }).filter(e=>typeof e.pos==='number');
+      if(withResults.length) entries=withResults;
+    }catch(e){ /* fetch failed (or sandboxed/offline) -- fall back to the viewer's own line only */ }
+  }
+  return entries;
+}
+async function renderUclSection(data){
+  const tblGrid=el('res-ucl-table'), bracketGrid=el('res-ucl-bracket');
+  if(!tblGrid && !bracketGrid) return;
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  const rnd=Math.random;
+  const realEntries=await getUclRealEntries(data);
+
+  if(tblGrid){
+    const n=clamp(realEntries.length,1,UCL_REPLACEMENT_ORDER.length);
+    const removed=new Set(UCL_REPLACEMENT_ORDER.slice(0,n));
+    const others=UCL_STANDINGS_2526.filter(s=>!removed.has(s.team));
+    const rows=[];
+    let oi=0;
+    for(let pos=1; pos<=36; pos++){
+      const real=realEntries.find(e=>e.pos===pos);
+      if(real){ rows.push({team:real.team, me:real.me, w:real.w, d:real.d, l:real.l, gf:real.gf, ga:real.ga, pts:real.pts}); continue; }
+      const s=others[oi%others.length]; oi++;
+      rows.push({team:s.team, me:false, w:s.w, d:s.d, l:s.l, gf:s.gf, ga:s.ga, pts:s.w*3+s.d});
+    }
+    rows.sort((a,b)=>b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga));
+    tblGrid.innerHTML=rows.map((r,i)=>{
+      const gd=r.gf-r.ga;
+      return `<tr class="${r.me?'ps-pots-row':''}"><td>${i+1}</td><td style="font-weight:${r.me?'700':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${uclEsc(r.team)}</td><td>8</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${gd>=0?'+':''}${gd}</td><td style="font-weight:700;">${r.pts}</td></tr>`;
+    }).join('');
+  }
+
+  if(bracketGrid){
+    const rounds=buildUclBracketRounds(realEntries);
+    bracketGrid.innerHTML=renderUclBracketSvg(rounds);
+  }
+}
+// Every tie at every round -- Playoff (8 ties, positions 9-24) -> Round of 16 (the 8 direct
+// qualifiers from positions 1-8, each paired with one Playoff winner) -> Quarter-finals ->
+// Semi-finals -> Final. Real entries (viewer, and in MP every lobby member) are spliced into
+// whichever tie/round they actually reached, using their own real fixtures.ucl.knockout data;
+// every other tie is generated flavor drawn from the real standings pool, weighted toward
+// stronger sides as rounds progress (mirrors the UCL_ELITE/UCL_STRONG opponent tiering).
+function buildUclBracketRounds(realEntries){
+  const roundsDef=[{key:'Knockout Playoff',ties:8},{key:'Round of 16',ties:8},{key:'Quarter-finals',ties:4},{key:'Semi-finals',ties:2},{key:'Final',ties:1}];
+  const pool=UCL_STANDINGS_2526.map(s=>s.team);
+  return roundsDef.map((r,ri)=>{
+    const realForRound=realEntries.filter(e=>e.knockout&&e.knockout.some(k=>k.round===r.key));
+    const ties=[];
+    for(let i=0;i<r.ties;i++){
+      const real=realForRound[i];
+      if(real){
+        const k=real.knockout.find(k=>k.round===r.key);
+        const gf=k.legs.reduce((s,l)=>s+l.gf,0), ga=k.legs.reduce((s,l)=>s+l.ga,0);
+        ties.push({a:real.team, b:k.opp, aWon:k.won, score:`agg ${gf}-${ga}`});
+      } else {
+        const span=Math.min(pool.length,10+ri*4);
+        let ia=Math.floor(Math.random()*span), ib=Math.floor(Math.random()*span);
+        if(ib===ia) ib=(ib+1)%span;
+        ties.push({a:pool[ia], b:pool[ib], aWon:Math.random()<0.5, score:`agg ${1+Math.floor(Math.random()*3)}-${Math.floor(Math.random()*3)}`});
+      }
+    }
+    return {round:r.key, ties};
+  });
+}
+function uclEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Renders buildUclBracketRounds' output as a connecting-line tree: Round of 16 ties form the
+// evenly-spaced baseline; Playoff ties align 1:1 with their R16 counterpart (single connector,
+// no merge -- a playoff winner simply joins a direct qualifier); QF/SF/Final each converge as
+// the midpoint of the two ties feeding them, so the tree narrows correctly toward the Final.
+function renderUclBracketSvg(rounds){
+  const boxW=178, boxH=46, rowH=64, colGap=210, padTop=34, padX=10;
+  const n=rounds[1].ties.length; // Round of 16 -- the baseline
+  const xs=rounds.map((r,i)=>padX+i*colGap);
+  const ysByRound=[];
+  ysByRound[1]=rounds[1].ties.map((t,i)=>padTop+i*rowH+boxH/2);
+  ysByRound[0]=ysByRound[1].slice(); // Playoff mirrors R16 1:1
+  for(let ri=2; ri<rounds.length; ri++){
+    ysByRound[ri]=rounds[ri].ties.map((t,i)=>(ysByRound[ri-1][2*i]+ysByRound[ri-1][2*i+1])/2);
+  }
+  const svgH=padTop*2+(n-1)*rowH+boxH;
+  const svgW=xs[xs.length-1]+boxW+padX;
+
+  let boxes='', lines='', labels='';
+  rounds.forEach((r,ri)=>{
+    labels+=`<text x="${xs[ri]}" y="18" style="font-family:var(--fm);font-size:10px;letter-spacing:.5px;text-transform:uppercase;fill:var(--tx3);">${uclEsc(r.round)}</text>`;
+    r.ties.forEach((tie,i)=>{
+      const x=xs[ri], y=ysByRound[ri][i]-boxH/2;
+      boxes+=`<g>
+        <rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="6" fill="rgba(255,255,255,.03)" stroke="var(--glass-bd)"/>
+        <line x1="${x+8}" x2="${x+boxW-8}" y1="${y+boxH/2}" y2="${y+boxH/2}" stroke="var(--glass-bd)"/>
+        <text x="${x+9}" y="${y+18}" style="font-size:11px;font-weight:${tie.aWon?700:500};fill:${tie.aWon?'var(--pri)':'var(--tx2)'};">${uclEsc(tie.a)}</text>
+        <text x="${x+9}" y="${y+boxH-8}" style="font-size:11px;font-weight:${tie.aWon?500:700};fill:${tie.aWon?'var(--tx2)':'var(--pri)'};">${uclEsc(tie.b)}</text>
+      </g>`;
+      if(ri===0){
+        // Playoff -> R16: single 1:1 connector, no merge
+        lines+=`<line x1="${x+boxW}" x2="${xs[1]}" y1="${y+boxH/2}" y2="${y+boxH/2}" stroke="var(--glass-bd)"/>`;
+      } else if(ri>=1 && ri<rounds.length-1 && i%2===1){
+        const xFrom=xs[ri]+boxW, xTo=xs[ri+1], xMid=(xFrom+xTo)/2;
+        const yTop=ysByRound[ri][i-1], yBot=ysByRound[ri][i], yMerge=ysByRound[ri+1][(i-1)/2];
+        lines+=`<line x1="${xFrom}" x2="${xMid}" y1="${yTop}" y2="${yTop}" stroke="var(--glass-bd)"/>`;
+        lines+=`<line x1="${xFrom}" x2="${xMid}" y1="${yBot}" y2="${yBot}" stroke="var(--glass-bd)"/>`;
+        lines+=`<line x1="${xMid}" x2="${xMid}" y1="${yTop}" y2="${yBot}" stroke="var(--glass-bd)"/>`;
+        lines+=`<line x1="${xMid}" x2="${xTo}" y1="${yMerge}" y2="${yMerge}" stroke="var(--glass-bd)"/>`;
+      }
+    });
+  });
+  return `<svg viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}" style="display:block;min-width:${svgW}px;">${lines}${boxes}${labels}</svg>`;
 }
 // Tactical-pitch "Your XI" view -- reuses the draft screen's SLOTS/FORMATION_LAYOUT/toSub
 // grid-positioning system (still valid at results-render time, never reassigned after
@@ -2880,6 +3152,8 @@ function renderResultsDOM(data){
       </div>`;
   }
   renderResultsCalendar(fixtures);
+  renderLeagueTable(data);
+  renderUclSection(data);
 
   const statsBod=el('res-stats-body');
   if(statsBod){
@@ -2999,6 +3273,21 @@ async function renderMpLobbyResultsInline(){
   sec.style.display='block';
 }
 
+// aPool/bPool are {W,D,L} remaining-slot counters for two lobby entries. Picks a result
+// weighted by relative strength, but only commits to an outcome both entries still have room
+// for in their already-settled season totals -- falls through to the next-likely outcome
+// rather than ever pushing a counter negative, and returns null (skip this leg) if none fit.
+function reserveHeadToHead(a, b, aPool, bPool, rnd){
+  const diff=(a.effectiveAvg-b.effectiveAvg)/20;
+  const pAWin=Math.max(0.1,Math.min(0.8,0.42+diff*0.35)), pDraw=0.26;
+  const order=rnd()<pAWin?['aWin','draw','bWin']:rnd()<pDraw/(1-pAWin)?['draw','aWin','bWin']:['bWin','draw','aWin'];
+  for(const outcome of order){
+    if(outcome==='aWin' && aPool.W>0 && bPool.L>0){ aPool.W--; bPool.L--; return 'aWin'; }
+    if(outcome==='bWin' && aPool.L>0 && bPool.W>0){ aPool.L--; bPool.W--; return 'bWin'; }
+    if(outcome==='draw' && aPool.D>0 && bPool.D>0){ aPool.D--; bPool.D--; return 'draw'; }
+  }
+  return null;
+}
 async function hostComputeSharedSeason(){
   const {data:ps}=await sb.from('lobby_players').select('*').eq('lobby_id',APP.lobbyId).order('joined_at');
   if(!ps||!ps.length)return;
@@ -3131,12 +3420,54 @@ async function hostComputeSharedSeason(){
   // no separate roll needed, it just falls out of the three arbitrations above.
   entries.forEach(e=>{ e.isTreble=e.finalPos===1&&e.cupR==='Winners'&&e.uclR==='Champions'; });
 
+  // Real head-to-head fixtures between lobby mates -- guaranteed home+away in the league,
+  // possible (not guaranteed) once in the UCL league phase. Runs after every arbitration above
+  // has settled final W/D/L totals, against a separate remaining-pool tally so those true
+  // totals (used for points/grade/display) are never touched -- only the fixture-generation
+  // step below sees the reduced counts, via buildSeasonNarrative's h2hLeague/h2hUcl params.
+  const remainPl=new Map(entries.map(e=>[e,{W:e.plW,D:e.plD,L:e.plL}]));
+  const remainUcl=new Map(entries.map(e=>[e,{W:e.leagueOnlyW,D:e.leagueOnlyD,L:e.leagueOnlyL}]));
+  entries.forEach(e=>{ e.h2hLeague=[]; e.h2hUcl=[]; });
+  for(let i=0;i<entries.length;i++){
+    for(let j=i+1;j<entries.length;j++){
+      const a=entries[i], b=entries[j];
+      const dominanceAB=Math.max(-1,Math.min(1,(a.effectiveAvg-b.effectiveAvg)/20));
+      const flip=res=>res==='W'?'L':res==='L'?'W':'D';
+      // Leg 1: a at home
+      const r1=reserveHeadToHead(a,b,remainPl.get(a),remainPl.get(b),r);
+      if(r1){
+        const res=r1==='aWin'?'W':r1==='bWin'?'L':'D';
+        const {gf,ga}=genScoreline(res,dominanceAB,r);
+        a.h2hLeague.push({opp:b.playerName,res,gf,ga,isLobbyMatch:true});
+        b.h2hLeague.push({opp:a.playerName,res:flip(res),gf:ga,ga:gf,isLobbyMatch:true});
+      }
+      // Leg 2: b at home
+      const r2=reserveHeadToHead(b,a,remainPl.get(b),remainPl.get(a),r);
+      if(r2){
+        const res=r2==='aWin'?'W':r2==='bWin'?'L':'D';
+        const {gf,ga}=genScoreline(res,-dominanceAB,r);
+        b.h2hLeague.push({opp:a.playerName,res,gf,ga,isLobbyMatch:true});
+        a.h2hLeague.push({opp:b.playerName,res:flip(res),gf:ga,ga:gf,isLobbyMatch:true});
+      }
+      // UCL league phase: 45% chance of one shared meeting, never guaranteed
+      if(r()<0.45){
+        const ru=reserveHeadToHead(a,b,remainUcl.get(a),remainUcl.get(b),r);
+        if(ru){
+          const res=ru==='aWin'?'W':ru==='bWin'?'L':'D';
+          const {gf,ga}=genScoreline(res,dominanceAB,r);
+          a.h2hUcl.push({opp:b.playerName,res,gf,ga,isLobbyMatch:true});
+          b.h2hUcl.push({opp:a.playerName,res:flip(res),gf:ga,ga:gf,isLobbyMatch:true});
+        }
+      }
+    }
+  }
+
   const gradeOf=pts=>pts>=88?'S+':pts>=78?'S':pts>=68?'A+':pts>=58?'A':pts>=47?'B+':pts>=36?'B':pts>=25?'C':pts>=15?'D':'F';
   // Fixture/event generation runs last, after every override and arbitration above has settled
   // each entry's true W/D/L/cup/UCL numbers -- so fixture scorelines always match the trophy cards.
   for(const e of entries){
     const grade=(e.plL===0||e.plPts>=100)?'S++':e.isTreble?'S+':gradeOf(e.plPts);
-    const narrative=buildSeasonNarrative(e.squad, e, r);
+    const narrative=buildSeasonNarrative(e.squad, e, r, e.h2hLeague, e.h2hUcl);
     const simResult={pts:e.plPts,pos:e.finalPos,grade,avg:Math.round(e.avg*10)/10,gf:narrative.plGF,ga:narrative.plGA,ucl:e.uclR,cup:e.cupR,treble:e.isTreble,done:true,
       effectiveAvg:Math.round(e.effectiveAvg*10)/10,plW:e.plW,plD:e.plD,plL:e.plL,uW:e.uW,uD:e.uD,uL:e.uL,uclGamesPlayed:e.uclGamesPlayed,uclLeaguePos:e.uclLeaguePos,cW:e.cW,cL:e.cL,
       uclGf:narrative.uclGF,uclGa:narrative.uclGA,cupGf:narrative.cupGF,cupGa:narrative.cupGA,
