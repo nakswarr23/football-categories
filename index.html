@@ -1182,13 +1182,17 @@ function startSolo() {
 // ══ AUTH ══
 const AUTH = { user:null, profile:null, mode:'signin', pendingAction:null };
 async function initAuth(){
-  const {data:{session}} = await sb.auth.getSession();
-  if (session) await onAuthReady(session.user);
+  // Registered BEFORE getSession() on purpose: supabase-js fires PASSWORD_RECOVERY (from the
+  // token in the emailed reset link's URL) during its own init, which getSession() awaits --
+  // so a listener added after that await has already missed the event. Registering first means
+  // it's live in time to catch it, which is what a "the reset link doesn't work" report traces to.
   sb.auth.onAuthStateChange(async (event, session)=>{
     if (event==='PASSWORD_RECOVERY') { showAuthPanel('newpass'); showStep('step-auth'); }
     else if (event==='SIGNED_IN' && session) await onAuthReady(session.user);
     else if (event==='SIGNED_OUT') { AUTH.user=null; AUTH.profile=null; updateAuthUI(); }
   });
+  const {data:{session}} = await sb.auth.getSession();
+  if (session) await onAuthReady(session.user);
 }
 async function onAuthReady(user){
   AUTH.user = user;
@@ -1781,21 +1785,18 @@ const RED_CLUBS=['Liverpool','Manchester United','Arsenal','AC Milan','Bayern Mu
 const YG_CLUBS=['Borussia Dortmund','Villarreal','Al Nassr','Sporting CP','Norwich'];
 const CAP_CLUBS=['Arsenal','Chelsea','Tottenham Hotspur','Crystal Palace','West Ham','Brentford','Fulham','Atletico Madrid','Real Madrid','Getafe','Rayo Vallecano','AS Roma','Lazio','Paris Saint-Germain','Benfica','Sporting CP','Galatasaray','Fenerbahçe','Inter Miami'];
 const TOP5=['Premier League','La Liga','Serie A','Bundesliga','Ligue 1'];
-// UCL knockout opponent tiers -- reuses the same 12 elite clubs already curated for the
-// "no_big_club" draft category below, so later UCL rounds can realistically skew toward them
-// without a team ever being guaranteed to face one (see weightedOppPicker/genUclFixtures).
-// The actual UCL opponent pool -- every club here genuinely played in the 2024-25 and/or
-// 2025-26 Champions League league phase (cross-checked against Wikipedia's final standings
-// for both seasons) AND exists in this app's live player database, so no team that only plays
-// domestic football (Nottingham Forest, Leeds, Hoffenheim, etc.) can ever show up as a UCL
-// opponent. Clubs that participated but aren't in the DB's supported leagues (e.g. Bodø/Glimt,
-// Qarabağ, PSV, Club Brugge) aren't representable here and are simply left out of the pool.
-const UCL_CLUBS=['Arsenal','Bayern Munich','Liverpool','Tottenham Hotspur','Barcelona','Chelsea','Sporting CP','Manchester City','Real Madrid','Inter','Paris Saint-Germain','Juventus','Atletico Madrid','Atalanta','Bayer Leverkusen','Borussia Dortmund','Galatasaray','Monaco','Benfica','Marseille','Napoli','Eintracht Frankfurt','Villarreal','Lille','Aston Villa','AC Milan','VfB Stuttgart','Bologna','RB Leipzig','Athletic Club'];
-// Elite tier (semis/final skew) and strong tier (early-mid knockout skew) both drawn from
-// UCL_CLUBS -- weighted toward recent top-8 finishers and the specific clubs realistically
-// expected to show up deep in a Champions League run.
+// UCL knockout opponent tiers -- elite (semis/final skew) and strong (early-mid knockout skew)
+// clubs, weighted toward recent top-8 finishers and clubs realistically expected to show up
+// deep in a Champions League run (see weightedOppPicker/genUclFixtures). Deliberately NOT
+// restricted to this app's player DB -- genUclFixtures draws from UCL_STANDINGS_2526 (the same
+// real 36-team field the bracket and standings table use), so a squad's own recorded knockout
+// opponent is always a team that could actually appear opposite it in the bracket. An earlier
+// version kept a separate DB-representable-only club list for this, which is exactly how a
+// team like Aston Villa (not a 2025-26 UCL entrant at all) could show up as a recorded opponent
+// yet never appear anywhere in the bracket itself -- two independently-generated pools
+// disagreeing about which 36 clubs are actually in the competition this season.
 const UCL_ELITE=['Manchester City','Real Madrid','Paris Saint-Germain','Barcelona','Arsenal','Liverpool','Bayern Munich','Inter','Chelsea','Tottenham Hotspur','Bayer Leverkusen'];
-const UCL_STRONG=['Borussia Dortmund','Atletico Madrid','Juventus','Napoli','AC Milan','Atalanta','Monaco','Benfica','Sporting CP','Aston Villa','Lille'];
+const UCL_STRONG=['Borussia Dortmund','Atletico Madrid','Juventus','Napoli','Atalanta','Monaco','Benfica','Sporting CP'];
 function hasTrophy(p,l,pl='Winner'){return(p.trophies||[]).some(t=>t.league===l&&t.place===pl);}
 function hasAnyTitle(p){return TOP5.concat(['Primeira Liga','Eredivisie']).some(l=>hasTrophy(p,l));}
 const ALL_CATS=[
@@ -2798,7 +2799,7 @@ function pickPlayerOfSeason(squad, playerStats, weights){
 // result. Called once per squad, after all trophy overrides/arbitration are settled.
 function buildSeasonNarrative(squad, agg, rnd, h2hLeague, h2hUcl){
   const plPool=getClubPool(['Premier League']);
-  const uclPool=UCL_CLUBS;
+  const uclPool=UCL_STANDINGS_2526;
   const resLeague=h2hLeague||[];
   const remPlW=agg.plW-resLeague.filter(f=>f.res==='W').length;
   const remPlD=agg.plD-resLeague.filter(f=>f.res==='D').length;
@@ -3122,33 +3123,41 @@ function buildUclBracketRounds(realEntries, simOrder){
   const pool=(simOrder&&simOrder.length)?simOrder:UCL_STANDINGS_2526;
   const rankByTeam=new Map(pool.map((t,i)=>[t,i]));
   function rankOf(name){ return rankByTeam.has(name)?rankByTeam.get(name):18; }
-  // Reserve every real entry's own name AND every opponent name they actually recorded (across
-  // every round they played) up front -- those opponent names come from a separate, independent
-  // random process (buildSeasonNarrative), so without this the field build below could
-  // coincidentally reuse a name a real entry already has "locked in" for some round.
-  const used=new Set();
-  realEntries.forEach(e=>{
-    used.add(e.team);
-    (e.knockout||[]).forEach(k=>used.add(k.opp));
-  });
+  // Only reserve each real entry's own name -- NOT their recorded opponents (see resolveTie
+  // below for why). Reserving opponent names too used to mean one used-up pool member got
+  // skipped while filling the field in rank order, which silently shifted every team below it
+  // up a slot (e.g. Man City sliding from a 9th-place Playoff slot into a top-8 Round of 16
+  // slot, or PSV -- really 25th, outside the bracket entirely -- sliding into it).
+  const used=new Set(realEntries.map(e=>e.team));
   // Build the real 24-team knockout field (rank 0-23, i.e. 1st-24th place) from this simulation's
   // own standings order -- a real entry occupies its own actual finishing position; every other
-  // position is filled by the next unused simOrder team. Building this ONCE up front (rather than
-  // drawing flavor names per-tie as rounds are resolved) is what lets the Playoff round below
-  // implement the real UEFA seeded/unseeded mirror rule structurally, and also guarantees no name
-  // can ever be drawn twice across the whole bracket.
+  // rank defaults to that SAME rank's own pool member, preserving everyone's real strength
+  // position. Two passes, deliberately not one combined scan: pass 1 fills every rank whose own
+  // natural pool member is free (the overwhelming majority, order-independent); pass 2 pairs up
+  // whatever ranks and pool members are left over, both still in ascending order, so a collision
+  // -driven substitute always comes from as close to its intended strength position as what
+  // remains -- rather than an iterative nearest-neighbor scan, which (even biased toward already
+  // -settled ranks) can still claim a name a not-yet-processed rank needed for itself, restarting
+  // the same cascading shift one rank later instead of actually stopping it.
   const field=new Array(24).fill(null);
   realEntries.forEach(e=>{
     const rank=Math.round(e.pos)-1;
     if(rank>=0 && rank<24 && !field[rank]) field[rank]={team:e.team, real:e};
   });
-  let oi=0;
+  const emptyRanks=[];
   for(let rank=0; rank<24; rank++){
     if(field[rank]) continue;
-    while(oi<pool.length && used.has(pool[oi])) oi++;
-    const team=oi<pool.length?pool[oi]:pool[Math.floor(Math.random()*pool.length)];
-    used.add(team); oi++;
-    field[rank]={team, real:null};
+    const team=pool[rank];
+    if(team && !used.has(team)){ used.add(team); field[rank]={team, real:null}; }
+    else emptyRanks.push(rank);
+  }
+  if(emptyRanks.length){
+    const leftover=pool.filter(t=>!used.has(t));
+    emptyRanks.forEach((rank,idx)=>{
+      const team=leftover[idx]||`Reserve ${rank+1}`;
+      used.add(team);
+      field[rank]={team, real:null};
+    });
   }
   // ELO-style win probability from the rank gap: the strongest direct qualifier against the
   // weakest playoff side is a heavy favourite (~90%+) but never a lock; closely-ranked sides
@@ -3159,21 +3168,24 @@ function buildUclBracketRounds(realEntries, simOrder){
     return winnerIsA?[wg,lg]:[lg,wg];
   }
   const recordFor=(entry,roundKey)=>entry&&entry.knockout&&entry.knockout.find(k=>k.round===roundKey);
-  // Resolves one tie between two {team,real} sides for a given round: if either side is a real
-  // entry with an actual recorded result for this round, that result is authoritative (their
-  // real opponent replaces whatever the other side's field/flavor identity would otherwise be);
-  // otherwise it's a rank-weighted flavor result between the two sides as given.
+  // Resolves one tie between two {team,real} sides for a given round. If either side is a real
+  // entry with an actual recorded result for this round, that result is authoritative for THEIR
+  // OWN outcome (win/loss and scoreline) -- but the opponent shown is always the natural other
+  // side already sitting in the bracket, never the name from that entry's own independently
+  // -generated fixture log. Trusting that name instead used to let an already-eliminated (or
+  // never-placed) team like Bayern Munich get spliced into the Final in place of whichever team
+  // had actually just won the other semi-final, because the two are generated independently and
+  // have no reason to agree on who anyone's opponent was beyond round one.
   function resolveTie(sideA, sideB, roundKey){
     const featured = (sideA.real && recordFor(sideA.real,roundKey)) ? sideA.real
                     : (sideB.real && recordFor(sideB.real,roundKey)) ? sideB.real : null;
     if(featured){
       const rec=recordFor(featured,roundKey);
       const gf=rec.legs.reduce((x,l)=>x+l.gf,0), ga=rec.legs.reduce((x,l)=>x+l.ga,0);
-      used.add(rec.opp);
       const aIsFeatured=featured===sideA.real;
-      const winner=rec.won?{team:featured.team,real:featured}:{team:rec.opp,real:null};
+      const winner=rec.won?{team:featured.team,real:featured}:(aIsFeatured?sideB:sideA);
       return {
-        a: aIsFeatured?featured.team:rec.opp, b: aIsFeatured?rec.opp:featured.team,
+        a: sideA.team, b: sideB.team,
         aWon: aIsFeatured?rec.won:!rec.won,
         scoreA: aIsFeatured?gf:ga, scoreB: aIsFeatured?ga:gf,
         winner
@@ -3191,21 +3203,10 @@ function buildUclBracketRounds(realEntries, simOrder){
   // ── Knockout Playoff (8 ties): real UEFA mirror pairing -- each seeded pair (9/10, 11/12,
   // 13/14, 15/16) is drawn against a FIXED unseeded pair (23/24, 21/22, 19/20, 17/18
   // respectively); only which specific seeded side meets which specific unseeded side within
-  // that pair is actually drawn (a coin flip), matching the real regulation exactly.
+  // that pair is actually drawn (a coin flip), matching the real regulation exactly. A direct
+  // qualifier (rank 0-7) never appears here even if they have no Playoff record of their own --
+  // resolveTie above only needs their Round of 16 record to pick them back up correctly there.
   {
-    // A direct qualifier (rank 0-7) can have a Round of 16 record with no Playoff record of
-    // their own (they skip the playoff by definition) -- the playoff tie at their rank-matched
-    // slot never involves them, but its winner must still equal their real R16 opponent so the
-    // bracket stays coherent once that round is reached.
-    const forcedWinner=new Array(8).fill(null);
-    for(let rank=0; rank<8; rank++){
-      const entry=field[rank].real;
-      const r16rec=entry && recordFor(entry,'Round of 16');
-      if(r16rec && !recordFor(entry,'Knockout Playoff')){
-        used.add(r16rec.opp);
-        forcedWinner[rank]={team:r16rec.opp, real:null};
-      }
-    }
     const quadrants=[{seeded:[8,9],unseeded:[22,23]},{seeded:[10,11],unseeded:[20,21]},
       {seeded:[12,13],unseeded:[18,19]},{seeded:[14,15],unseeded:[16,17]}];
     const ties=new Array(8);
@@ -3215,16 +3216,9 @@ function buildUclBracketRounds(realEntries, simOrder){
       const pairing=[[field[q.seeded[0]], swap?u[1]:u[0]], [field[q.seeded[1]], swap?u[0]:u[1]]];
       pairing.forEach(([sideA,sideB],pi)=>{
         const slot=qi*2+pi;
-        if(forcedWinner[slot]){
-          const forced=forcedWinner[slot];
-          const [scoreA,scoreB]=scoreFor(false);
-          ties[slot]={a:sideA.team, b:forced.team, aWon:false, scoreA, scoreB};
-          incoming[slot]=forced;
-        } else {
-          const tie=resolveTie(sideA, sideB, 'Knockout Playoff');
-          ties[slot]={a:tie.a, b:tie.b, aWon:tie.aWon, scoreA:tie.scoreA, scoreB:tie.scoreB};
-          incoming[slot]=tie.winner;
-        }
+        const tie=resolveTie(sideA, sideB, 'Knockout Playoff');
+        ties[slot]={a:tie.a, b:tie.b, aWon:tie.aWon, scoreA:tie.scoreA, scoreB:tie.scoreB};
+        incoming[slot]=tie.winner;
       });
     });
     rounds.push({round:'Knockout Playoff', ties});
