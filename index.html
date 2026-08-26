@@ -2440,6 +2440,18 @@ function biasUclPosForRound(uclR, rnd){
   if(uclR==='Knockout Playoff') return clamp(Math.round(9+rnd()*15),9,24);
   return clamp(Math.round(1+rnd()*23),1,24);
 }
+// Realistic league-phase W/D/L for an 8-game Champions League league phase, given a real final
+// standings position (1-36) -- used to regenerate a real entry's own stats whenever their
+// position gets resampled (see biasUclPosForRound), so the claimed position always has genuinely
+// matching stats behind it rather than leftover numbers from whatever position was rolled before
+// the resample. deriveWDL (defined further down, but hoisted) solves the exact w/d/l split
+// instead of rounding two independent values and hoping they add up to the target.
+function uclLeaguePhaseStats(pos, rnd){
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  const targetPts=clamp(Math.round(24-(pos-1)*0.63+(rnd()-0.5)*3),0,24);
+  const {w,d,l}=deriveWDL(targetPts, 8, rnd);
+  return {w,d,l,pts:w*3+d};
+}
 // Solo-only: guarantee-deep-run / guarantee-early-exit overrides + treble, layered on top of the
 // natural aggregate above. Multiplayer uses cross-player arbitration instead (see hostComputeSharedSeason).
 function applySoloTierOverrides(agg, rnd){
@@ -2484,8 +2496,18 @@ function applySoloTierOverrides(agg, rnd){
   // how deep the run actually went: Champions League winners overwhelmingly finish in the top
   // few spots, with only occasional deeper-seed Cinderella runs, tapering off for earlier exits.
   uclLeaguePos=biasUclPosForRound(uclR, rnd);
+  // Keep the league-phase W/D/L honest for whatever position was just resampled -- otherwise the
+  // claimed position (trophy card, campaign stats, standings table) could describe a finish the
+  // underlying stats never actually earned, and a points-sort of the standings table could show
+  // a completely different rank than the one being claimed elsewhere on the page.
+  {
+    const koW=Math.max(0,uW-leagueOnlyW), koD=Math.max(0,uD-leagueOnlyD), koL=Math.max(0,uL-leagueOnlyL);
+    const nl=uclLeaguePhaseStats(uclLeaguePos, rnd);
+    leagueOnlyW=nl.w; leagueOnlyD=nl.d; leagueOnlyL=nl.l;
+    uW=leagueOnlyW+koW; uD=leagueOnlyD+koD; uL=leagueOnlyL+koL;
+  }
 
-  return {...agg, uclR, uW, uD, uL, uclGamesPlayed, uclLeaguePos, cupR, cW, cL, plPts, isTreble, finalPosTreble};
+  return {...agg, uclR, uW, uD, uL, uclGamesPlayed, uclLeaguePos, leagueOnlyW, leagueOnlyD, leagueOnlyL, cupR, cW, cL, plPts, isTreble, finalPosTreble};
 }
 
 // ── Fixture/opponent generation ──
@@ -2771,15 +2793,24 @@ function renderResultsCalendar(fixtures){
 // this exact order -- Hull City first (solo/1-player games only ever drop this one), Nottingham
 // Forest last (only dropped once a lobby is completely full).
 const PL_REPLACEMENT_ORDER=['Hull City','Ipswich Town','Coventry City','Leeds United','Crystal Palace','Brentford','Fulham','Nottingham Forest'];
-// Real strength order for the 2026/27 pool: the 17 clubs remaining in the Prem after research
-// confirmed West Ham/Burnley/Wolves as the real 2025/26 relegated three, ranked by their real
-// final 2025/26 position (Arsenal champions down to Tottenham 17th), then the 3 real promoted
-// Championship sides (Coventry, Ipswich, Hull, in their real promotion order) at the bottom.
-// This is a strength PRIOR for plSimulatedOrder() below -- like UCL_STANDINGS_2526, it is never
-// used as literal per-simulation stats, only as an input to a jittered per-sim finishing order.
-const PL_STRENGTH_2627=['Arsenal','Manchester City','Manchester United','Aston Villa','Liverpool','Bournemouth',
-  'Sunderland','Brighton','Brentford','Chelsea','Fulham','Newcastle United','Everton','Leeds United',
-  'Crystal Palace','Nottingham Forest','Tottenham Hotspur','Coventry City','Ipswich Town','Hull City'];
+// Strength order for the 2026/27 pool, ranked by actual squad ability (average rating of each
+// club's top 16 players in this app's own DB) rather than last season's real final position.
+// A team's most recent finish and its true squad quality are two different things -- e.g. real
+// 2024-25 Tottenham finished 17th (38 points, nearly relegated) in a season wrecked by injuries
+// and rotation, while their squad's actual player quality was clearly much higher than a
+// bottom-third side (they won the Europa League the same season). Ranking clubs by rating
+// instead means a squad like that is treated as the good side it actually is, with room for a
+// bad season to be an upset rather than the assumed baseline. The 17 clubs continuing in the
+// Prem are ordered by that computed average (Arsenal 85.2 down to Leeds 76.8); the 3 real
+// promoted Championship sides (Coventry, Ipswich, Hull) sit at the bottom since two of them
+// have no players in this DB to rate -- Ipswich's own computed average (71.9) anchors that
+// tier, with Coventry (won the Championship comfortably) and Hull (came up via the play-offs)
+// placed just above and below it. This is a strength PRIOR for plSimulatedOrder() below -- like
+// UCL_STANDINGS_2526, it is never used as literal per-simulation stats, only as an input to a
+// jittered per-sim finishing order.
+const PL_STRENGTH_2627=['Arsenal','Manchester City','Liverpool','Chelsea','Newcastle United','Aston Villa',
+  'Tottenham Hotspur','Manchester United','Crystal Palace','Bournemouth','Nottingham Forest','Brighton',
+  'Everton','Fulham','Brentford','Sunderland','Leeds United','Coventry City','Ipswich Town','Hull City'];
 // Same jittered-reorder trick as uclSimulatedOrder() -- small noise near the top (title race is
 // fairly stable year to year), much wider noise toward the bottom (relegation/mid-table form is
 // far less predictable), so each simulation gets a plausible-but-different table instead of
@@ -2854,21 +2885,7 @@ async function renderLeagueTable(data){
   const n=clamp(realEntries.length,1,PL_REPLACEMENT_ORDER.length);
   const removed=new Set(PL_REPLACEMENT_ORDER.slice(0,n));
   const order=plSimulatedOrder().filter(c=>!removed.has(c));
-  const rows=[];
-  let oi=0;
-  for(let pos=1; pos<=20; pos++){
-    const real=realEntries.find(e=>e.pos===pos);
-    if(real){ rows.push({team:real.team, me:real.me, w:real.w, d:real.d, l:real.l, gf:real.gf, ga:real.ga, pts:real.pts}); continue; }
-    const targetPts=Math.round(95-pos*3.6+(rnd()-0.5)*6);
-    const w=clamp(Math.round((targetPts-8)/2.6+(rnd()-0.5)*3),0,32);
-    const d=clamp(Math.round(rnd()*6+2),0,Math.max(0,14-Math.max(0,w-24)));
-    const l=Math.max(0,38-w-d);
-    const pts=w*3+d;
-    const gf=Math.round(30+(38-pos)*1.5+rnd()*10), ga=Math.round(30+pos*1.4+rnd()*10);
-    rows.push({team:order[oi%order.length], me:false, w, d, l, gf, ga, pts});
-    oi++;
-  }
-  rows.sort((a,b)=>b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga));
+  const rows=buildPlStandingsRows(realEntries, order, rnd);
   tblPageInit('pl', rows);
 }
 
@@ -2949,6 +2966,74 @@ async function getUclRealEntries(data){
   }
   return entries;
 }
+// Splits a fixed points total into a plausible {w,d,l} over `games` matches, solved exactly
+// (w*3+d===pts always) rather than rounding w and d independently and hoping they add up --
+// that drift was exactly what let a row's actual points slip outside its intended bound.
+function deriveWDL(pts, games, rnd){
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  const wMin=Math.max(0, Math.ceil((pts-games)/2));
+  const wMax=Math.min(games, Math.floor(pts/3));
+  const w=wMin>=wMax ? wMax : wMin+Math.floor(rnd()*(wMax-wMin+1));
+  const d=clamp(pts-3*w,0,games-w);
+  const l=games-w-d;
+  return {w,d,l};
+}
+// Shared by both the Premier League table and the Champions League standings table: builds a
+// full standings table with a GUARANTEE that sorting by points reproduces exactly the position
+// each row was generated for. Real entries are anchored at their exact claimed position first;
+// filler rows are then generated position-by-position with points explicitly bounded between
+// neighbors (never exceeding the row above, never undercutting the next real anchor below).
+// Independently-random points per row (the previous approach, for both tables) looked fine in
+// isolation but could easily invert rank once two adjacent positions' ranges overlapped -- this
+// removes that entirely by construction rather than hoping the random rolls sort correctly.
+function buildStandingsRows(realEntries, order, rnd, totalRows, games, maxPts, targetPtsFor, gfGaFor){
+  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  const rows=new Array(totalRows);
+  realEntries.forEach(e=>{
+    const pos=clamp(Math.round(e.pos),1,totalRows);
+    if(!rows[pos-1]) rows[pos-1]={team:e.team, me:e.me, w:e.w, d:e.d, l:e.l, gf:e.gf, ga:e.ga, pts:e.pts};
+  });
+  const usedTeams=new Set(rows.filter(Boolean).map(r=>r.team));
+  let oi=0;
+  function nextTeam(){
+    let tries=0;
+    while(usedTeams.has(order[oi%order.length]) && tries<order.length){ oi++; tries++; }
+    const team=order[oi%order.length]; oi++; usedTeams.add(team);
+    return team;
+  }
+  let ceiling=maxPts+1; // one above the max possible -- no row may exceed this
+  for(let pos=1; pos<=totalRows; pos++){
+    const idx=pos-1;
+    if(rows[idx]){ ceiling=rows[idx].pts; continue; }
+    let floor=0;
+    for(let look=idx+1; look<totalRows; look++){ if(rows[look]){ floor=rows[look].pts; break; } }
+    const pts=clamp(Math.round(targetPtsFor(pos,rnd)), floor, Math.min(maxPts,ceiling));
+    const {w,d,l}=deriveWDL(pts, games, rnd);
+    const {gf,ga}=gfGaFor(pos,rnd);
+    rows[idx]={team:nextTeam(), me:false, w, d, l, gf, ga, pts};
+    ceiling=pts;
+  }
+  return rows;
+}
+function buildUclStandingsRows(realEntries, order, rnd){
+  return buildStandingsRows(realEntries, order, rnd, 36, 8, 24,
+    pos=>24-(pos-1)*0.63+(rnd()-0.5)*2,
+    pos=>({gf:Math.round(7+(36-pos)*0.44+rnd()*6), ga:Math.round(6+pos*0.44+rnd()*6)}));
+}
+// Real average points by final position, averaged across four actual Premier League seasons
+// (2022-23 through 2025-26, sourced from their final tables) -- e.g. real title-winners have
+// ranged 84-91 points across these seasons (avg ~87), real 20th has ranged 12-25 (avg ~18).
+// Season-to-season variance also isn't uniform: the top few places are relatively stable year to
+// year, while the relegation zone swings wildly (one team's 20th-place finish might be 12 points,
+// another season's might be 25) -- PL_POS_JITTER below widens accordingly, so filler rows lower
+// in the table show realistically more season-to-season variety, not just lower points.
+const PL_AVG_PTS_BY_POS=[87,81,75,68,65,62,60,59,55,52,50,49,46,44,42,41,37,31,25,18];
+const PL_POS_JITTER=[3,3,4,4,4,5,5,5,5,5,6,6,6,6,6,6,7,8,8,8];
+function buildPlStandingsRows(realEntries, order, rnd){
+  return buildStandingsRows(realEntries, order, rnd, 20, 38, 95,
+    pos=>PL_AVG_PTS_BY_POS[pos-1]+(rnd()-0.5)*2*PL_POS_JITTER[pos-1],
+    pos=>({gf:Math.round(30+(38-pos)*1.5+rnd()*10), ga:Math.round(30+pos*1.4+rnd()*10)}));
+}
 async function renderUclSection(data){
   const tblGrid=el('res-ucl-table'), bracketGrid=el('res-ucl-bracket');
   if(!tblGrid && !bracketGrid) return;
@@ -2961,23 +3046,7 @@ async function renderUclSection(data){
     const n=clamp(realEntries.length,1,UCL_REPLACEMENT_ORDER.length);
     const removed=new Set(UCL_REPLACEMENT_ORDER.slice(0,n));
     const order=simOrder.filter(t=>!removed.has(t));
-    const rows=[];
-    let oi=0;
-    for(let pos=1; pos<=36; pos++){
-      const real=realEntries.find(e=>e.pos===pos);
-      if(real){ rows.push({team:real.team, me:real.me, w:real.w, d:real.d, l:real.l, gf:real.gf, ga:real.ga, pts:real.pts}); continue; }
-      // Position-based procedural stats (same approach as the Premier League table's filler
-      // rows above), scaled to an 8-game league phase instead of a 38-game league season.
-      const targetPts=clamp(Math.round(24-(pos-1)*0.63+(rnd()-0.5)*3),0,24);
-      const w=clamp(Math.round(targetPts/2.9+(rnd()-0.5)*1),0,8);
-      const d=clamp(Math.round(rnd()*2),0,8-w);
-      const l=8-w-d;
-      const pts=w*3+d;
-      const gf=Math.round(7+(36-pos)*0.44+rnd()*6), ga=Math.round(6+pos*0.44+rnd()*6);
-      rows.push({team:order[oi%order.length], me:false, w, d, l, gf, ga, pts});
-      oi++;
-    }
-    rows.sort((a,b)=>b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga));
+    const rows=buildUclStandingsRows(realEntries, order, rnd);
     tblPageInit('ucl', rows);
   }
 
@@ -3008,25 +3077,31 @@ function buildUclBracketRounds(realEntries, simOrder){
   function rankOf(name){ return rankByTeam.has(name)?rankByTeam.get(name):18; }
   // Reserve every real entry's own name AND every opponent name they actually recorded (across
   // every round they played) up front -- those opponent names come from a separate, independent
-  // random process (buildSeasonNarrative), so without this a flavor draw elsewhere in the tree
-  // could coincidentally reuse a name a real entry already has "locked in" for some round,
-  // producing the same team appearing in two unrelated ties.
+  // random process (buildSeasonNarrative), so without this the field build below could
+  // coincidentally reuse a name a real entry already has "locked in" for some round.
   const used=new Set();
   realEntries.forEach(e=>{
     used.add(e.team);
     (e.knockout||[]).forEach(k=>used.add(k.opp));
   });
-  // rankStart/rankSpan bound the draw to a real tier: 0-7 for direct qualifiers, 8-23 for the
-  // Playoff pool -- so a flavor team's rank always matches the tier it's actually drawn for.
-  function draw(rankStart,rankSpan){
-    for(let t=0;t<50;t++){
-      const idx=clamp(Math.round(rankStart+Math.random()*rankSpan),0,pool.length-1);
-      if(!used.has(pool[idx])){ used.add(pool[idx]); return {name:pool[idx], rank:idx}; }
-    }
-    const idx=pool.findIndex(nm=>!used.has(nm));
-    const name=idx>=0?pool[idx]:pool[Math.floor(Math.random()*pool.length)];
-    used.add(name);
-    return {name, rank:idx>=0?idx:18};
+  // Build the real 24-team knockout field (rank 0-23, i.e. 1st-24th place) from this simulation's
+  // own standings order -- a real entry occupies its own actual finishing position; every other
+  // position is filled by the next unused simOrder team. Building this ONCE up front (rather than
+  // drawing flavor names per-tie as rounds are resolved) is what lets the Playoff round below
+  // implement the real UEFA seeded/unseeded mirror rule structurally, and also guarantees no name
+  // can ever be drawn twice across the whole bracket.
+  const field=new Array(24).fill(null);
+  realEntries.forEach(e=>{
+    const rank=Math.round(e.pos)-1;
+    if(rank>=0 && rank<24 && !field[rank]) field[rank]={team:e.team, real:e};
+  });
+  let oi=0;
+  for(let rank=0; rank<24; rank++){
+    if(field[rank]) continue;
+    while(oi<pool.length && used.has(pool[oi])) oi++;
+    const team=oi<pool.length?pool[oi]:pool[Math.floor(Math.random()*pool.length)];
+    used.add(team); oi++;
+    field[rank]={team, real:null};
   }
   // ELO-style win probability from the rank gap: the strongest direct qualifier against the
   // weakest playoff side is a heavy favourite (~90%+) but never a lock; closely-ranked sides
@@ -3036,71 +3111,105 @@ function buildUclBracketRounds(realEntries, simOrder){
     const wg=1+Math.floor(Math.random()*4), lg=Math.max(0,wg-1-Math.floor(Math.random()*3));
     return winnerIsA?[wg,lg]:[lg,wg];
   }
-  const slotEntry=s=>s<realEntries.length?realEntries[s]:null;
   const recordFor=(entry,roundKey)=>entry&&entry.knockout&&entry.knockout.find(k=>k.round===roundKey);
+  // Resolves one tie between two {team,real} sides for a given round: if either side is a real
+  // entry with an actual recorded result for this round, that result is authoritative (their
+  // real opponent replaces whatever the other side's field/flavor identity would otherwise be);
+  // otherwise it's a rank-weighted flavor result between the two sides as given.
+  function resolveTie(sideA, sideB, roundKey){
+    const featured = (sideA.real && recordFor(sideA.real,roundKey)) ? sideA.real
+                    : (sideB.real && recordFor(sideB.real,roundKey)) ? sideB.real : null;
+    if(featured){
+      const rec=recordFor(featured,roundKey);
+      const gf=rec.legs.reduce((x,l)=>x+l.gf,0), ga=rec.legs.reduce((x,l)=>x+l.ga,0);
+      used.add(rec.opp);
+      const aIsFeatured=featured===sideA.real;
+      const winner=rec.won?{team:featured.team,real:featured}:{team:rec.opp,real:null};
+      return {
+        a: aIsFeatured?featured.team:rec.opp, b: aIsFeatured?rec.opp:featured.team,
+        aWon: aIsFeatured?rec.won:!rec.won,
+        scoreA: aIsFeatured?gf:ga, scoreB: aIsFeatured?ga:gf,
+        winner
+      };
+    }
+    const rankA=rankOf(sideA.team), rankB=rankOf(sideB.team);
+    const aWon=Math.random()<pWin(rankA,rankB);
+    const [scoreA,scoreB]=scoreFor(aWon);
+    return {a:sideA.team, b:sideB.team, aWon, scoreA, scoreB, winner: aWon?sideA:sideB};
+  }
 
-  const roundsDef=[
-    {key:'Knockout Playoff', ties:8, span:1},
-    {key:'Round of 16',      ties:8, span:1},
-    {key:'Quarter-finals',   ties:4, span:2},
-    {key:'Semi-finals',      ties:2, span:4},
-    {key:'Final',            ties:1, span:8}
-  ];
-  let incoming=new Array(8).fill(null), incomingRank=new Array(8).fill(18);
   const rounds=[];
+  let incoming=new Array(8).fill(null); // {team,real} per slot, feeding into the next round
 
-  roundsDef.forEach((r,ri)=>{
-    const ties=[];
-    const nextIncoming=new Array(8).fill(null), nextRank=new Array(8).fill(18);
+  // ── Knockout Playoff (8 ties): real UEFA mirror pairing -- each seeded pair (9/10, 11/12,
+  // 13/14, 15/16) is drawn against a FIXED unseeded pair (23/24, 21/22, 19/20, 17/18
+  // respectively); only which specific seeded side meets which specific unseeded side within
+  // that pair is actually drawn (a coin flip), matching the real regulation exactly.
+  {
+    // A direct qualifier (rank 0-7) can have a Round of 16 record with no Playoff record of
+    // their own (they skip the playoff by definition) -- the playoff tie at their rank-matched
+    // slot never involves them, but its winner must still equal their real R16 opponent so the
+    // bracket stays coherent once that round is reached.
+    const forcedWinner=new Array(8).fill(null);
+    for(let rank=0; rank<8; rank++){
+      const entry=field[rank].real;
+      const r16rec=entry && recordFor(entry,'Round of 16');
+      if(r16rec && !recordFor(entry,'Knockout Playoff')){
+        used.add(r16rec.opp);
+        forcedWinner[rank]={team:r16rec.opp, real:null};
+      }
+    }
+    const quadrants=[{seeded:[8,9],unseeded:[22,23]},{seeded:[10,11],unseeded:[20,21]},
+      {seeded:[12,13],unseeded:[18,19]},{seeded:[14,15],unseeded:[16,17]}];
+    const ties=new Array(8);
+    quadrants.forEach((q,qi)=>{
+      const swap=Math.random()<0.5;
+      const u=[field[q.unseeded[0]], field[q.unseeded[1]]];
+      const pairing=[[field[q.seeded[0]], swap?u[1]:u[0]], [field[q.seeded[1]], swap?u[0]:u[1]]];
+      pairing.forEach(([sideA,sideB],pi)=>{
+        const slot=qi*2+pi;
+        if(forcedWinner[slot]){
+          const forced=forcedWinner[slot];
+          const [scoreA,scoreB]=scoreFor(false);
+          ties[slot]={a:sideA.team, b:forced.team, aWon:false, scoreA, scoreB};
+          incoming[slot]=forced;
+        } else {
+          const tie=resolveTie(sideA, sideB, 'Knockout Playoff');
+          ties[slot]={a:tie.a, b:tie.b, aWon:tie.aWon, scoreA:tie.scoreA, scoreB:tie.scoreB};
+          incoming[slot]=tie.winner;
+        }
+      });
+    });
+    rounds.push({round:'Knockout Playoff', ties});
+  }
+
+  // ── Round of 16 (8 ties): the 8 direct qualifiers (ranks 1st-8th) each face a Playoff winner.
+  {
+    const ties=new Array(8);
+    const nextIncoming=new Array(8).fill(null);
+    for(let rank=0; rank<8; rank++){
+      const tie=resolveTie(field[rank], incoming[rank], 'Round of 16');
+      ties[rank]={a:tie.a, b:tie.b, aWon:tie.aWon, scoreA:tie.scoreA, scoreB:tie.scoreB};
+      nextIncoming[rank]=tie.winner;
+    }
+    rounds.push({round:'Round of 16', ties});
+    incoming=nextIncoming;
+  }
+
+  // ── Quarter-finals, Semi-finals, Final: each round combines adjacent winners from the last.
+  [{key:'Quarter-finals',ties:4,span:2},{key:'Semi-finals',ties:2,span:4},{key:'Final',ties:1,span:8}].forEach(r=>{
+    const ties=new Array(r.ties);
+    const nextIncoming=new Array(8).fill(null);
     for(let t=0;t<r.ties;t++){
       const slotStart=t*r.span;
-      let featured=null;
-      for(let s=slotStart;s<slotStart+r.span;s++){ if(recordFor(slotEntry(s),r.key)){ featured=slotEntry(s); break; } }
-      let a,b,aWon,scoreA,scoreB;
-      if(featured){
-        const rec=recordFor(featured,r.key);
-        const gf=rec.legs.reduce((x,l)=>x+l.gf,0), ga=rec.legs.reduce((x,l)=>x+l.ga,0);
-        used.add(rec.opp);
-        a=featured.team; b=rec.opp; aWon=rec.won; scoreA=gf; scoreB=ga;
-        const winnerName=rec.won?featured.team:rec.opp, winnerRank=rankOf(winnerName);
-        for(let s=slotStart;s<slotStart+r.span;s++){ nextIncoming[s]=winnerName; nextRank[s]=winnerRank; }
-      } else if(ri===0){
-        const entry=slotEntry(slotStart);
-        const nextRec=recordFor(entry,'Round of 16');
-        if(entry && nextRec){
-          // This slot's real entry is a direct qualifier (skips the playoff) -- the playoff tie
-          // shown here is pure flavor, but its winner MUST equal the entry's known R16 opponent
-          // so the bracket stays coherent once we reach that round.
-          const forced=nextRec.opp; used.add(forced);
-          const flavor=draw(8,15);
-          a=flavor.name; b=forced; aWon=false;
-          [scoreA,scoreB]=scoreFor(false);
-          nextIncoming[slotStart]=forced; nextRank[slotStart]=rankOf(forced);
-        } else {
-          const da=draw(8,15), db=draw(8,15); // Playoff pool: ranks 9th-24th
-          aWon=Math.random()<pWin(da.rank,db.rank);
-          [scoreA,scoreB]=scoreFor(aWon);
-          a=da.name; b=db.name;
-          nextIncoming[slotStart]=aWon?a:b; nextRank[slotStart]=aWon?da.rank:db.rank;
-        }
-      } else if(ri===1){
-        const da=draw(0,7); // Direct qualifier: ranks 1st-8th
-        a=da.name; b=incoming[slotStart];
-        aWon=Math.random()<pWin(da.rank,incomingRank[slotStart]);
-        [scoreA,scoreB]=scoreFor(aWon);
-        nextIncoming[slotStart]=aWon?a:b; nextRank[slotStart]=aWon?da.rank:incomingRank[slotStart];
-      } else {
-        a=incoming[slotStart]; b=incoming[slotStart+r.span/2];
-        const rA=incomingRank[slotStart], rB=incomingRank[slotStart+r.span/2];
-        aWon=Math.random()<pWin(rA,rB);
-        [scoreA,scoreB]=scoreFor(aWon);
-        for(let s=slotStart;s<slotStart+r.span;s++){ nextIncoming[s]=aWon?a:b; nextRank[s]=aWon?rA:rB; }
-      }
-      ties.push({a,b,aWon,scoreA,scoreB});
+      const tie=resolveTie(incoming[slotStart], incoming[slotStart+r.span/2], r.key);
+      ties[t]={a:tie.a, b:tie.b, aWon:tie.aWon, scoreA:tie.scoreA, scoreB:tie.scoreB};
+      for(let s=slotStart;s<slotStart+r.span;s++) nextIncoming[s]=tie.winner;
     }
     rounds.push({round:r.key, ties});
-    incoming=nextIncoming; incomingRank=nextRank;
+    incoming=nextIncoming;
   });
+
   return rounds;
 }
 // Renders buildUclBracketRounds' output as a connecting-line tree: Round of 16 ties form the
@@ -3591,8 +3700,17 @@ async function hostComputeSharedSeason(){
     }
   });
   // uclR is only just finalized above -- resample each entry's league-phase position to
-  // correlate with it (see biasUclPosForRound), same as the solo path.
-  entries.forEach(e=>{ e.uclLeaguePos=biasUclPosForRound(e.uclR, r); });
+  // correlate with it (see biasUclPosForRound), same as the solo path. The league-phase W/D/L
+  // then gets regenerated to match that position too (see uclLeaguePhaseStats) -- otherwise the
+  // claimed position could describe a finish the stats never earned, and the standings table's
+  // points-sort could show a different rank than what's claimed elsewhere on the page.
+  entries.forEach(e=>{
+    e.uclLeaguePos=biasUclPosForRound(e.uclR, r);
+    const koW=Math.max(0,e.uW-e.leagueOnlyW), koD=Math.max(0,e.uD-e.leagueOnlyD), koL=Math.max(0,e.uL-e.leagueOnlyL);
+    const nl=uclLeaguePhaseStats(e.uclLeaguePos, r);
+    e.leagueOnlyW=nl.w; e.leagueOnlyD=nl.d; e.leagueOnlyL=nl.l;
+    e.uW=e.leagueOnlyW+koW; e.uD=e.leagueOnlyD+koD; e.uL=e.leagueOnlyL+koL;
+  });
 
   // A treble emerges naturally if the same entry topped the league, won the cup, AND the UCL --
   // no separate roll needed, it just falls out of the three arbitrations above.
