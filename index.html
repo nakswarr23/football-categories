@@ -1803,128 +1803,96 @@ function hasTrophy(p,l,pl='Winner'){return(p.trophies||[]).some(t=>t.league===l&
 function hasAnyTitle(p){return TOP5.concat(['Primeira Liga','Eredivisie']).some(l=>hasTrophy(p,l));}
 const ALL_CATS=[
   {id:'ucl_w',label:'UCL winner',type:'trophy',fn:p=>hasTrophy(p,'UEFA Champions League')},
-  {id:'no_ucl',label:'No UCL winner',type:'trophy',fn:p=>!hasTrophy(p,'UEFA Champions League')},
+  {id:'no_ucl',label:'Never won the UCL',type:'trophy',fn:p=>!hasTrophy(p,'UEFA Champions League')},
   {id:'wc_w',label:'World Cup winner',type:'trophy',fn:p=>hasTrophy(p,'FIFA World Cup')},
-  {id:'no_wc',label:'No World Cup winner',type:'trophy',fn:p=>!hasTrophy(p,'FIFA World Cup')},
   {id:'uel_w',label:'Europa League winner',type:'trophy',fn:p=>hasTrophy(p,'UEFA Europa League')},
   {id:'pl_w',label:'Premier League winner',type:'trophy',fn:p=>hasTrophy(p,'Premier League')},
-  {id:'ll_w',label:'La Liga winner',type:'trophy',fn:p=>hasTrophy(p,'La Liga')},
   {id:'sa_w',label:'Serie A winner',type:'trophy',fn:p=>hasTrophy(p,'Serie A')},
-  {id:'bl_w',label:'Bundesliga winner',type:'trophy',fn:p=>hasTrophy(p,'Bundesliga')},
-  {id:'l1_w',label:'Ligue 1 winner',type:'trophy',fn:p=>hasTrophy(p,'Ligue 1')},
   {id:'no_title',label:'No domestic title',type:'trophy',fn:p=>!hasAnyTitle(p)},
   {id:'copa_w',label:'Copa América winner',type:'trophy',fn:p=>hasTrophy(p,'CONMEBOL Copa America')},
   {id:'euro_w',label:'Euro winner',type:'trophy',fn:p=>hasTrophy(p,'UEFA European Championship')},
   {id:'ucl_wc',label:'UCL + World Cup winner',type:'trophy',fn:p=>hasTrophy(p,'UEFA Champions League')&&hasTrophy(p,'FIFA World Cup')},
-  {id:'cwc_w',label:'Club World Cup winner',type:'trophy',fn:p=>hasTrophy(p,'FIFA Club World Cup')||hasTrophy(p,'FIFA Intercontinental Cup')},
-  {id:'bra',label:'Brazilian player',type:'nat',fn:p=>p.nationality==='Brazil'},
   {id:'afr',label:'African player',type:'nat',fn:p=>AFRICAN_NATIONS.includes(p.nationality)},
-  {id:'ned',label:'Dutch player',type:'nat',fn:p=>p.nationality==='Netherlands'},
   {id:'asi_nam',label:'Asian or North American',type:'nat',fn:p=>ASIAN_NATIONS.includes(p.nationality)||NA_NATIONS.includes(p.nationality)},
+  // Pending a real fix: this currently checks the player's NATIONALITY against the list of
+  // countries that qualified for the 2026 World Cup, so e.g. an England player who was never
+  // called up (Palmer, Foden) still reads as "made it" just because England qualified. A correct
+  // per-player check needs each squad's actual 26-man roster -- waiting on that list.
   {id:'no_wc26',label:'Missed 2026 World Cup',type:'nat',fn:p=>!WC2026.includes(p.nationality)},
   {id:'bl',label:'Bundesliga player',type:'league',leagueRef:'Bundesliga',fn:p=>p.league==='Bundesliga'},
   {id:'spl',label:'Saudi Pro League player',type:'league',leagueRef:'Saudi Pro League',fn:p=>p.league==='Saudi Pro League'},
   {id:'pl1',label:'Primeira Liga player',type:'league',leagueRef:'Primeira Liga',fn:p=>p.league==='Primeira Liga'},
   {id:'mls',label:'MLS player',type:'league',leagueRef:'MLS',fn:p=>p.league==='MLS'},
   {id:'no_big5',label:'Outside Big 5 leagues',type:'league',fn:p=>!TOP5.includes(p.league)},
-  {id:'blue_cl',label:'Blue club player',type:'club',fn:p=>BLUE_CLUBS.some(c=>p.team===c||p.team.includes(c))},
-  {id:'red_cl',label:'Red club player',type:'club',fn:p=>RED_CLUBS.some(c=>p.team===c||p.team.includes(c))},
-  {id:'yg_cl',label:'Yellow or green club',type:'club',fn:p=>YG_CLUBS.some(c=>p.team===c||p.team.includes(c))},
   {id:'capital',label:'Capital city club',type:'club',fn:p=>CAP_CLUBS.some(c=>p.team===c||p.team.includes(c))},
-  {id:'lfc',label:'Current Liverpool player',type:'club',leagueRef:'Premier League',fn:p=>p.team==='Liverpool'},
-  {id:'bfc',label:'Current Barcelona player',type:'club',leagueRef:'La Liga',fn:p=>p.team==='Barcelona'},
-  {id:'cfc',label:'Current Chelsea player',type:'club',leagueRef:'Premier League',fn:p=>p.team==='Chelsea'},
   {id:'no_big6',label:'Non-Big 6 PL player',type:'club',leagueRef:'Premier League',fn:p=>p.league==='Premier League'&&!BIG6.includes(p.team)},
-  {id:'u21',label:'Age 21 or under',type:'stat',fn:p=>p.age<=21},
   {id:'o35',label:'Active at 35+',type:'stat',fn:p=>p.age>=35},
-  {id:'rat85',label:'Rating 85+',type:'stat',fn:p=>p.rating>=85},
-  {id:'pot88',label:'Potential 88+',type:'stat',fn:p=>p.potential>=88},
   {id:'same_nat',label:'Same nationality as prev',type:'dep',fn:(p,sq)=>{const l=[...sq].reverse().find(Boolean);return l?p.nationality===l.player.nationality:false;}},
   {id:'same_cl',label:'Same club as prev',type:'dep',pos:'out',fn:(p,sq)=>{const l=[...sq].reverse().find(Boolean);return l?p.team===l.player.team:false;}},
 
   // ── TROPHY expansions ──
-  {id:'conf_w',label:'Conference League winner',type:'trophy',fn:p=>hasTrophy(p,'UEFA Europa Conference League')},
   {id:'cl_runner',label:'UCL runner-up',type:'trophy',fn:p=>hasTrophy(p,'UEFA Champions League','Runner-up')},
   {id:'afcon_w',label:'AFCON winner',type:'trophy',fn:p=>hasTrophy(p,'Africa Cup of Nations')},
   {id:'no_intl',label:'No international trophy',type:'trophy',fn:p=>!hasTrophy(p,'FIFA World Cup')&&!hasTrophy(p,'UEFA European Championship')&&!hasTrophy(p,'CONMEBOL Copa America')&&!hasTrophy(p,'Africa Cup of Nations')},
-  {id:'ucl_afcon',label:'UCL + AFCON winner',type:'trophy',fn:p=>hasTrophy(p,'UEFA Champions League')&&hasTrophy(p,'Africa Cup of Nations')},
-  {id:'triple_dom',label:'Won domestic title + cup',type:'trophy',fn:p=>TOP5.concat(['Primeira Liga']).some(l=>hasTrophy(p,l))&&(hasTrophy(p,'FA Cup')||hasTrophy(p,'Copa del Rey')||hasTrophy(p,'DFB-Pokal')||hasTrophy(p,'Coppa Italia')||hasTrophy(p,'Coupe de France'))},
-  {id:'fa_cup',label:'FA Cup winner',type:'trophy',fn:p=>hasTrophy(p,'FA Cup')},
-  {id:'copa_rey',label:'Copa del Rey winner',type:'trophy',fn:p=>hasTrophy(p,'Copa del Rey')},
-
-  // ── NATIONALITY expansions ──
-  {id:'eng',label:'English player',type:'nat',fn:p=>p.nationality==='England'},
-  {id:'fra',label:'French player',type:'nat',fn:p=>p.nationality==='France'},
-  {id:'spa',label:'Spanish player',type:'nat',fn:p=>p.nationality==='Spain'},
-  {id:'ger',label:'German player',type:'nat',fn:p=>p.nationality==='Germany'},
-  {id:'arg',label:'Argentine player',type:'nat',fn:p=>p.nationality==='Argentina'},
-  {id:'por',label:'Portuguese player',type:'nat',fn:p=>p.nationality==='Portugal'},
-  {id:'ita',label:'Italian player',type:'nat',fn:p=>p.nationality==='Italy'},
-  {id:'bel',label:'Belgian player',type:'nat',fn:p=>p.nationality==='Belgium'},
-  {id:'scan',label:'Scandinavian player',type:'nat',fn:p=>['Norway','Sweden','Denmark','Finland','Iceland'].includes(p.nationality)},
-  {id:'balkan',label:'Balkan player',type:'nat',fn:p=>['Serbia','Croatia','Bosnia and Herzegovina','Montenegro','Slovenia','North Macedonia','Kosovo','Albania'].includes(p.nationality)},
-  {id:'wc26_qual',label:'2026 World Cup qualifier',type:'nat',fn:p=>WC2026.includes(p.nationality)},
-  {id:'latam',label:'South American player',type:'nat',fn:p=>['Brazil','Argentina','Uruguay','Colombia','Chile','Ecuador','Paraguay','Peru','Bolivia','Venezuela'].includes(p.nationality)},
-  {id:'uk_ire',label:'British or Irish player',type:'nat',fn:p=>['England','Scotland','Wales','Northern Ireland','Republic of Ireland'].includes(p.nationality)},
-
-  // ── LEAGUE expansions ──
-  {id:'suer',label:'Süper Lig player',type:'league',leagueRef:'Süper Lig',fn:p=>p.league==='Süper Lig'},
-  {id:'ere',label:'Eredivisie player',type:'league',fn:p=>p.league==='Eredivisie'},
-  {id:'scot',label:'Scottish Prem player',type:'league',fn:p=>p.league==='Scottish Premiership'},
-  {id:'big5',label:'Big 5 league player',type:'league',fn:p=>TOP5.includes(p.league)},
-  {id:'non_pl',label:'Non-Premier League player',type:'league',fn:p=>p.league!=='Premier League'},
-  {id:'non_top2',label:'Outside PL & La Liga',type:'league',fn:p=>p.league!=='Premier League'&&p.league!=='La Liga'},
-
-  // ── CLUB expansions ──
-  {id:'rma',label:'Current Real Madrid player',type:'club',leagueRef:'La Liga',fn:p=>p.team==='Real Madrid'},
-  {id:'mci',label:'Current Man City player',type:'club',leagueRef:'Premier League',fn:p=>p.team==='Manchester City'},
-  {id:'bay',label:'Current Bayern player',type:'club',leagueRef:'Bundesliga',fn:p=>p.team==='Bayern Munich'},
-  {id:'psg',label:'Current PSG player',type:'club',leagueRef:'Ligue 1',fn:p=>p.team==='Paris Saint-Germain'},
-  {id:'inter',label:'Current Inter player',type:'club',leagueRef:'Serie A',fn:p=>p.team==='Inter'},
-  {id:'afc',label:'Current Arsenal player',type:'club',leagueRef:'Premier League',fn:p=>p.team==='Arsenal'},
-  {id:'atm',label:'Current Atletico Madrid player',type:'club',leagueRef:'La Liga',fn:p=>p.team==='Atletico Madrid'},
-  {id:'juv',label:'Current Juventus player',type:'club',leagueRef:'Serie A',fn:p=>p.team==='Juventus'},
-  {id:'dor',label:'Current Dortmund player',type:'club',leagueRef:'Bundesliga',fn:p=>p.team==='Borussia Dortmund'},
-  {id:'no_big_club',label:'Never played for a Big Club',type:'club',fn:p=>!['Real Madrid','Barcelona','Manchester City','Manchester United','Liverpool','Arsenal','Chelsea','Bayern Munich','Paris Saint-Germain','Juventus','AC Milan','Inter'].some(c=>p.team===c)},
-  {id:'prom_club',label:'Promoted club player',type:'club',fn:p=>['Leeds United','Sunderland','Burnley'].includes(p.team)},
-  {id:'white_kit',label:'White kit club',type:'club',fn:p=>['Real Madrid','Juventus','Tottenham Hotspur','Leeds United','Swansea City','Fulham'].some(c=>p.team===c||p.team.includes(c))},
-
-  // ── STAT expansions ──
-  {id:'u23',label:'Age 23 or under',type:'stat',fn:p=>p.age<=23},
-  {id:'o30',label:'Age 30 or over',type:'stat',fn:p=>p.age>=30},
-  {id:'o33',label:'Veteran — 33+',type:'stat',fn:p=>p.age>=33},
-  {id:'rat88',label:'Rating 88+',type:'stat',fn:p=>p.rating>=88},
-  {id:'rat80',label:'Rating 80+',type:'stat',fn:p=>p.rating>=80},
-  {id:'rat75',label:'Rating 75 or below',type:'stat',fn:p=>p.rating<=75},
-  {id:'pot90',label:'Potential 90+',type:'stat',fn:p=>p.potential>=90},
-  {id:'born_2000',label:'Born in 2000 or later',type:'stat',fn:p=>p.dob&&parseInt(p.dob.slice(0,4))>=2000},
-  {id:'born_90s',label:'Born in the 90s',type:'stat',fn:p=>p.dob&&parseInt(p.dob.slice(0,4))>=1990&&parseInt(p.dob.slice(0,4))<2000},
-  {id:'squad_num_10',label:'Wears number 10',type:'stat',fn:p=>p.number===10},
-  {id:'squad_num_9',label:'Wears number 9',type:'stat',fn:p=>p.number===9},
-  {id:'squad_num_1',label:'Wears number 1',type:'stat',fn:p=>p.number===1},
-
-  // ── New confirmed batch ──
-  {id:'treble_w',label:'Domestic treble winner (league+cup+UCL)',type:'trophy',fn:p=>{
+  // League + League Cup double, same season -- deliberately the domestic LEAGUE CUP (England's
+  // "League Cup", France's now-discontinued "Coupe de la Ligue", Portugal's "Taça da Liga"), not
+  // the open knockout cup (FA Cup etc, which is a separate category already).
+  {id:'triple_dom',label:'League and League Cup double',type:'trophy',fn:p=>{
     const seasons={};
     (p.trophies||[]).forEach(t=>{
       if(t.place!=='Winner'||!t.season)return;
-      const s=t.season; const l=t.league||'';
-      if(['Premier League','La Liga','Serie A','Bundesliga','Ligue 1','Primeira Liga','Eredivisie'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].league=true;}
-      if(['FA Cup','Copa del Rey','DFB-Pokal','Coppa Italia','Coupe de France'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].cup=true;}
-      if(l==='UEFA Champions League'){seasons[s]=seasons[s]||{};seasons[s].ucl=true;}
+      const s=t.season, l=t.league||'';
+      if(TOP5.concat(['Primeira Liga']).includes(l)){seasons[s]=seasons[s]||{};seasons[s].league=true;}
+      if(['League Cup','Coupe de la Ligue','Taça da Liga'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].lcup=true;}
     });
-    return Object.values(seasons).some(s=>s.league&&s.cup&&s.ucl);
+    return Object.values(seasons).some(s=>s.league&&s.lcup);
+  }},
+
+  // ── NATIONALITY expansions ──
+  {id:'bel',label:'Belgian player',type:'nat',fn:p=>p.nationality==='Belgium'},
+  {id:'scan',label:'Scandinavian player',type:'nat',fn:p=>['Norway','Sweden','Denmark','Finland','Iceland'].includes(p.nationality)},
+  {id:'balkan',label:'Balkan player',type:'nat',fn:p=>['Serbia','Croatia','Bosnia and Herzegovina','Montenegro','Slovenia','North Macedonia','Kosovo','Albania'].includes(p.nationality)},
+
+  // ── LEAGUE expansions ──
+  {id:'suer',label:'Süper Lig player',type:'league',leagueRef:'Süper Lig',fn:p=>p.league==='Süper Lig'},
+
+  // ── CLUB expansions ──
+  {id:'atm',label:'Current Atletico Madrid player',type:'club',leagueRef:'La Liga',fn:p=>p.team==='Atletico Madrid'},
+  {id:'juv',label:'Current Juventus player',type:'club',leagueRef:'Serie A',fn:p=>p.team==='Juventus'},
+  {id:'dor',label:'Current Dortmund player',type:'club',leagueRef:'Bundesliga',fn:p=>p.team==='Borussia Dortmund'},
+  {id:'prom_club',label:'Promoted club player',type:'club',fn:p=>['Leeds United','Sunderland','Burnley'].includes(p.team)},
+
+  // ── STAT expansions ──
+  {id:'u23',label:'Age 23 or under',type:'stat',fn:p=>p.age<=23},
+  {id:'born_2000',label:'Born in 2000 or later',type:'stat',fn:p=>p.dob&&parseInt(p.dob.slice(0,4))>=2000},
+  {id:'squad_num_10',label:'Wears number 10',type:'stat',fn:p=>p.number===10},
+
+  // ── New confirmed batch ──
+  // Domestic treble = league + domestic cup + domestic super cup, all the SAME season, all
+  // within the one country -- deliberately no UCL requirement (that's a European trophy, not a
+  // domestic one; the old definition conflated the two).
+  {id:'treble_w',label:'Domestic treble (league + cup + super cup)',type:'trophy',fn:p=>{
+    const seasons={};
+    (p.trophies||[]).forEach(t=>{
+      if(t.place!=='Winner'||!t.season)return;
+      const s=t.season, l=t.league||'';
+      if(TOP5.concat(['Primeira Liga']).includes(l)){seasons[s]=seasons[s]||{};seasons[s].league=true;}
+      if(['FA Cup','Copa del Rey','DFB-Pokal','Coppa Italia','Coupe de France'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].cup=true;}
+      if(['Community Shield','Charity Shield','Supercopa','Super Cup','Trophée des Champions'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].super=true;}
+    });
+    return Object.values(seasons).some(s=>s.league&&s.cup&&s.super);
   }},
   {id:'ucl_non_eusa',label:'UCL winner from outside Europe/South America',type:'trophy',fn:p=>{
     const euSa=['England','France','Spain','Germany','Italy','Portugal','Netherlands','Belgium','Croatia','Serbia','Poland','Switzerland','Austria','Denmark','Sweden','Norway','Scotland','Wales','Republic of Ireland','Northern Ireland','Greece','Türkiye','Turkey','Ukraine','Russia','Czechia','Czech Republic','Slovakia','Hungary','Romania','Bulgaria','Bosnia and Herzegovina','Montenegro','North Macedonia','Slovenia','Albania','Kosovo','Iceland','Finland','Georgia','Luxembourg','Brazil','Argentina','Uruguay','Colombia','Chile','Ecuador','Paraguay','Peru','Bolivia','Venezuela'];
     return hasTrophy(p,'UEFA Champions League')&&!euSa.includes(p.nationality);
   }},
-  {id:'afr_asi_top5',label:'African or Asian player in a top-5 league',type:'nat',fn:p=>(AFRICAN_NATIONS.includes(p.nationality)||ASIAN_NATIONS.includes(p.nationality))&&TOP5.includes(p.league)},
   {id:'uniq_nat',label:'Different nationality from every player in your XI',type:'dep',pos:'out',fn:(p,sq)=>!sq.some(s=>s&&s.player.nationality===p.nationality)},
   {id:'home_country',label:'Plays in their home country',type:'nat',fn:p=>{
     const map={'England':'Premier League','Spain':'La Liga','Germany':'Bundesliga','Italy':'Serie A','France':'Ligue 1','Portugal':'Primeira Liga','Netherlands':'Eredivisie','Türkiye':'Süper Lig','Turkey':'Süper Lig','Scotland':'Scottish Premiership','USA':'MLS','Saudi Arabia':'Saudi Pro League'};
     return map[p.nationality]===p.league;
   }},
+  // Pending the correct 2024-25 Ballon d'Or 30-man shortlist -- the current p.ballonDorNominee
+  // data flags some players incorrectly, waiting on the accurate list before trusting this.
   {id:'bdor_nominee',label:"Ballon d'Or nominee (2024-25)",type:'trophy',fn:p=>!!(p.ballonDorNominee&&p.ballonDorNominee.length)},
 
   // ── Category review batch (API-Football coverage pass) ──
