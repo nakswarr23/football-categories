@@ -111,6 +111,8 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 #step-auth .fc-label{font-size:11px;letter-spacing:2px;}
 #step-auth .fc-input{font-size:16px;padding:15px 16px;}
 #step-auth .fc-btn{font-size:16px;font-weight:800;padding:16px;}
+#step-auth .fc-hint{font-size:13.5px;}
+#step-auth .fc-eyebrow{font-size:11.5px;letter-spacing:3px;}
 .auth-tabs{display:flex;gap:6px;background:var(--s2);border-radius:12px;padding:5px;margin-bottom:26px;}
 .auth-tab{flex:1;padding:12px;border:none;border-radius:9px;font-size:14px;font-weight:700;font-family:var(--fb);cursor:pointer;background:transparent;color:var(--tx2);transition:background .15s,color .15s;}
 .auth-tab.on{background:var(--ac);color:#080c14;}
@@ -1924,9 +1926,101 @@ const ALL_CATS=[
     return map[p.nationality]===p.league;
   }},
   {id:'bdor_nominee',label:"Ballon d'Or nominee (2024-25)",type:'trophy',fn:p=>!!(p.ballonDorNominee&&p.ballonDorNominee.length)},
-  {id:'bdor_winner',label:"Ballon d'Or winner (2024-25)",type:'trophy',fn:p=>!!(p.ballonDorWinner&&p.ballonDorWinner.length)},
+
+  // ── Category review batch (API-Football coverage pass) ──
+  // European treble: league + domestic open cup + UCL, all in the same season.
+  {id:'euro_treble',label:'European treble',type:'trophy',fn:p=>{
+    const seasons={};
+    (p.trophies||[]).forEach(t=>{
+      if(t.place!=='Winner'||!t.season)return;
+      const s=t.season, l=t.league||'';
+      if(TOP5.concat(['Primeira Liga']).includes(l)){seasons[s]=seasons[s]||{};seasons[s].league=true;}
+      if(['FA Cup','Copa del Rey','DFB-Pokal','Coppa Italia','Coupe de France'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].cup=true;}
+      if(l==='UEFA Champions League'){seasons[s]=seasons[s]||{};seasons[s].ucl=true;}
+    });
+    return Object.values(seasons).some(s=>s.league&&s.cup&&s.ucl);
+  }},
+  // Won a league/European title and an international tournament in the same calendar year.
+  // Position-restricted: GK/CB/CDM/CM/CAM/RM/LW/ST/RW only (LB/RB/LM had under 3 real matches).
+  {id:'golden_year',label:'Club and country champion',type:'trophy',
+   positions:['GK','CB','CDM','CM','CAM','RM','LW','ST','RW'],
+   fn:p=>{
+    const yearsOf=t=>{ if(!t.season)return[]; const m=String(t.season).match(/\d{4}/g); return m?m.map(Number):[]; };
+    const leagueYears=[], intlYears=[];
+    (p.trophies||[]).forEach(t=>{
+      if(t.place!=='Winner')return;
+      const l=t.league||'', y=yearsOf(t);
+      if(TOP5.concat(['Primeira Liga']).includes(l)||['UEFA Champions League','UEFA Europa League','UEFA Europa Conference League','UEFA Conference League'].includes(l)) leagueYears.push(...y);
+      if(['FIFA World Cup','UEFA European Championship','CONMEBOL Copa America','Africa Cup of Nations'].includes(l)) intlYears.push(...y);
+    });
+    return intlYears.some(y=>leagueYears.includes(y));
+  }},
+  // League cup + open domestic cup, same season. Position-restricted: no LB/LW (under 3 matches).
+  {id:'cup_double',label:'Domestic cup double',type:'trophy',
+   positions:['GK','CB','RB','CDM','CM','CAM','LM','RM','ST','RW'],
+   fn:p=>{
+    const seasons={};
+    (p.trophies||[]).forEach(t=>{
+      if(t.place!=='Winner'||!t.season)return;
+      const s=t.season, l=t.league||'';
+      if(['League Cup','Coupe de la Ligue','Taça da Liga'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].lcup=true;}
+      if(['FA Cup','Copa del Rey','DFB-Pokal','Coppa Italia','Coupe de France'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].cup=true;}
+    });
+    return Object.values(seasons).some(s=>s.lcup&&s.cup);
+  }},
+  // 3+ DISTINCT-SEASON runner-up finishes in one specific competition, never won it -- deduped by
+  // season so the source data's null-season duplicate trophy entries can't inflate the count.
+  {id:'runner_up_spec',label:'Runner-up specialist',type:'trophy',fn:p=>{
+    const byLeague={};
+    (p.trophies||[]).forEach(t=>{
+      const l=t.league||'';
+      byLeague[l]=byLeague[l]||{ru:new Set(),w:0};
+      if((t.place==='Runner-up'||t.place==='2nd Place')&&t.season) byLeague[l].ru.add(t.season);
+      if(t.place==='Winner') byLeague[l].w++;
+    });
+    return Object.values(byLeague).some(v=>v.ru.size>=3&&v.w===0);
+  }},
+  // Won the Champions League in 2+ distinct seasons (season-deduped, see runner_up_spec above).
+  {id:'multi_ucl',label:'Multiple UCL winner',type:'trophy',fn:p=>{
+    const seasons=new Set((p.trophies||[]).filter(t=>t.league==='UEFA Champions League'&&t.place==='Winner'&&t.season).map(t=>t.season));
+    return seasons.size>=2;
+  }},
+  // Lost 2+ cup finals (distinct competition+season, season-deduped) -- any domestic or European
+  // knockout cup, not necessarily the same one twice.
+  {id:'cup_heartbreak',label:'Cup final heartbreak',type:'trophy',fn:p=>{
+    const cupNames=['FA Cup','Copa del Rey','DFB-Pokal','Coppa Italia','Coupe de France','League Cup','Coupe de la Ligue','Taça da Liga','UEFA Champions League','UEFA Europa League','UEFA Europa Conference League','UEFA Conference League'];
+    const seen=new Set();
+    (p.trophies||[]).forEach(t=>{
+      if(cupNames.includes(t.league)&&(t.place==='Runner-up'||t.place==='2nd Place')&&t.season) seen.add(t.league+'|'+t.season);
+    });
+    return seen.size>=2;
+  }},
+  // Has a Serie A title on record but isn't currently playing there. Position-restricted: no
+  // GK/LB (under 3 real matches).
+  {id:'seriea_pedigree',label:'Serie A pedigree',type:'trophy',
+   positions:['CB','RB','CDM','CM','CAM','LM','RM','LW','ST','RW'],
+   fn:p=>hasTrophy(p,'Serie A')&&p.league!=='Serie A'},
+  {id:'wc_year_born',label:'Born in a World Cup year',type:'stat',fn:p=>{
+    if(!p.dob)return false;
+    const y=parseInt(p.dob.slice(0,4));
+    return [1994,1998,2002,2006,2010,2014,2018,2022,2026,2030,2034].includes(y);
+  }},
+  {id:'wc_runner_only',label:'World Cup runner-up, never champion',type:'trophy',
+   positions:['CB','CDM','CM','CAM'],
+   fn:p=>{
+    const ru=hasTrophy(p,'FIFA World Cup','Runner-up')||hasTrophy(p,'FIFA World Cup','2nd Place');
+    return ru&&!hasTrophy(p,'FIFA World Cup');
+  }},
+  // Small-nation list is deliberately the real, well-represented small-population footballing
+  // nations in THIS pool (checked directly against the DB), not a generic "small country" list --
+  // an earlier obscure list (Cyprus, Comoros, Estonia, Latvia, etc.) had almost zero players
+  // rated 80+ at any position. This one clears 3+ at every position except LW (2).
+  {id:'small_nation',label:'Small-nation representative',type:'nat',
+   positions:['GK','LB','CB','RB','CDM','CM','CAM','LM','RM','ST','RW'],
+   fn:p=>['Uruguay','Croatia','Serbia','Denmark','Norway','Republic of Ireland','Scotland','Wales','Slovakia','Bosnia and Herzegovina','Albania','Northern Ireland','Jamaica','Iceland','Slovenia','Montenegro','Georgia','Kosovo','Paraguay'].includes(p.nationality)},
 ];
-const GK_IDS=['ucl_w','no_ucl','wc_w','no_wc','pl_w','no_title','euro_w','bra','afr','ned','asi_nam','no_wc26','bl','spl','pl1','no_big5','blue_cl','red_cl','yg_cl','capital','u21','o35','rat85','same_nat'];
+const GK_IDS=['ucl_w','no_ucl','wc_w','pl_w','no_title','euro_w','afr','asi_nam','no_wc26','bl','spl','pl1','no_big5','capital','o35','same_nat',
+  'euro_treble','runner_up_spec','multi_ucl','cup_heartbreak','wc_year_born'];
 
 // ══ FORMATIONS ══
 // The original 4-3-3 keeps its lenient broad-position matching (dbPos) unchanged.
@@ -2018,7 +2112,11 @@ function getCatPool(){
   return ALL_CATS.filter(c=>{
     if(CFG.excludedTypes.has(c.type))return false;
     if(G.usedCatIds.includes(c.id))return false;
-    if(isGK&&!GK_IDS.includes(c.id))return false;
+    // c.positions (exact slot tags) is the precise per-position eligibility list, reviewed
+    // per-category against real data coverage -- it fully replaces the coarser GK_IDS
+    // whitelist for any category that defines it; categories without it fall back to GK_IDS.
+    if(c.positions){ if(!c.positions.includes(SLOTS[G.pick].exact))return false; }
+    else if(isGK&&!GK_IDS.includes(c.id))return false;
     if(c.pos==='out'&&isGK)return false;
     if(c.type==='dep'&&!prev)return false;
     if(c.leagueRef&&locked.includes(c.leagueRef))return false;
