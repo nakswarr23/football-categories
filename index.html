@@ -1153,7 +1153,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 const SUPABASE_URL = 'https://swakpevnfpbyxoutuvur.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_oBVl4ntuIKe9Gs9HuAZKMA_OE8HaB5W';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const DB_URL = 'https://raw.githubusercontent.com/nakswarr23/football-categories/refs/heads/main/football_categories_db_v9.json';
+const DB_URL = 'https://raw.githubusercontent.com/nakswarr23/football-categories/refs/heads/main/football_categories_db_v12.json';
 let DB = [];
 
 // ══ APP STATE ══
@@ -1449,7 +1449,7 @@ function updateAuthModeUI(){
   el('auth-email-label').textContent = isSignup ? 'Email' : 'Email or username';
   el('auth-email').placeholder = isSignup ? 'you@example.com' : 'you@example.com or username';
   el('auth-benefits').style.display = isSignup ? 'block' : 'none';
-  el('auth-google-wrap').style.display = isSignup ? 'block' : 'none';
+  // Google sign-in isn't built yet, so #auth-google-wrap stays hidden (its default) on every tab.
   el('auth-displayname-wrap').style.display = isSignup ? 'block' : 'none';
   el('auth-confirm-wrap').style.display = isSignup ? 'block' : 'none';
   el('auth-password-hint').style.display = isSignup ? 'block' : 'none';
@@ -1799,7 +1799,22 @@ const TOP5=['Premier League','La Liga','Serie A','Bundesliga','Ligue 1'];
 // disagreeing about which 36 clubs are actually in the competition this season.
 const UCL_ELITE=['Manchester City','Real Madrid','Paris Saint-Germain','Barcelona','Arsenal','Liverpool','Bayern Munich','Inter','Chelsea','Tottenham Hotspur','Bayer Leverkusen'];
 const UCL_STRONG=['Borussia Dortmund','Atletico Madrid','Juventus','Napoli','Atalanta','Monaco','Benfica','Sporting CP'];
-function hasTrophy(p,l,pl='Winner'){return(p.trophies||[]).some(t=>t.league===l&&t.place===pl);}
+// The source data names several different countries' leagues identically ("Bundesliga" is also
+// Austria's, "Serie A" also Brazil's, "Premier League" also Ukraine's), so a title only counts as
+// one of the Big-5 titles when its country matches. Entries with no country (the hand-patched
+// 2025/26 winners) are accepted. The data also records runners-up as both "2nd Place" and
+// "Runner-up" -- treated as the same thing.
+const LEAGUE_COUNTRY={'Premier League':'England','La Liga':'Spain','Serie A':'Italy','Bundesliga':'Germany','Ligue 1':'France'};
+function isDomLeagueTitle(t){
+  if(t.league==='Primeira Liga')return true;
+  const c=LEAGUE_COUNTRY[t.league];
+  return !!c&&(!t.country||t.country===c);
+}
+function hasTrophy(p,l,pl='Winner'){
+  const ru=pl==='Runner-up'||pl==='2nd Place';
+  const c=LEAGUE_COUNTRY[l];
+  return(p.trophies||[]).some(t=>t.league===l&&(ru?(t.place==='Runner-up'||t.place==='2nd Place'):t.place===pl)&&(!c||!t.country||t.country===c));
+}
 function hasAnyTitle(p){return TOP5.concat(['Primeira Liga','Eredivisie']).some(l=>hasTrophy(p,l));}
 const ALL_CATS=[
   {id:'ucl_w',label:'UCL winner',type:'trophy',fn:p=>hasTrophy(p,'UEFA Champions League')},
@@ -1809,22 +1824,21 @@ const ALL_CATS=[
   {id:'pl_w',label:'Premier League winner',type:'trophy',fn:p=>hasTrophy(p,'Premier League')},
   {id:'sa_w',label:'Serie A winner',type:'trophy',fn:p=>hasTrophy(p,'Serie A')},
   {id:'no_title',label:'No domestic title',type:'trophy',fn:p=>!hasAnyTitle(p)},
-  {id:'copa_w',label:'Copa América winner',type:'trophy',fn:p=>hasTrophy(p,'CONMEBOL Copa America')},
+  {id:'copa_w',label:'Copa América winner',type:'trophy',positions:['CB','CDM','CM','CAM','LM','LW','ST'],fn:p=>hasTrophy(p,'CONMEBOL Copa America')},
   {id:'euro_w',label:'Euro winner',type:'trophy',fn:p=>hasTrophy(p,'UEFA European Championship')},
-  {id:'ucl_wc',label:'UCL + World Cup winner',type:'trophy',fn:p=>hasTrophy(p,'UEFA Champions League')&&hasTrophy(p,'FIFA World Cup')},
+  {id:'ucl_wc',label:'UCL + World Cup winner',type:'trophy',positions:['CB','CDM','CM','CAM','ST','RW'],fn:p=>hasTrophy(p,'UEFA Champions League')&&hasTrophy(p,'FIFA World Cup')},
   {id:'afr',label:'African player',type:'nat',fn:p=>AFRICAN_NATIONS.includes(p.nationality)},
   {id:'asi_nam',label:'Asian or North American',type:'nat',fn:p=>ASIAN_NATIONS.includes(p.nationality)||NA_NATIONS.includes(p.nationality)},
-  // Pending a real fix: this currently checks the player's NATIONALITY against the list of
-  // countries that qualified for the 2026 World Cup, so e.g. an England player who was never
-  // called up (Palmer, Foden) still reads as "made it" just because England qualified. A correct
-  // per-player check needs each squad's actual 26-man roster -- waiting on that list.
-  {id:'no_wc26',label:'Missed 2026 World Cup',type:'nat',fn:p=>!WC2026.includes(p.nationality)},
+  // p.wc2026 is set in the database for every player who appeared in a 2026 World Cup matchday
+  // squad (API-Football, league 1 season 2026) -- a per-player check, so an England player who
+  // was never called up (Palmer, Foden) correctly counts as having missed it.
+  {id:'no_wc26',label:'Missed 2026 World Cup',type:'nat',fn:p=>!p.wc2026},
   {id:'bl',label:'Bundesliga player',type:'league',leagueRef:'Bundesliga',fn:p=>p.league==='Bundesliga'},
   {id:'spl',label:'Saudi Pro League player',type:'league',leagueRef:'Saudi Pro League',fn:p=>p.league==='Saudi Pro League'},
   {id:'pl1',label:'Primeira Liga player',type:'league',leagueRef:'Primeira Liga',fn:p=>p.league==='Primeira Liga'},
-  {id:'mls',label:'MLS player',type:'league',leagueRef:'MLS',fn:p=>p.league==='MLS'},
+  {id:'mls',label:'MLS player',type:'league',leagueRef:'MLS',positions:['CB','CDM','CM','LW','ST'],fn:p=>p.league==='MLS'},
   {id:'no_big5',label:'Outside Big 5 leagues',type:'league',fn:p=>!TOP5.includes(p.league)},
-  {id:'capital',label:'Capital city club',type:'club',fn:p=>CAP_CLUBS.some(c=>p.team===c||p.team.includes(c))},
+  {id:'capital',label:'Capital city club',type:'club',fn:p=>CAP_CLUBS.some(c=>p.team===c||(p.team||'').includes(c))},
   {id:'no_big6',label:'Non-Big 6 PL player',type:'club',leagueRef:'Premier League',fn:p=>p.league==='Premier League'&&!BIG6.includes(p.team)},
   {id:'o35',label:'Active at 35+',type:'stat',fn:p=>p.age>=35},
   {id:'same_nat',label:'Same nationality as prev',type:'dep',fn:(p,sq)=>{const l=[...sq].reverse().find(Boolean);return l?p.nationality===l.player.nationality:false;}},
@@ -1832,8 +1846,8 @@ const ALL_CATS=[
 
   // ── TROPHY expansions ──
   {id:'cl_runner',label:'UCL runner-up',type:'trophy',fn:p=>hasTrophy(p,'UEFA Champions League','Runner-up')},
-  {id:'afcon_w',label:'AFCON winner',type:'trophy',fn:p=>hasTrophy(p,'Africa Cup of Nations')},
-  {id:'no_intl',label:'No international trophy',type:'trophy',fn:p=>!hasTrophy(p,'FIFA World Cup')&&!hasTrophy(p,'UEFA European Championship')&&!hasTrophy(p,'CONMEBOL Copa America')&&!hasTrophy(p,'Africa Cup of Nations')},
+  {id:'afcon_w',label:'AFCON winner',type:'trophy',positions:['CB','CDM','CM','CAM','LM','RM','LW','ST','RW'],fn:p=>hasTrophy(p,'CAF Africa Cup of Nations')},
+  {id:'no_intl',label:'No international trophy',type:'trophy',fn:p=>!hasTrophy(p,'FIFA World Cup')&&!hasTrophy(p,'UEFA European Championship')&&!hasTrophy(p,'CONMEBOL Copa America')&&!hasTrophy(p,'CAF Africa Cup of Nations')},
   // League + League Cup double, same season -- deliberately the domestic LEAGUE CUP (England's
   // "League Cup", France's now-discontinued "Coupe de la Ligue", Portugal's "Taça da Liga"), not
   // the open knockout cup (FA Cup etc, which is a separate category already).
@@ -1842,7 +1856,7 @@ const ALL_CATS=[
     (p.trophies||[]).forEach(t=>{
       if(t.place!=='Winner'||!t.season)return;
       const s=t.season, l=t.league||'';
-      if(TOP5.concat(['Primeira Liga']).includes(l)){seasons[s]=seasons[s]||{};seasons[s].league=true;}
+      if(isDomLeagueTitle(t)){seasons[s]=seasons[s]||{};seasons[s].league=true;}
       if(['League Cup','Coupe de la Ligue','Taça da Liga'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].lcup=true;}
     });
     return Object.values(seasons).some(s=>s.league&&s.lcup);
@@ -1857,9 +1871,9 @@ const ALL_CATS=[
   {id:'suer',label:'Süper Lig player',type:'league',leagueRef:'Süper Lig',fn:p=>p.league==='Süper Lig'},
 
   // ── CLUB expansions ──
-  {id:'atm',label:'Current Atletico Madrid player',type:'club',leagueRef:'La Liga',fn:p=>p.team==='Atletico Madrid'},
-  {id:'juv',label:'Current Juventus player',type:'club',leagueRef:'Serie A',fn:p=>p.team==='Juventus'},
-  {id:'dor',label:'Current Dortmund player',type:'club',leagueRef:'Bundesliga',fn:p=>p.team==='Borussia Dortmund'},
+  {id:'atm',label:'Current Atletico Madrid player',type:'club',leagueRef:'La Liga',positions:['CB','CDM','CM','CAM','LM','RM','ST','RW'],fn:p=>p.team==='Atletico Madrid'},
+  {id:'juv',label:'Current Juventus player',type:'club',leagueRef:'Serie A',positions:['LB','CB','CDM','CM','CAM','LM','RM','LW','ST'],fn:p=>p.team==='Juventus'},
+  {id:'dor',label:'Current Dortmund player',type:'club',leagueRef:'Bundesliga',positions:['LB','CB','CDM','CM','CAM','LM','ST'],fn:p=>p.team==='Borussia Dortmund'},
   {id:'prom_club',label:'Promoted club player',type:'club',fn:p=>['Leeds United','Sunderland','Burnley'].includes(p.team)},
 
   // ── STAT expansions ──
@@ -1871,18 +1885,39 @@ const ALL_CATS=[
   // Domestic treble = league + domestic cup + domestic super cup, all the SAME season, all
   // within the one country -- deliberately no UCL requirement (that's a European trophy, not a
   // domestic one; the old definition conflated the two).
+  // All three must come from ONE country (a Bundesliga + Copa del Rey + Community Shield mix
+  // doesn't count). League/cup seasons look like "2023/2024"; super cups are labelled only by the
+  // calendar year they were played, so SUPER_SEASON maps that back to the season it belongs to
+  // for the editions played mid-season (Dec-Jan) -- anything not listed was an August curtain-raiser
+  // belonging to the season that starts that year. Dates checked against the real fixtures.
   {id:'treble_w',label:'Domestic treble (league + cup + super cup)',type:'trophy',fn:p=>{
-    const seasons={};
-    (p.trophies||[]).forEach(t=>{
-      if(t.place!=='Winner'||!t.season)return;
-      const s=t.season, l=t.league||'';
-      if(TOP5.concat(['Primeira Liga']).includes(l)){seasons[s]=seasons[s]||{};seasons[s].league=true;}
-      if(['FA Cup','Copa del Rey','DFB-Pokal','Coppa Italia','Coupe de France'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].cup=true;}
-      if(['Community Shield','Charity Shield','Supercopa','Super Cup','Trophée des Champions'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].super=true;}
+    const SUPER_SEASON={
+      Spain:{2020:[2019],2021:[2020],2022:[2021],2023:[2022],2024:[2023],2025:[2024],2026:[2025]},
+      Italy:{2019:[2018,2019],2021:[2020],2022:[2021],2023:[2022],2024:[2023],2025:[2024,2025],2026:[2025]},
+      France:{2021:[2020,2021],2024:[2023],2025:[2024],2026:[2025]}};
+    const superStarts=(c,y)=>(SUPER_SEASON[c]&&SUPER_SEASON[c][y])||[y];
+    const DOM={England:{cups:['FA Cup'],sup:['Community Shield','Charity Shield']},
+      Spain:{cups:['Copa del Rey'],sup:['Super Cup','Supercopa']},
+      Germany:{cups:['DFB Pokal'],sup:['Super Cup']},
+      Italy:{cups:['Coppa Italia'],sup:['Super Cup']},
+      France:{cups:['Coupe de France'],sup:['Trophée des Champions']}};
+    const ctryOf=t=>(t.country||'').replace('-',' ');
+    return Object.keys(DOM).some(c=>{
+      const leagueSeasons=new Set(), cupSeasons=new Set(), superStartYears=new Set();
+      (p.trophies||[]).forEach(t=>{
+        if(t.place!=='Winner'||!t.season)return;
+        const l=t.league||'';
+        if(LEAGUE_COUNTRY[l]===c&&(!t.country||ctryOf(t)===c))leagueSeasons.add(String(t.season));
+        if(DOM[c].cups.includes(l)&&ctryOf(t)===c)cupSeasons.add(String(t.season));
+        if(DOM[c].sup.includes(l)&&ctryOf(t)===c){const y=String(t.season).match(/\d{4}/);if(y)superStarts(c,+y[0]).forEach(s=>superStartYears.add(s));}
+      });
+      return [...leagueSeasons].some(s=>{
+        const start=(s.match(/\d{4}/)||[])[0];
+        return cupSeasons.has(s)&&start&&superStartYears.has(+start);
+      });
     });
-    return Object.values(seasons).some(s=>s.league&&s.cup&&s.super);
   }},
-  {id:'ucl_non_eusa',label:'UCL winner from outside Europe/South America',type:'trophy',fn:p=>{
+  {id:'ucl_non_eusa',label:'UCL winner from outside Europe/South America',type:'trophy',positions:['CB','CM','CAM','RM','ST','RW'],fn:p=>{
     const euSa=['England','France','Spain','Germany','Italy','Portugal','Netherlands','Belgium','Croatia','Serbia','Poland','Switzerland','Austria','Denmark','Sweden','Norway','Scotland','Wales','Republic of Ireland','Northern Ireland','Greece','Türkiye','Turkey','Ukraine','Russia','Czechia','Czech Republic','Slovakia','Hungary','Romania','Bulgaria','Bosnia and Herzegovina','Montenegro','North Macedonia','Slovenia','Albania','Kosovo','Iceland','Finland','Georgia','Luxembourg','Brazil','Argentina','Uruguay','Colombia','Chile','Ecuador','Paraguay','Peru','Bolivia','Venezuela'];
     return hasTrophy(p,'UEFA Champions League')&&!euSa.includes(p.nationality);
   }},
@@ -1891,9 +1926,6 @@ const ALL_CATS=[
     const map={'England':'Premier League','Spain':'La Liga','Germany':'Bundesliga','Italy':'Serie A','France':'Ligue 1','Portugal':'Primeira Liga','Netherlands':'Eredivisie','Türkiye':'Süper Lig','Turkey':'Süper Lig','Scotland':'Scottish Premiership','USA':'MLS','Saudi Arabia':'Saudi Pro League'};
     return map[p.nationality]===p.league;
   }},
-  // Pending the correct 2024-25 Ballon d'Or 30-man shortlist -- the current p.ballonDorNominee
-  // data flags some players incorrectly, waiting on the accurate list before trusting this.
-  {id:'bdor_nominee',label:"Ballon d'Or nominee (2024-25)",type:'trophy',fn:p=>!!(p.ballonDorNominee&&p.ballonDorNominee.length)},
 
   // ── Category review batch (API-Football coverage pass) ──
   // European treble: league + domestic open cup + UCL, all in the same season.
@@ -1902,8 +1934,8 @@ const ALL_CATS=[
     (p.trophies||[]).forEach(t=>{
       if(t.place!=='Winner'||!t.season)return;
       const s=t.season, l=t.league||'';
-      if(TOP5.concat(['Primeira Liga']).includes(l)){seasons[s]=seasons[s]||{};seasons[s].league=true;}
-      if(['FA Cup','Copa del Rey','DFB-Pokal','Coppa Italia','Coupe de France'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].cup=true;}
+      if(isDomLeagueTitle(t)){seasons[s]=seasons[s]||{};seasons[s].league=true;}
+      if(['FA Cup','Copa del Rey','DFB Pokal','Coppa Italia','Coupe de France'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].cup=true;}
       if(l==='UEFA Champions League'){seasons[s]=seasons[s]||{};seasons[s].ucl=true;}
     });
     return Object.values(seasons).some(s=>s.league&&s.cup&&s.ucl);
@@ -1918,8 +1950,8 @@ const ALL_CATS=[
     (p.trophies||[]).forEach(t=>{
       if(t.place!=='Winner')return;
       const l=t.league||'', y=yearsOf(t);
-      if(TOP5.concat(['Primeira Liga']).includes(l)||['UEFA Champions League','UEFA Europa League','UEFA Europa Conference League','UEFA Conference League'].includes(l)) leagueYears.push(...y);
-      if(['FIFA World Cup','UEFA European Championship','CONMEBOL Copa America','Africa Cup of Nations'].includes(l)) intlYears.push(...y);
+      if(isDomLeagueTitle(t)||['UEFA Champions League','UEFA Europa League','UEFA Europa Conference League','UEFA Conference League'].includes(l)) leagueYears.push(...y);
+      if(['FIFA World Cup','UEFA European Championship','CONMEBOL Copa America','CAF Africa Cup of Nations'].includes(l)) intlYears.push(...y);
     });
     return intlYears.some(y=>leagueYears.includes(y));
   }},
@@ -1932,13 +1964,13 @@ const ALL_CATS=[
       if(t.place!=='Winner'||!t.season)return;
       const s=t.season, l=t.league||'';
       if(['League Cup','Coupe de la Ligue','Taça da Liga'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].lcup=true;}
-      if(['FA Cup','Copa del Rey','DFB-Pokal','Coppa Italia','Coupe de France'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].cup=true;}
+      if(['FA Cup','Copa del Rey','DFB Pokal','Coppa Italia','Coupe de France'].includes(l)){seasons[s]=seasons[s]||{};seasons[s].cup=true;}
     });
     return Object.values(seasons).some(s=>s.lcup&&s.cup);
   }},
   // 3+ DISTINCT-SEASON runner-up finishes in one specific competition, never won it -- deduped by
   // season so the source data's null-season duplicate trophy entries can't inflate the count.
-  {id:'runner_up_spec',label:'Runner-up specialist',type:'trophy',fn:p=>{
+  {id:'runner_up_spec',label:'Runner-up specialist',type:'trophy',positions:['CB','CDM','CM','CAM','RM','ST','RW'],fn:p=>{
     const byLeague={};
     (p.trophies||[]).forEach(t=>{
       const l=t.league||'';
@@ -1956,7 +1988,7 @@ const ALL_CATS=[
   // Lost 2+ cup finals (distinct competition+season, season-deduped) -- any domestic or European
   // knockout cup, not necessarily the same one twice.
   {id:'cup_heartbreak',label:'Cup final heartbreak',type:'trophy',fn:p=>{
-    const cupNames=['FA Cup','Copa del Rey','DFB-Pokal','Coppa Italia','Coupe de France','League Cup','Coupe de la Ligue','Taça da Liga','UEFA Champions League','UEFA Europa League','UEFA Europa Conference League','UEFA Conference League'];
+    const cupNames=['FA Cup','Copa del Rey','DFB Pokal','Coppa Italia','Coupe de France','League Cup','Coupe de la Ligue','Taça da Liga','UEFA Champions League','UEFA Europa League','UEFA Europa Conference League','UEFA Conference League'];
     const seen=new Set();
     (p.trophies||[]).forEach(t=>{
       if(cupNames.includes(t.league)&&(t.place==='Runner-up'||t.place==='2nd Place')&&t.season) seen.add(t.league+'|'+t.season);
@@ -1986,9 +2018,36 @@ const ALL_CATS=[
   {id:'small_nation',label:'Small-nation representative',type:'nat',
    positions:['GK','LB','CB','RB','CDM','CM','CAM','LM','RM','ST','RW'],
    fn:p=>['Uruguay','Croatia','Serbia','Denmark','Norway','Republic of Ireland','Scotland','Wales','Slovakia','Bosnia and Herzegovina','Albania','Northern Ireland','Jamaica','Iceland','Slovenia','Montenegro','Georgia','Kosovo','Paraguay'].includes(p.nationality)},
+
+  // ── Career-history batch (2019-2026 multi-season pull) ──
+  // "Top scorer of their league, among players in this app's pool" in ANY season 2019-2026, not
+  // just the current one -- precomputed server-side since it requires comparing every player's
+  // every season against the whole pool's max for that league+season.
+  {id:'golden_boot',label:'Golden Boot winner',type:'stat',fn:p=>!!p.careerGoldenBoot},
+  // Same idea for assists. GK excluded entirely -- zero goalkeepers ever qualify (correctly --
+  // keepers essentially never lead a league's assist charts).
+  {id:'assist_king',label:'Assist king',type:'stat',
+   positions:['LB','CB','RB','CDM','CM','CAM','LM','RM','LW','ST','RW'],
+   fn:p=>!!p.careerAssistKing},
+  // 60+ total appearances (all competitions) in a single season, any season 2019-2026 -- raised
+  // from the original 50 specifically so it's a real outlier season, not something most regular
+  // starters hit eventually.
+  {id:'iron_man_apps',label:'Iron-man appearances',type:'stat',fn:p=>(p.maxSeasonApps||0)>=60},
+  // 90%+ of all club appearances (summed across every club they played for, 2019-2026) come from
+  // one club -- replaces the old "0 or 1 transfers" definition so a short loan or late-career
+  // move doesn't erase what's otherwise a one-club career. LW excluded (only 1 real match).
+  {id:'one_club_story',label:'One-club story',type:'stat',
+   positions:['GK','LB','CB','RB','CDM','CM','CAM','LM','RM','ST','RW'],
+   fn:p=>(p.primaryClubPct||0)>=0.9},
+  // "Academy club" is approximated as the earliest club we have any record of for this player in
+  // our 2019-2026 window -- not their true boyhood academy if they'd already left it before 2019,
+  // but the closest available proxy. 100+ senior appearances there, no longer required to still
+  // be playing there.
+  {id:'academy_grad',label:'True academy graduate',type:'stat',fn:p=>(p.academyClubApps||0)>=100},
 ];
 const GK_IDS=['ucl_w','no_ucl','wc_w','pl_w','no_title','euro_w','afr','asi_nam','no_wc26','bl','spl','pl1','no_big5','capital','o35','same_nat',
-  'euro_treble','runner_up_spec','multi_ucl','cup_heartbreak','wc_year_born'];
+  'euro_treble','runner_up_spec','multi_ucl','cup_heartbreak','wc_year_born',
+  'golden_boot','iron_man_apps','academy_grad'];
 
 // ══ FORMATIONS ══
 // The original 4-3-3 keeps its lenient broad-position matching (dbPos) unchanged.
