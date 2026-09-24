@@ -1153,7 +1153,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fb)
 const SUPABASE_URL = 'https://swakpevnfpbyxoutuvur.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_oBVl4ntuIKe9Gs9HuAZKMA_OE8HaB5W';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const DB_URL = 'https://raw.githubusercontent.com/nakswarr23/football-categories/refs/heads/main/football_categories_db_v12.json';
+const DB_URL = 'https://raw.githubusercontent.com/nakswarr23/football-categories/refs/heads/main/football_categories_db_v13.json';
 let DB = [];
 
 // ══ APP STATE ══
@@ -1785,7 +1785,7 @@ const BIG6=['Arsenal','Chelsea','Liverpool','Manchester City','Manchester United
 const BLUE_CLUBS=['Chelsea','Manchester City','Everton','Leicester','Ipswich','Inter','Napoli','Lazio','Marseille','Porto','Galatasaray','Al Hilal'];
 const RED_CLUBS=['Liverpool','Manchester United','Arsenal','AC Milan','Bayern Munich','Benfica','AS Roma','Atletico Madrid','Southampton'];
 const YG_CLUBS=['Borussia Dortmund','Villarreal','Al Nassr','Sporting CP','Norwich'];
-const CAP_CLUBS=['Arsenal','Chelsea','Tottenham Hotspur','Crystal Palace','West Ham','Brentford','Fulham','Atletico Madrid','Real Madrid','Getafe','Rayo Vallecano','AS Roma','Lazio','Paris Saint-Germain','Benfica','Sporting CP','Galatasaray','Fenerbahçe','Inter Miami'];
+const CAP_CLUBS=['Arsenal','Chelsea','Tottenham','Crystal Palace','West Ham','Brentford','Fulham','Atletico Madrid','Real Madrid','Getafe','Rayo Vallecano','AS Roma','Lazio','Paris Saint Germain','Benfica','Sporting CP','Galatasaray','Fenerbahçe','DC United'];
 const TOP5=['Premier League','La Liga','Serie A','Bundesliga','Ligue 1'];
 // UCL knockout opponent tiers -- elite (semis/final skew) and strong (early-mid knockout skew)
 // clubs, weighted toward recent top-8 finishers and clubs realistically expected to show up
@@ -1836,7 +1836,7 @@ const ALL_CATS=[
   {id:'bl',label:'Bundesliga player',type:'league',leagueRef:'Bundesliga',fn:p=>p.league==='Bundesliga'},
   {id:'spl',label:'Saudi Pro League player',type:'league',leagueRef:'Saudi Pro League',positions:['CB','CDM','CM','CAM','LM','RM','LW','ST','RW'],fn:p=>p.league==='Saudi Pro League'},
   {id:'pl1',label:'Primeira Liga player',type:'league',leagueRef:'Primeira Liga',positions:['CB','CDM','CM','CAM','LM','RM','LW','ST'],fn:p=>p.league==='Primeira Liga'},
-  {id:'mls',label:'MLS player',type:'league',leagueRef:'MLS',positions:['ST'],fn:p=>p.league==='MLS'},
+  {id:'mls',label:'MLS player',type:'league',leagueRef:'MLS',positions:['CDM','CM','CAM','RM','LW','ST'],fn:p=>p.league==='MLS'},
   {id:'no_big5',label:'Outside Big 5 leagues',type:'league',fn:p=>!TOP5.includes(p.league)},
   {id:'capital',label:'Capital city club',type:'club',fn:p=>CAP_CLUBS.some(c=>p.team===c||(p.team||'').includes(c))},
   {id:'no_big6',label:'Non-Big 6 PL player',type:'club',leagueRef:'Premier League',fn:p=>p.league==='Premier League'&&!BIG6.includes(p.team)},
