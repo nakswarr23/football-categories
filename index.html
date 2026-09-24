@@ -1825,22 +1825,22 @@ const ALL_CATS=[
   {id:'sa_w',label:'Serie A winner',type:'trophy',fn:p=>hasTrophy(p,'Serie A')},
   {id:'no_title',label:'No domestic title',type:'trophy',fn:p=>!hasAnyTitle(p)},
   {id:'copa_w',label:'Copa América winner',type:'trophy',positions:['CB','CDM','CM','CAM','LM','LW','ST'],fn:p=>hasTrophy(p,'CONMEBOL Copa America')},
-  {id:'euro_w',label:'Euro winner',type:'trophy',fn:p=>hasTrophy(p,'UEFA European Championship')},
-  {id:'ucl_wc',label:'UCL + World Cup winner',type:'trophy',positions:['CB','CDM','CM','CAM','ST','RW'],fn:p=>hasTrophy(p,'UEFA Champions League')&&hasTrophy(p,'FIFA World Cup')},
-  {id:'afr',label:'African player',type:'nat',fn:p=>AFRICAN_NATIONS.includes(p.nationality)},
-  {id:'asi_nam',label:'Asian or North American',type:'nat',fn:p=>ASIAN_NATIONS.includes(p.nationality)||NA_NATIONS.includes(p.nationality)},
+  {id:'euro_w',label:'Euro winner',type:'trophy',positions:['GK','LB','CB','CDM','CM','CAM','LM','RM','LW','ST','RW'],fn:p=>hasTrophy(p,'UEFA European Championship')},
+  {id:'ucl_wc',label:'UCL + World Cup winner',type:'trophy',positions:['CB','CDM','CM','CAM','ST'],fn:p=>hasTrophy(p,'UEFA Champions League')&&hasTrophy(p,'FIFA World Cup')},
+  {id:'afr',label:'African player',type:'nat',positions:['LB','CB','RB','CDM','CM','CAM','LM','RM','LW','ST','RW'],fn:p=>AFRICAN_NATIONS.includes(p.nationality)},
+  {id:'asi_nam',label:'Asian or North American',type:'nat',positions:['LB','CB','CDM','CM','CAM','LM','RM','LW','ST','RW'],fn:p=>ASIAN_NATIONS.includes(p.nationality)||NA_NATIONS.includes(p.nationality)},
   // p.wc2026 is set in the database for every player who appeared in a 2026 World Cup matchday
   // squad (API-Football, league 1 season 2026) -- a per-player check, so an England player who
   // was never called up (Palmer, Foden) correctly counts as having missed it.
   {id:'no_wc26',label:'Missed 2026 World Cup',type:'nat',fn:p=>!p.wc2026},
   {id:'bl',label:'Bundesliga player',type:'league',leagueRef:'Bundesliga',fn:p=>p.league==='Bundesliga'},
-  {id:'spl',label:'Saudi Pro League player',type:'league',leagueRef:'Saudi Pro League',fn:p=>p.league==='Saudi Pro League'},
-  {id:'pl1',label:'Primeira Liga player',type:'league',leagueRef:'Primeira Liga',fn:p=>p.league==='Primeira Liga'},
-  {id:'mls',label:'MLS player',type:'league',leagueRef:'MLS',positions:['CB','CDM','CM','LW','ST'],fn:p=>p.league==='MLS'},
+  {id:'spl',label:'Saudi Pro League player',type:'league',leagueRef:'Saudi Pro League',positions:['CB','CDM','CM','CAM','LM','RM','LW','ST','RW'],fn:p=>p.league==='Saudi Pro League'},
+  {id:'pl1',label:'Primeira Liga player',type:'league',leagueRef:'Primeira Liga',positions:['CB','CDM','CM','CAM','LM','RM','LW','ST'],fn:p=>p.league==='Primeira Liga'},
+  {id:'mls',label:'MLS player',type:'league',leagueRef:'MLS',positions:['ST'],fn:p=>p.league==='MLS'},
   {id:'no_big5',label:'Outside Big 5 leagues',type:'league',fn:p=>!TOP5.includes(p.league)},
   {id:'capital',label:'Capital city club',type:'club',fn:p=>CAP_CLUBS.some(c=>p.team===c||(p.team||'').includes(c))},
   {id:'no_big6',label:'Non-Big 6 PL player',type:'club',leagueRef:'Premier League',fn:p=>p.league==='Premier League'&&!BIG6.includes(p.team)},
-  {id:'o35',label:'Active at 35+',type:'stat',fn:p=>p.age>=35},
+  {id:'o35',label:'Active at 35+',type:'stat',positions:['GK','CB','CDM','CM','CAM','RM','ST'],fn:p=>p.age>=35},
   {id:'same_nat',label:'Same nationality as prev',type:'dep',fn:(p,sq)=>{const l=[...sq].reverse().find(Boolean);return l?p.nationality===l.player.nationality:false;}},
   {id:'same_cl',label:'Same club as prev',type:'dep',pos:'out',fn:(p,sq)=>{const l=[...sq].reverse().find(Boolean);return l?p.team===l.player.team:false;}},
 
@@ -1863,23 +1863,23 @@ const ALL_CATS=[
   }},
 
   // ── NATIONALITY expansions ──
-  {id:'bel',label:'Belgian player',type:'nat',fn:p=>p.nationality==='Belgium'},
-  {id:'scan',label:'Scandinavian player',type:'nat',fn:p=>['Norway','Sweden','Denmark','Finland','Iceland'].includes(p.nationality)},
-  {id:'balkan',label:'Balkan player',type:'nat',fn:p=>['Serbia','Croatia','Bosnia and Herzegovina','Montenegro','Slovenia','North Macedonia','Kosovo','Albania'].includes(p.nationality)},
+  {id:'bel',label:'Belgian player',type:'nat',positions:['CDM','CM','CAM','LM','ST','RW'],fn:p=>p.nationality==='Belgium'},
+  {id:'scan',label:'Scandinavian player',type:'nat',positions:['LB','CB','CDM','CM','CAM','LM','RM','LW','ST','RW'],fn:p=>['Norway','Sweden','Denmark','Finland','Iceland'].includes(p.nationality)},
+  {id:'balkan',label:'Balkan player',type:'nat',positions:['LB','CB','CDM','CM','CAM','LM','ST'],fn:p=>['Serbia','Croatia','Bosnia and Herzegovina','Montenegro','Slovenia','North Macedonia','Kosovo','Albania'].includes(p.nationality)},
 
   // ── LEAGUE expansions ──
-  {id:'suer',label:'Süper Lig player',type:'league',leagueRef:'Süper Lig',fn:p=>p.league==='Süper Lig'},
+  {id:'suer',label:'Süper Lig player',type:'league',leagueRef:'Süper Lig',positions:['CB','RB','CDM','CM','CAM','LM','RM','LW','ST','RW'],fn:p=>p.league==='Süper Lig'},
 
   // ── CLUB expansions ──
   {id:'atm',label:'Current Atletico Madrid player',type:'club',leagueRef:'La Liga',positions:['CB','CDM','CM','CAM','LM','RM','ST','RW'],fn:p=>p.team==='Atletico Madrid'},
-  {id:'juv',label:'Current Juventus player',type:'club',leagueRef:'Serie A',positions:['LB','CB','CDM','CM','CAM','LM','RM','LW','ST'],fn:p=>p.team==='Juventus'},
+  {id:'juv',label:'Current Juventus player',type:'club',leagueRef:'Serie A',positions:['CB','CDM','CM','CAM','LM','RM','LW'],fn:p=>p.team==='Juventus'},
   {id:'dor',label:'Current Dortmund player',type:'club',leagueRef:'Bundesliga',positions:['LB','CB','CDM','CM','CAM','LM','ST'],fn:p=>p.team==='Borussia Dortmund'},
-  {id:'prom_club',label:'Promoted club player',type:'club',fn:p=>['Leeds United','Sunderland','Burnley'].includes(p.team)},
+  {id:'prom_club',label:'Promoted club player',type:'club',positions:['CB','CDM','CM','CAM'],fn:p=>['Leeds United','Sunderland','Burnley'].includes(p.team)},
 
   // ── STAT expansions ──
   {id:'u23',label:'Age 23 or under',type:'stat',fn:p=>p.age<=23},
   {id:'born_2000',label:'Born in 2000 or later',type:'stat',fn:p=>p.dob&&parseInt(p.dob.slice(0,4))>=2000},
-  {id:'squad_num_10',label:'Wears number 10',type:'stat',fn:p=>p.number===10},
+  {id:'squad_num_10',label:'Wears number 10',type:'stat',positions:['CM','CAM','LM','RM','LW','ST','RW'],fn:p=>p.number===10},
 
   // ── New confirmed batch ──
   // Domestic treble = league + domestic cup + domestic super cup, all the SAME season, all
@@ -1917,7 +1917,7 @@ const ALL_CATS=[
       });
     });
   }},
-  {id:'ucl_non_eusa',label:'UCL winner from outside Europe/South America',type:'trophy',positions:['CB','CM','CAM','RM','ST','RW'],fn:p=>{
+  {id:'ucl_non_eusa',label:'UCL winner from outside Europe/South America',type:'trophy',positions:['CAM','RM','RW'],fn:p=>{
     const euSa=['England','France','Spain','Germany','Italy','Portugal','Netherlands','Belgium','Croatia','Serbia','Poland','Switzerland','Austria','Denmark','Sweden','Norway','Scotland','Wales','Republic of Ireland','Northern Ireland','Greece','Türkiye','Turkey','Ukraine','Russia','Czechia','Czech Republic','Slovakia','Hungary','Romania','Bulgaria','Bosnia and Herzegovina','Montenegro','North Macedonia','Slovenia','Albania','Kosovo','Iceland','Finland','Georgia','Luxembourg','Brazil','Argentina','Uruguay','Colombia','Chile','Ecuador','Paraguay','Peru','Bolivia','Venezuela'];
     return hasTrophy(p,'UEFA Champions League')&&!euSa.includes(p.nationality);
   }},
@@ -1998,7 +1998,7 @@ const ALL_CATS=[
   // Has a Serie A title on record but isn't currently playing there. Position-restricted: no
   // GK/LB (under 3 real matches).
   {id:'seriea_pedigree',label:'Serie A pedigree',type:'trophy',
-   positions:['CB','RB','CDM','CM','CAM','LM','RM','LW','ST','RW'],
+   positions:['CB','RB','CDM','CM','LM','RM','LW','ST','RW'],
    fn:p=>hasTrophy(p,'Serie A')&&p.league!=='Serie A'},
   {id:'wc_year_born',label:'Born in a World Cup year',type:'stat',fn:p=>{
     if(!p.dob)return false;
@@ -2023,7 +2023,7 @@ const ALL_CATS=[
   // "Top scorer of their league, among players in this app's pool" in ANY season 2019-2026, not
   // just the current one -- precomputed server-side since it requires comparing every player's
   // every season against the whole pool's max for that league+season.
-  {id:'golden_boot',label:'Golden Boot winner',type:'stat',fn:p=>!!p.careerGoldenBoot},
+  {id:'golden_boot',label:'Golden Boot winner',type:'stat',positions:['LB','CB','RB','CDM','CM','CAM','LM','RM','LW','ST','RW'],fn:p=>!!p.careerGoldenBoot},
   // Same idea for assists. GK excluded entirely -- zero goalkeepers ever qualify (correctly --
   // keepers essentially never lead a league's assist charts).
   {id:'assist_king',label:'Assist king',type:'stat',
@@ -2037,7 +2037,7 @@ const ALL_CATS=[
   // one club -- replaces the old "0 or 1 transfers" definition so a short loan or late-career
   // move doesn't erase what's otherwise a one-club career. LW excluded (only 1 real match).
   {id:'one_club_story',label:'One-club story',type:'stat',
-   positions:['GK','LB','CB','RB','CDM','CM','CAM','LM','RM','ST','RW'],
+   positions:['LB','CB','CDM','CM','CAM','LM'],
    fn:p=>(p.primaryClubPct||0)>=0.9},
   // "Academy club" is approximated as the earliest club we have any record of for this player in
   // our 2019-2026 window -- not their true boyhood academy if they'd already left it before 2019,
